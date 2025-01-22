@@ -1,5 +1,6 @@
-// Formatted with gofmt -s
 package api
+
+// Formatted with gofmt -s
 
 // StartDeploymentResponse represents the response from startUserDeployment endpoint
 type StartDeploymentResponse struct {

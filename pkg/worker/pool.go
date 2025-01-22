@@ -1,5 +1,6 @@
-// Formatted with gofmt -s
 package worker
+
+// Formatted with gofmt -s
 
 import (
 	"container/heap"

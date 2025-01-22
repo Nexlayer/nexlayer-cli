@@ -1,4 +1,3 @@
-// Formatted with gofmt -s
 package tui
 
 import (
@@ -171,7 +170,7 @@ func (w *DeploymentWizard) saveConfig(config *AppConfig) error {
 		return err
 	}
 
-	fmt.Printf("\n Configuration saved to %s\n", configPath)
+	fmt.Printf("\nConfiguration saved to %s\n", configPath)
 	fmt.Println("\nTo deploy your application, run:")
 	fmt.Printf("nexlayer deploy -f %s\n\n", configPath)
 

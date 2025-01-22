@@ -1,5 +1,6 @@
-// Formatted with gofmt -s
 package config
+
+// Formatted with gofmt -s
 
 import (
 	"os"
