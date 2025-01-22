@@ -6,7 +6,7 @@ import (
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // customizeCmd represents the customize command
