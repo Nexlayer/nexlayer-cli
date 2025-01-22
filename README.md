@@ -31,30 +31,11 @@ For a comprehensive guide to using Nexlayer CLI, see our [documentation](https:/
 
 ## Installation
 
-### Using install script (recommended)
-
-```bash
-curl -sf https://get.nexlayer.com | sh
-```
-
-### Using Go (for latest version)
-
 ```bash
 go install github.com/Nexlayer/nexlayer-cli@latest
 ```
+
 Make sure your `$GOPATH/bin` is in your system PATH to access the CLI globally.
-
-### Using package managers
-
-macOS with Homebrew:
-```bash
-brew install nexlayer-cli
-```
-
-Windows with Scoop:
-```powershell
-scoop install nexlayer-cli
-```
 
 ## Getting Started
 
