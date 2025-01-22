@@ -1,49 +1,56 @@
-package commands
+package list
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
 	"github.com/spf13/cobra"
 )
 
-// ListCmd represents the list command
-var ListCmd = &cobra.Command{
+var (
+	applicationID string
+)
+
+// Command represents the list command
+var Command = &cobra.Command{
 	Use:   "list",
-	Short: "List all deployments",
-	Long: `List all your deployments and their current status.
-Example: nexlayer list`,
-	Args: cobra.NoArgs,
+	Short: "List deployments",
+	Long: `List all deployments for an application.
+Example:
+  nexlayer-cli list --app my-app`,
 	RunE: runList,
 }
 
+func init() {
+	Command.Flags().StringVar(&applicationID, "app", "", "Application ID")
+	Command.MarkFlagRequired("app")
+}
+
 func runList(cmd *cobra.Command, args []string) error {
-	// Get session ID from environment
-	sessionID := os.Getenv("NEXLAYER_AUTH_TOKEN")
-	if sessionID == "" {
-		return fmt.Errorf("NEXLAYER_AUTH_TOKEN environment variable is not set")
+	// Create API client
+	client, err := api.NewClient("https://app.nexlayer.io")
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	// Create client with staging URL
-	client := api.NewClient("https://app.staging.nexlayer.io")
-	resp, err := client.GetDeployments(sessionID)
+	// Get deployments
+	fmt.Printf("Fetching deployments for application %s...\n", applicationID)
+	resp, err := client.GetDeployments(applicationID)
 	if err != nil {
-		return fmt.Errorf("failed to list deployments: %w", err)
+		return fmt.Errorf("failed to get deployments: %w", err)
 	}
 
 	if len(resp.Deployments) == 0 {
-		fmt.Println("No deployments found")
+		fmt.Println("\nNo deployments found.")
 		return nil
 	}
 
-	fmt.Println("Your deployments:")
-	fmt.Println("----------------")
+	fmt.Printf("\nDeployments:\n")
 	for _, d := range resp.Deployments {
-		fmt.Printf("Namespace: %s\n", d.Namespace)
-		fmt.Printf("Template: %s (%s)\n", d.TemplateName, d.TemplateID)
+		fmt.Printf("\nNamespace: %s\n", d.Namespace)
+		fmt.Printf("Application ID: %s\n", d.ApplicationID)
 		fmt.Printf("Status: %s\n", d.DeploymentStatus)
-		fmt.Println("----------------")
+		fmt.Println("---")
 	}
 
 	return nil

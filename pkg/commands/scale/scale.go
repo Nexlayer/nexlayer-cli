@@ -1,48 +1,33 @@
-// Package commands contains the CLI commands for the nexlayer CLI tool.
-package commands
+// Package scale contains the CLI commands for the nexlayer CLI tool.
+package scale
 
 import (
 	"fmt"
-	"os"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/api"
 	"github.com/spf13/cobra"
 )
 
 var (
-	replicas int
+	applicationID string
+	replicas     int
 )
 
-func init() {
-	ScaleCmd.Flags().IntVarP(&replicas, "replicas", "r", 1, "Number of replicas")
-}
-
-// ScaleCmd represents the scale command
-var ScaleCmd = &cobra.Command{
-	Use:   "scale [namespace]",
+// Command represents the scale command
+var Command = &cobra.Command{
+	Use:   "scale",
 	Short: "Scale a deployment",
-	Long: `Scale a deployment to the specified number of replicas.
-Example: nexlayer scale my-app --replicas 3`,
-	Args: cobra.ExactArgs(1),
+	Long: `Scale a deployment by specifying the number of replicas.
+This command is currently not implemented.`,
+	Args: cobra.NoArgs,
 	RunE: runScale,
 }
 
+func init() {
+	Command.Flags().StringVar(&applicationID, "app", "", "Application ID")
+	Command.Flags().IntVar(&replicas, "replicas", 1, "Number of replicas")
+	Command.MarkFlagRequired("app")
+}
+
 func runScale(cmd *cobra.Command, args []string) error {
-	namespace := args[0]
-
-	// Get session ID from environment
-	sessionID := os.Getenv("NEXLAYER_AUTH_TOKEN")
-	if sessionID == "" {
-		return fmt.Errorf("NEXLAYER_AUTH_TOKEN environment variable is not set")
-	}
-
-	// Create client
-	client := api.NewClient("https://app.staging.nexlayer.io")
-	err := client.ScaleDeployment(namespace, sessionID, replicas)
-	if err != nil {
-		return fmt.Errorf("failed to scale deployment: %w", err)
-	}
-
-	fmt.Printf("Successfully scaled %s to %d replicas\n", namespace, replicas)
-	return nil
+	return fmt.Errorf("scaling is not yet implemented")
 }

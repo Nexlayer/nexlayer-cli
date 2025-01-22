@@ -1,44 +1,52 @@
-package commands
+package info
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
 	"github.com/spf13/cobra"
 )
 
-// InfoCmd represents the info command
-var InfoCmd = &cobra.Command{
-	Use:   "info [namespace]",
-	Short: "Get deployment info",
+var (
+	applicationID string
+	namespace     string
+)
+
+// Command represents the info command
+var Command = &cobra.Command{
+	Use:   "info",
+	Short: "Get deployment information",
 	Long: `Get detailed information about a deployment.
-Example: nexlayer info my-app`,
-	Args: cobra.ExactArgs(1),
+Example:
+  nexlayer-cli info --app my-app --namespace my-namespace`,
 	RunE: runInfo,
 }
 
-func runInfo(cmd *cobra.Command, args []string) error {
-	namespace := args[0]
+func init() {
+	Command.Flags().StringVar(&applicationID, "app", "", "Application ID")
+	Command.Flags().StringVar(&namespace, "namespace", "", "Deployment namespace")
+	Command.MarkFlagRequired("app")
+	Command.MarkFlagRequired("namespace")
+}
 
-	// Get session ID from environment
-	sessionID := os.Getenv("NEXLAYER_AUTH_TOKEN")
-	if sessionID == "" {
-		return fmt.Errorf("NEXLAYER_AUTH_TOKEN environment variable is not set")
+func runInfo(cmd *cobra.Command, args []string) error {
+	// Create API client
+	client, err := api.NewClient("https://app.nexlayer.io")
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	// Create client
-	client := api.NewClient("https://app.staging.nexlayer.io")
-	resp, err := client.GetDeploymentInfo(namespace, sessionID)
+	// Get deployment info
+	fmt.Printf("Fetching deployment information for application %s...\n", applicationID)
+	resp, err := client.GetDeploymentInfo(namespace, applicationID)
 	if err != nil {
 		return fmt.Errorf("failed to get deployment info: %w", err)
 	}
 
-	fmt.Printf("Deployment Information:\n")
-	fmt.Printf("  Namespace: %s\n", resp.Deployment.Namespace)
-	fmt.Printf("  Template: %s\n", resp.Deployment.TemplateName)
-	fmt.Printf("  Status: %s\n", resp.Deployment.DeploymentStatus)
-	fmt.Printf("  Template ID: %s\n", resp.Deployment.TemplateID)
+	fmt.Printf("\nDeployment Information:\n")
+	fmt.Printf("Namespace: %s\n", resp.Deployment.Namespace)
+	fmt.Printf("Application ID: %s\n", resp.Deployment.ApplicationID)
+	fmt.Printf("Status: %s\n", resp.Deployment.DeploymentStatus)
 
 	return nil
 }

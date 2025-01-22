@@ -1,49 +1,51 @@
-// Package commands contains the CLI commands for the Nexlayer CLI.
-package commands
+// Package domain contains the CLI commands for the Nexlayer CLI.
+package domain
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
 	"github.com/spf13/cobra"
 )
 
 var (
-	domainName string
+	applicationID string
+	domain        string
 )
 
-func init() {
-	DomainCmd.Flags().StringVarP(&domainName, "domain", "d", "", "Custom domain name")
-	_ = DomainCmd.MarkFlagRequired("domain")
-}
-
-// DomainCmd represents the domain command
-var DomainCmd = &cobra.Command{
-	Use:   "domain [namespace]",
-	Short: "Set custom domain",
-	Long: `Set a custom domain for a deployment.
-Example: nexlayer domain my-app --domain example.com`,
-	Args: cobra.ExactArgs(1),
+// Command represents the domain command
+var Command = &cobra.Command{
+	Use:   "domain",
+	Short: "Configure custom domain for an application",
+	Long: `Configure a custom domain for your application.
+Example:
+  nexlayer-cli domain --app my-app --domain example.com`,
 	RunE: runDomain,
 }
 
+func init() {
+	Command.Flags().StringVar(&applicationID, "app", "", "Application ID")
+	Command.Flags().StringVar(&domain, "domain", "", "Custom domain (e.g., example.com)")
+	Command.MarkFlagRequired("app")
+	Command.MarkFlagRequired("domain")
+}
+
 func runDomain(cmd *cobra.Command, args []string) error {
-	namespace := args[0]
-
-	// Get session ID from environment
-	sessionID := os.Getenv("NEXLAYER_AUTH_TOKEN")
-	if sessionID == "" {
-		return fmt.Errorf("NEXLAYER_AUTH_TOKEN environment variable is not set")
-	}
-
-	// Create client
-	client := api.NewClient("https://app.staging.nexlayer.io")
-	err := client.SetCustomDomain(namespace, sessionID, domainName)
+	// Create API client
+	client, err := api.NewClient("https://app.nexlayer.io")
 	if err != nil {
-		return fmt.Errorf("failed to set custom domain: %w", err)
+		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	fmt.Printf("Successfully set custom domain %s for %s\n", domainName, namespace)
+	// Save custom domain
+	fmt.Printf("Configuring custom domain for application %s...\n", applicationID)
+	resp, err := client.SaveCustomDomain(applicationID, domain)
+	if err != nil {
+		return fmt.Errorf("failed to configure custom domain: %w", err)
+	}
+
+	fmt.Printf("\nCustom domain configured successfully!\n")
+	fmt.Printf("Message: %s\n", resp.Message)
+
 	return nil
 }

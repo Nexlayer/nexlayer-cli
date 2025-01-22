@@ -2,50 +2,51 @@ package deploy
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
-	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 	"github.com/spf13/cobra"
 )
 
-// DeployCmd represents the deploy command
-var DeployCmd = &cobra.Command{
+var (
+	applicationID string
+	configFile    string
+)
+
+// Command represents the deploy command
+var Command = &cobra.Command{
 	Use:   "deploy",
-	Short: "Deploy a service",
-	Long: `Deploy a service to your Nexlayer deployment.
-Examples:
-  nexlayer deploy --app my-app --service frontend
-  nexlayer deploy --app my-app --service backend --env "DB_URL=postgres://localhost:5432/db"`,
+	Short: "Deploy an application",
+	Long: `Deploy an application using a YAML configuration file.
+Example:
+  nexlayer-cli deploy --app my-app --config app.yaml`,
 	RunE: runDeploy,
 }
 
 func init() {
-	DeployCmd.Flags().StringVar(&vars.AppName, "app", "", "Application name")
-	DeployCmd.Flags().StringVar(&vars.ServiceName, "service", "", "Service name")
-	DeployCmd.Flags().StringSliceVar(&vars.EnvVars, "env", []string{}, "Environment variables (KEY=VALUE)")
-
-	DeployCmd.MarkFlagRequired("app")
-	DeployCmd.MarkFlagRequired("service")
+	Command.Flags().StringVar(&applicationID, "app", "", "Application ID")
+	Command.Flags().StringVar(&configFile, "config", "", "Path to YAML configuration file")
+	Command.MarkFlagRequired("app")
+	Command.MarkFlagRequired("config")
 }
 
 func runDeploy(cmd *cobra.Command, args []string) error {
-	// Get auth token from environment
-	token := os.Getenv("NEXLAYER_AUTH_TOKEN")
-	if token == "" {
-		return fmt.Errorf("NEXLAYER_AUTH_TOKEN environment variable is not set")
-	}
-
 	// Create API client
-	client := api.NewClient("https://api.nexlayer.io")
-
-	fmt.Printf("🚀 Deploying service %s in app %s...\n", vars.ServiceName, vars.AppName)
-
-	// Deploy service
-	if err := client.Deploy(token, vars.AppName, vars.ServiceName, vars.EnvVars); err != nil {
-		return fmt.Errorf("failed to deploy service: %w", err)
+	client, err := api.NewClient("https://app.nexlayer.io")
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	fmt.Printf("✅ Successfully deployed service %s\n", vars.ServiceName)
+	// Start deployment
+	fmt.Printf("Starting deployment for application %s...\n", applicationID)
+	resp, err := client.StartUserDeployment(applicationID, configFile)
+	if err != nil {
+		return fmt.Errorf("deployment failed: %w", err)
+	}
+
+	fmt.Printf("\nDeployment started successfully!\n")
+	fmt.Printf("Namespace: %s\n", resp.Namespace)
+	fmt.Printf("URL: %s\n", resp.URL)
+	fmt.Printf("Message: %s\n", resp.Message)
+
 	return nil
 }

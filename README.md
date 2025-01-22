@@ -34,6 +34,18 @@ That's it! The wizard will guide you through deployment setup. Your GitHub authe
 - Git (for version control)
 - Docker (for container builds)
 
+## Dependencies
+
+The CLI uses the following major dependencies:
+
+- [spf13/cobra](https://github.com/spf13/cobra) - CLI framework
+- [patrickmn/go-cache](https://github.com/patrickmn/go-cache) - In-memory caching
+- [charmbracelet/bubbles](https://github.com/charmbracelet/bubbles) - TUI components
+- [charmbracelet/bubbletea](https://github.com/charmbracelet/bubbletea) - Terminal UI framework
+- [charmbracelet/lipgloss](https://github.com/charmbracelet/lipgloss) - Style definitions
+- [briandowns/spinner](https://github.com/briandowns/spinner) - Terminal spinners
+- [yaml.v3](https://gopkg.in/yaml.v3) - YAML support
+
 ## Installation
 
 ```bash
