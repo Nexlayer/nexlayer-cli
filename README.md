@@ -11,7 +11,7 @@
 
 </div>
 
-🚀 Deploy and manage full-stack applications in minutes with Nexlayer CLI. Built for developers who value simplicity without sacrificing power.
+🚀 Deploy, manage and scale full-stack applications in minutes with Nexlayer CLI. Built for developers who value simplicity, speed and flexibility without sacrificing power.
 
 ## Quick Start (30 seconds)
 
