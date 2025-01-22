@@ -29,6 +29,7 @@ func init() {
 	// Add subcommands
 	rootCmd.AddCommand(commands.ListCmd)
 	rootCmd.AddCommand(commands.DeployCmd)
+	rootCmd.AddCommand(commands.LoginCmd)
 	rootCmd.AddCommand(commands.StatusCmd)
 	rootCmd.AddCommand(commands.InitCmd)
 	rootCmd.AddCommand(commands.InfoCmd)

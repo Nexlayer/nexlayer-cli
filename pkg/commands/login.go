@@ -16,15 +16,12 @@ const (
 	callbackPath   = "/auth/callback"
 )
 
-var loginCmd = &cobra.Command{
+// LoginCmd represents the login command
+var LoginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Login to Nexlayer",
 	Long:  `Authenticate with Nexlayer using your GitHub account`,
 	RunE:  runLogin,
-}
-
-func init() {
-	rootCmd.AddCommand(loginCmd)
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
