@@ -49,7 +49,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	
 	// Create a spinner for better UX
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
-	s.Prefix = "Preparing deployment "
+	s.Prefix = fmt.Sprintf("Preparing deployment for %s ", templateName)
 	s.Start()
 
 	// Validate environment
@@ -74,11 +74,11 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 
 	// Read and validate the template YAML
 	s.Suffix = " Reading template configuration"
-	templatePath := filepath.Join("examples", "plugins", "template-builder", "template-builder-nexlayer-template.yaml")
+	templatePath := filepath.Join("examples", "plugins", "template-builder", fmt.Sprintf("%s-template.yaml", templateName))
 	yamlContent, err := ioutil.ReadFile(templatePath)
 	if err != nil {
 		return errors.NewConfigError(
-			"Failed to read template file",
+			fmt.Sprintf("Failed to read template file for %s", templateName),
 			err,
 			fmt.Sprintf("Ensure the file exists at: %s", templatePath),
 			"Check file permissions",
