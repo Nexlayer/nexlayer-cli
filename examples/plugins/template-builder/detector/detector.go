@@ -27,15 +27,15 @@ func DetectStack() *types.ProjectStack {
 		scanners: map[string]func(string) error{
 			"package.json":     scanNodeJS,
 			"requirements.txt": scanPython,
-			"go.mod":          scanGo,
-			".env":            scanEnv,
-			"Dockerfile":      scanDocker,
+			"go.mod":           scanGo,
+			".env":             scanEnv,
+			"Dockerfile":       scanDocker,
 		},
 	}
 
 	// Start concurrent file scanning
 	scanner.scanFiles()
-	
+
 	// Scan k8s files separately as they use glob patterns
 	scanKubernetes(stack)
 

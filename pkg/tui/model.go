@@ -11,13 +11,13 @@ import (
 
 var (
 	titleStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FAFAFA")).
-		Background(lipgloss.Color("#7D56F4")).
-		Padding(0, 1)
+			Foreground(lipgloss.Color("#FAFAFA")).
+			Background(lipgloss.Color("#7D56F4")).
+			Padding(0, 1)
 
 	infoStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#666666")).
-		Padding(0, 1)
+			Foreground(lipgloss.Color("#666666")).
+			Padding(0, 1)
 )
 
 // DeploymentConfig holds the configuration for deployment

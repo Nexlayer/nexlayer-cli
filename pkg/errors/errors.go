@@ -27,18 +27,18 @@ type CLIError struct {
 func (e *CLIError) Error() string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("❌ %s\n", e.Message))
-	
+
 	if e.Cause != nil {
 		sb.WriteString(fmt.Sprintf("   Cause: %v\n", e.Cause))
 	}
-	
+
 	if len(e.Hints) > 0 {
 		sb.WriteString("\n💡 Quick fixes:\n")
 		for _, hint := range e.Hints {
 			sb.WriteString(fmt.Sprintf("   • %s\n", hint))
 		}
 	}
-	
+
 	return sb.String()
 }
 

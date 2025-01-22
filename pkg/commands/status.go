@@ -5,14 +5,14 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
+	"github.com/spf13/cobra"
 )
 
 var (
-	appIDFlag    string
+	appIDFlag     string
 	namespaceFlag string
-	jsonOutput   bool
+	jsonOutput    bool
 )
 
 // StatusCmd represents the status command

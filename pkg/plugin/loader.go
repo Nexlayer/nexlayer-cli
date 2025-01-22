@@ -39,11 +39,11 @@ func NewLoader(pluginsDir string) *Loader {
 		pluginsDir: pluginsDir,
 		plugins:    make(map[string]*Plugin),
 		pool: worker.NewPool(worker.PoolConfig{
-			MinWorkers:     2,
-			MaxWorkers:     runtime.GOMAXPROCS(0),
-			QueueSize:      100,
-			ScaleInterval:  time.Second * 5,
-			IdleTimeout:    time.Minute,
+			MinWorkers:    2,
+			MaxWorkers:    runtime.GOMAXPROCS(0),
+			QueueSize:     100,
+			ScaleInterval: time.Second * 5,
+			IdleTimeout:   time.Minute,
 		}),
 	}
 }
@@ -94,7 +94,7 @@ func (l *Loader) loadPlugin(ctx context.Context, pluginPath string) error {
 	plugin := &Plugin{
 		Path: pluginPath,
 	}
-	
+
 	if err := json.Unmarshal(output, &plugin.Metadata); err != nil {
 		return fmt.Errorf("failed to parse plugin metadata: %w", err)
 	}
@@ -112,7 +112,7 @@ func (l *Loader) loadPlugin(ctx context.Context, pluginPath string) error {
 func (l *Loader) GetPlugin(name string) (*Plugin, bool) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	
+
 	plugin, exists := l.plugins[name]
 	return plugin, exists
 }

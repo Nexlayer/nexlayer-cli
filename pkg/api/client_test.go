@@ -27,7 +27,7 @@ func TestStartDeployment(t *testing.T) {
 		json.NewEncoder(w).Encode(StartDeploymentResponse{
 			Message:   "Deployment started successfully",
 			Namespace: "test-namespace",
-			URL:      "https://test-url.com",
+			URL:       "https://test-url.com",
 		})
 	}))
 	defer server.Close()
@@ -73,8 +73,8 @@ func TestGetDeployments(t *testing.T) {
 			Deployments: []DeploymentInfo{
 				{
 					Namespace:        "test-namespace",
-					TemplateID:      "test-template",
-					TemplateName:    "Test Template",
+					TemplateID:       "test-template",
+					TemplateName:     "Test Template",
 					DeploymentStatus: "running",
 				},
 			},
@@ -124,8 +124,8 @@ func TestGetDeploymentInfo(t *testing.T) {
 		json.NewEncoder(w).Encode(GetDeploymentInfoResponse{
 			Deployment: DeploymentInfo{
 				Namespace:        "test-namespace",
-				TemplateID:      "test-template",
-				TemplateName:    "Test Template",
+				TemplateID:       "test-template",
+				TemplateName:     "Test Template",
 				DeploymentStatus: "running",
 			},
 		})

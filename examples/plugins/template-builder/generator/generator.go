@@ -19,8 +19,8 @@ func GenerateTemplate(projectName string, stack *types.ProjectStack) *types.Nexl
 
 	// Registry login info
 	t.RegistryLogin = &types.Registry{
-		Registry:           "ghcr.io",
-		Username:          "nexlayer",
+		Registry:            "ghcr.io",
+		Username:            "nexlayer",
 		PersonalAccessToken: "${GITHUB_TOKEN}",
 	}
 

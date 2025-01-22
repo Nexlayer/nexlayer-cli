@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands"
 	"github.com/Nexlayer/nexlayer-cli/pkg/version"
+	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{

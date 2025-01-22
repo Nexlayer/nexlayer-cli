@@ -6,10 +6,10 @@ import (
 )
 
 var (
-	appName      string
-	replicas     int
-	cpuLimit     string
-	memLimit     string
+	appName       string
+	replicas      int
+	cpuLimit      string
+	memLimit      string
 	scaleWaitFlag bool
 )
 
@@ -38,7 +38,7 @@ func runScale(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Scaling application %s...\n", appName)
-	
+
 	if replicas > 0 {
 		fmt.Printf("Setting replicas to %d\n", replicas)
 	}

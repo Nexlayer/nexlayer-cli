@@ -97,14 +97,14 @@ func AddCacheCommands(rootCmd *cobra.Command, manager *Manager) {
 
 			fmt.Printf("Network Status: %s\n", map[bool]string{true: "Online", false: "Offline"}[isOnline])
 			fmt.Printf("Operation Mode: %s\n", map[OfflineMode]string{
-				OnlineMode:       "Online",
-				AutoOfflineMode:  "Auto-Offline",
+				OnlineMode:        "Online",
+				AutoOfflineMode:   "Auto-Offline",
 				StrictOfflineMode: "Strict-Offline",
 			}[mode])
 
 			pendingOps := len(manager.OfflineConfig.GetPendingOperations())
 			fmt.Printf("Pending Operations: %d\n", pendingOps)
-			
+
 			return nil
 		},
 	}

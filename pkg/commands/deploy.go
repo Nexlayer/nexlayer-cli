@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/briandowns/spinner"
-	"github.com/fatih/color"
-	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/config"
 	"github.com/Nexlayer/nexlayer-cli/pkg/errors"
+	"github.com/briandowns/spinner"
+	"github.com/fatih/color"
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
 
@@ -47,7 +47,7 @@ func init() {
 
 func runDeploy(cmd *cobra.Command, args []string) error {
 	templateName := args[0]
-	
+
 	// Create a spinner for better UX
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
 	s.Prefix = fmt.Sprintf("Preparing deployment for %s ", templateName)
@@ -101,11 +101,11 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 
 	// Update spinner for deployment
 	s.Suffix = " Initiating deployment"
-	
+
 	// Get API endpoint from config
 	cfg := config.GetConfig()
 	baseURL := cfg.GetAPIEndpoint(env)
-	
+
 	if debug {
 		fmt.Printf("\n🔍 Debug: Using API endpoint %s\n", baseURL)
 	}
@@ -126,7 +126,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	s.Stop()
 	success := color.New(color.FgGreen).SprintFunc()
 	fmt.Printf("\n%s Deployment successful!\n", success("✓"))
-	
+
 	// Print deployment details
 	fmt.Printf("\n📋 Deployment Details:\n")
 	fmt.Printf("   • Namespace: %s\n", resp.Namespace)

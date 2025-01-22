@@ -12,7 +12,7 @@ import (
 
 const (
 	defaultTimeout = 30 * time.Second
-	baseURL       = "https://app.nexlayer.io"  // Production URL from OpenAPI spec
+	baseURL        = "https://app.nexlayer.io" // Production URL from OpenAPI spec
 )
 
 // Client represents a Nexlayer API client

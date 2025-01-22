@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
+	"github.com/spf13/cobra"
 )
 
 // DomainCmd represents the domain command
@@ -20,7 +20,7 @@ Example: nexlayer domain mydomain.com`,
 
 func runDomain(cmd *cobra.Command, args []string) error {
 	domain := args[0]
-	
+
 	// Get session ID from environment
 	sessionID := os.Getenv("NEXLAYER_AUTH_TOKEN")
 	if sessionID == "" {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ai"
+	"github.com/spf13/cobra"
 )
 
 var AIClient ai.AIClient

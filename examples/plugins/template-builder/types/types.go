@@ -8,15 +8,15 @@ type NexlayerTemplate struct {
 			TemplateID     string    `yaml:"templateID"`
 			DeploymentName string    `yaml:"deploymentName"`
 			RegistryLogin  *Registry `yaml:"registryLogin,omitempty"`
-			Pods          []Pod     `yaml:"pods"`
+			Pods           []Pod     `yaml:"pods"`
 		} `yaml:"template"`
 	} `yaml:"application"`
 }
 
 // Registry represents container registry login information
 type Registry struct {
-	Registry           string `yaml:"registry"`
-	Username          string `yaml:"username"`
+	Registry            string `yaml:"registry"`
+	Username            string `yaml:"username"`
 	PersonalAccessToken string `yaml:"personalAccessToken"`
 }
 

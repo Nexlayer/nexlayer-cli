@@ -14,13 +14,13 @@ import (
 
 // PluginMetadata represents the JSON structure that plugins must output when called with --describe
 type PluginMetadata struct {
-	Name        string            `json:"name"`
-	Version     string            `json:"version"`
-	Description string           `json:"description"`
-	Usage       string           `json:"usage"`
-	ExecPath    string           `json:"execPath,omitempty"`
-	Checksum    string           `json:"checksum,omitempty"`
-	Signature   string           `json:"signature,omitempty"`
+	Name        string `json:"name"`
+	Version     string `json:"version"`
+	Description string `json:"description"`
+	Usage       string `json:"usage"`
+	ExecPath    string `json:"execPath,omitempty"`
+	Checksum    string `json:"checksum,omitempty"`
+	Signature   string `json:"signature,omitempty"`
 }
 
 // Manager handles plugin discovery, validation, and registration

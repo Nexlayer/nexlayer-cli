@@ -37,7 +37,7 @@ func (w *DeploymentWizard) Run() error {
 
 	// Generate YAML configuration
 	config := w.generateConfig(finalModel.config)
-	
+
 	// Save configuration
 	if err := w.saveConfig(config); err != nil {
 		return fmt.Errorf("error saving configuration: %w", err)
@@ -51,7 +51,7 @@ type AppConfig struct {
 		Template struct {
 			Name           string `yaml:"name"`
 			DeploymentName string `yaml:"deploymentName"`
-			RegistryLogin struct {
+			RegistryLogin  struct {
 				Registry            string `yaml:"registry"`
 				Username            string `yaml:"username"`
 				PersonalAccessToken string `yaml:"personalAccessToken"`
@@ -73,17 +73,17 @@ type AppConfig struct {
 
 func (w *DeploymentWizard) generateConfig(config DeploymentConfig) *AppConfig {
 	appConfig := &AppConfig{}
-	
+
 	// Generate template name based on stack
-	stack := strings.ToLower(fmt.Sprintf("%s-%s-%s", 
+	stack := strings.ToLower(fmt.Sprintf("%s-%s-%s",
 		config.DatabaseType,
 		config.BackendType,
 		config.FrontendType,
 	))
-	
+
 	appConfig.Application.Template.Name = stack
 	appConfig.Application.Template.DeploymentName = config.DeploymentName
-	
+
 	// Registry login
 	appConfig.Application.Template.RegistryLogin.Registry = "ghcr.io"
 	appConfig.Application.Template.RegistryLogin.Username = config.GithubUsername
@@ -92,7 +92,7 @@ func (w *DeploymentWizard) generateConfig(config DeploymentConfig) *AppConfig {
 	// Generate image tags based on app name
 	appName := strings.ToLower(config.AppName)
 	username := strings.ToLower(config.GithubUsername)
-	
+
 	// Pods configuration
 	appConfig.Application.Template.Pods = []struct {
 		Type       string `yaml:"type"`

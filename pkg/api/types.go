@@ -20,8 +20,8 @@ type GetDeploymentInfoResponse struct {
 // DeploymentInfo represents information about a deployment
 type DeploymentInfo struct {
 	Namespace        string `json:"namespace"`
-	TemplateID      string `json:"templateID"`
-	TemplateName    string `json:"templateName"`
+	TemplateID       string `json:"templateID"`
+	TemplateName     string `json:"templateName"`
 	DeploymentStatus string `json:"deploymentStatus"`
 }
 
