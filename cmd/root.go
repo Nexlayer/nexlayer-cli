@@ -38,4 +38,5 @@ func init() {
 	rootCmd.AddCommand(commands.PluginCmd)
 	rootCmd.AddCommand(commands.AISuggestCmd)
 	rootCmd.AddCommand(commands.CICmd)
+	rootCmd.AddCommand(commands.ServiceCmd)
 }

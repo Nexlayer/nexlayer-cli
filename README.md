@@ -152,13 +152,66 @@ nexlayer deploy my-app \
   --env production
 ```
 
-4. **Monitor and Scale**
+4. **Configure Services**
+```bash
+# Set environment variables for frontend service
+nexlayer service configure --app my-app --service frontend \
+  --env API_URL=https://api.example.com \
+  --env FEATURE_FLAGS='{"dark_mode":true}'
+
+# Set environment variables for backend service
+nexlayer service configure --app my-app --service backend \
+  --env DB_URL=postgres://db.example.com:5432/mydb \
+  --env REDIS_URL=redis://cache.example.com:6379
+```
+
+5. **Monitor and Scale**
 ```bash
 # Check deployment status
 nexlayer status my-app
 
 # Scale if needed
 nexlayer scale my-app --replicas 3
+
+# Visualize service connections
+nexlayer service visualize --app my-app --format svg --output services.svg
+```
+
+## Service Configuration
+
+### Environment Variables
+
+Configure environment variables for your services:
+
+```bash
+# Set single environment variable
+nexlayer service configure --app my-app --service frontend \
+  --env API_URL=https://api.example.com
+
+# Set multiple environment variables
+nexlayer service configure --app my-app --service backend \
+  --env DB_URL=postgres://db:5432/mydb \
+  --env REDIS_URL=redis://cache:6379 \
+  --env LOG_LEVEL=debug
+```
+
+### Service Visualization
+
+Generate visual diagrams of your service connections:
+
+```bash
+# Print ASCII diagram to terminal
+nexlayer service visualize --app my-app
+
+# Generate SVG diagram
+nexlayer service visualize --app my-app \
+  --format svg \
+  --output services.svg
+
+# Generate PNG diagram
+nexlayer service visualize --app my-app \
+  --format png \
+  --output services.png
 ```
 
 ## Real-World Examples
