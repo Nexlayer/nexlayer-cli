@@ -11,20 +11,22 @@
 
 </div>
 
-Deploy and manage full-stack applications in minutes with Nexlayer CLI. Built for developers who value simplicity without sacrificing power.
+🚀 Deploy and manage full-stack applications in minutes with Nexlayer CLI. Built for developers who value simplicity without sacrificing power.
+
+## Quick Start (30 seconds)
 
 ```bash
-# Deploy your first application
-curl -sf https://get.nexlayer.com | sh && nexlayer init && nexlayer wizard
+# 1. Install the CLI
+go install github.com/Nexlayer/nexlayer-cli@latest
+
+# 2. Start the interactive wizard
+nexlayer wizard
 ```
 
-## Documentation
-
-For a comprehensive guide to using Nexlayer CLI, see our [documentation](https://docs.nexlayer.com).
+That's it! The wizard will guide you through deployment setup. Want more control? Check out the manual setup below.
 
 ## Requirements
 
-- Operating system: Linux, macOS, or Windows
 - Go version 1.21 or later
 - Git (for version control)
 - Docker (for container builds)
@@ -37,183 +39,137 @@ go install github.com/Nexlayer/nexlayer-cli@latest
 
 Make sure your `$GOPATH/bin` is in your system PATH to access the CLI globally.
 
-## Getting Started
-
-After installation, verify the CLI is properly installed:
+## Common Commands
 
 ```bash
-nexlayer --version
-```
-
-### Quick Start with Wizard
-
-The fastest way to get started is using our interactive wizard:
-
-```bash
+# Start the interactive wizard (recommended for first-time users)
 nexlayer wizard
-```
 
-The wizard will guide you through:
-- Project initialization
-- Configuration setup
-- Deployment options
-- Plugin selection and setup
-
-### Manual Setup
-
-1. Initialize a new project:
-```bash
+# Initialize a new project
 nexlayer init
+
+# Deploy your application
+nexlayer deploy my-app
+
+# Check deployment status
+nexlayer status my-app
+
+# View logs
+nexlayer logs my-app
+
+# Scale your application
+nexlayer scale my-app --replicas 3
 ```
 
-2. Configure your project:
+## Real-World Examples
+
+### 1. CI/CD Pipeline Integration
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy with Nexlayer
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Nexlayer CLI
+        run: go install github.com/Nexlayer/nexlayer-cli@latest
+      - name: Deploy to Production
+        run: |
+          nexlayer deploy my-app \
+            --env production \
+            --auto-approve
+        env:
+          NEXLAYER_AUTH_TOKEN: ${{ secrets.NEXLAYER_AUTH_TOKEN }}
+```
+
+### 2. Multi-Environment Setup
+
 ```bash
-nexlayer config set
+# Development deployment
+nexlayer deploy my-app --env staging
+
+# Production deployment with increased resources
+nexlayer deploy my-app --env production \
+  --replicas 3 \
+  --cpu 2 \
+  --memory 4Gi
 ```
 
-3. Deploy your application:
-```bash
-nexlayer deploy
+### 3. Advanced Configuration
+
+```yaml
+# nexlayer.yaml
+version: '1'
+app:
+  name: my-awesome-app
+  template: node-typescript
+  env:
+    NODE_ENV: production
+    API_URL: https://api.example.com
+  resources:
+    cpu: 1
+    memory: 2Gi
+  scaling:
+    min: 2
+    max: 5
+    targetCPU: 70
 ```
 
-For more detailed information and advanced usage, see our [documentation](https://docs.nexlayer.com).
+## Troubleshooting
 
-## Quickstart
+### Common Error Messages
 
-1. Initialize Nexlayer CLI:
-   ```bash
-   nexlayer init
+1. **Authentication Error**
+   ```
+   ❌ Authentication required
+   💡 Quick fixes:
+      • Make sure NEXLAYER_AUTH_TOKEN is set in your environment
+      • Run 'nexlayer auth login' to authenticate
+      • Visit https://app.nexlayer.io/settings/tokens to generate a token
    ```
 
-2. Create a new deployment:
-   ```bash
-   nexlayer wizard
+2. **YAML Validation Error**
+   ```
+   ❌ Invalid template YAML
+   💡 Quick fixes:
+      • Check the YAML syntax
+      • Ensure all required fields are present
+      • Run 'nexlayer validate' to check template structure
    ```
 
-3. Follow the interactive prompts to:
-   - Name your application
-   - Select your tech stack
-   - Configure deployment settings
-
-4. Deploy your application:
-   ```bash
-   nexlayer deploy -f deployment/deployment.yaml
+3. **Deployment Error**
+   ```
+   ❌ Deployment failed
+   💡 Quick fixes:
+      • Check your network connection
+      • Verify your authentication token
+      • Run with --debug flag for more information
    ```
 
-For detailed examples and use cases, see our [quickstart guide](https://docs.nexlayer.com/cli/quickstart).
+### Debug Mode
 
-## Core Concepts
-
-### Deployments
-
-A deployment represents your application stack, including:
-- Frontend application
-- Backend services
-- Database instances
-- Environment configuration
+Add the `--debug` flag to any command for detailed output:
 
 ```bash
-# Create a new deployment
-nexlayer wizard
-
-# Deploy an existing configuration
-nexlayer deploy -f deployment.yaml
+nexlayer deploy my-app --debug
 ```
 
-### Templates
+## Best Practices
 
-Pre-configured application stacks for common use cases:
-
-```bash
-# List available templates
-nexlayer template list
-
-# Deploy using a template
-nexlayer deploy --template three-tier-app
-```
-
-### Scaling
-
-Adjust resources and replicas for your applications:
-
-```bash
-# Scale application replicas
-nexlayer scale --app myapp --replicas 3
-
-# Update resource limits
-nexlayer scale --app myapp --cpu 1000m --memory 1Gi
-```
-
-## Command Reference
-
-### Global Flags
-
-All commands accept these flags:
-
-- `--profile`: Configuration profile to use
-- `--output`: Output format (json, yaml, table)
-- `--quiet`: Suppress output
-- `--debug`: Enable debug logging
-
-### Core Commands
-
-#### `nexlayer init`
-
-Initialize Nexlayer CLI configuration.
-
-```bash
-nexlayer init [flags]
-```
-
-#### `nexlayer wizard`
-
-Interactive deployment configuration wizard.
-
-```bash
-nexlayer wizard [flags]
-```
-
-#### `nexlayer deploy`
-
-Deploy an application stack.
-
-```bash
-nexlayer deploy [flags]
-
-Flags:
-  -f, --file string       Path to deployment configuration
-  -t, --template string   Template to use
-      --dry-run          Validate without deploying
-      --wait             Wait for deployment completion
-```
-
-For a complete command reference, see our [CLI documentation](https://docs.nexlayer.com/cli/commands).
-
-## Development and Contributing
-
-### Running from source
-
-```bash
-git clone https://github.com/nexlayer/nexlayer-cli.git
-cd nexlayer-cli
-go build
-```
-
-### Running tests
-
-```bash
-go test ./...
-```
-
-For development guidelines and best practices, see [CONTRIBUTING.md](CONTRIBUTING.md).
+1. **Version Control**: Always commit your `nexlayer.yaml` configuration
+2. **Environment Variables**: Use `.env` files for local development
+3. **CI/CD**: Use environment-specific configurations
+4. **Monitoring**: Regularly check `nexlayer status` and `nexlayer logs`
 
 ## Support
 
 - 📚 [Documentation](https://docs.nexlayer.com)
-- 💬 [Community Forums](https://discuss.nexlayer.com)
-- 🐛 [Issue Tracker](https://github.com/nexlayer/nexlayer-cli/issues)
+- 💬 [Discord Community](https://discord.gg/nexlayer)
+- 🐛 [Issue Tracker](https://github.com/Nexlayer/nexlayer-cli/issues)
 - 📧 [Email Support](mailto:support@nexlayer.com)
-
-## License
-
-The Nexlayer CLI is licensed under the [MIT License](LICENSE).
