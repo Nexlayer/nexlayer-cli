@@ -27,7 +27,7 @@ var DeployCmd = &cobra.Command{
 	Use:   "deploy [templateId]",
 	Short: "Deploy an application",
 	Long: `Deploy an application using either a predefined template or a custom YAML configuration.
-	
+
 Examples:
   # Deploy using a template
   nexlayer deploy hello-world

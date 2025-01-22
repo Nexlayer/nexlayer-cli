@@ -45,7 +45,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		fmt.Println("\nPro tip: Add this to your shell configuration file (~/.bashrc, ~/.zshrc, etc.)")
 		fmt.Println("to make it permanent.")
 	} else {
-		fmt.Println("\n✅ Authentication token is already set!")
+		fmt.Println("\n Authentication token is already set!")
 	}
 
 	fmt.Println("\n🎉 Next steps:")
