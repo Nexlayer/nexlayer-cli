@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -348,4 +349,118 @@ func (c *Client) GetAISuggestions(query, sessionID string) ([]string, error) {
 	}
 
 	return result.Suggestions, nil
+}
+
+// ServiceConfig represents the configuration for a service
+type ServiceConfig struct {
+	AppName     string   `json:"appName"`
+	ServiceName string   `json:"serviceName"`
+	EnvVars     []string `json:"envVars"`
+}
+
+// Deploy deploys a service
+func (c *Client) Deploy(token, appName, serviceName string, envVars []string) error {
+	url := fmt.Sprintf("%s/api/v1/deploy", c.baseURL)
+
+	config := ServiceConfig{
+		AppName:     appName,
+		ServiceName: serviceName,
+		EnvVars:     envVars,
+	}
+
+	body, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("API request failed with status: %s", resp.Status)
+	}
+
+	return nil
+}
+
+// Configure configures a service
+func (c *Client) Configure(appName, serviceName string, envVars []string) error {
+	token := os.Getenv("NEXLAYER_AUTH_TOKEN")
+	if token == "" {
+		return fmt.Errorf("NEXLAYER_AUTH_TOKEN environment variable is not set")
+	}
+
+	url := fmt.Sprintf("%s/api/v1/services/configure", c.baseURL)
+
+	config := ServiceConfig{
+		AppName:     appName,
+		ServiceName: serviceName,
+		EnvVars:     envVars,
+	}
+
+	body, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("API request failed with status: %s", resp.Status)
+	}
+
+	return nil
+}
+
+// UpdateServiceConfig updates the configuration for a service
+func (c *Client) UpdateServiceConfig(appName, service string, envVars map[string]string, token string) error {
+	// TODO: Implement API call to update service configuration
+	return nil
+}
+
+// GetServiceConnections retrieves the service connections for an application
+func (c *Client) GetServiceConnections(appName, token string) ([]ServiceConnection, error) {
+	// TODO: Implement API call to get service connections
+	return []ServiceConnection{
+		{
+			From:        "frontend",
+			To:          "backend",
+			Description: "HTTP/REST",
+		},
+		{
+			From:        "backend",
+			To:          "database",
+			Description: "PostgreSQL",
+		},
+	}, nil
+}
+
+// ServiceConnection represents a connection between two services
+type ServiceConnection struct {
+	From        string
+	To          string
+	Description string
 }

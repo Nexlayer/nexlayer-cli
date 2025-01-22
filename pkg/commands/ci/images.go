@@ -1,129 +1,79 @@
 package ci
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
-	"text/tabwriter"
+	"os/exec"
 
+	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 	"github.com/spf13/cobra"
-)
-
-var (
-	imageName string
-	imageTag  string
 )
 
 // imagesCmd represents the images command
 var imagesCmd = &cobra.Command{
 	Use:   "images",
 	Short: "Manage Docker images",
-	Long:  `List, delete, and view logs for Docker images`,
+	Long: `Manage Docker images for your Nexlayer deployment.
+Examples:
+  nexlayer ci images build --tag v1.0.0
+  nexlayer ci images push --tag v1.0.0`,
 }
 
-// listCmd represents the list command
-var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List Docker images",
-	Long:  `List all Docker images in the specified registry`,
-	RunE:  runImagesList,
+// buildCmd represents the build command
+var buildCmd = &cobra.Command{
+	Use:   "build",
+	Short: "Build Docker image",
+	Long: `Build a Docker image for your application.
+Example:
+  nexlayer ci images build --tag v1.0.0`,
+	RunE: runBuild,
 }
 
-// deleteCmd represents the delete command
-var deleteCmd = &cobra.Command{
-	Use:   "delete",
-	Short: "Delete a Docker image",
-	Long:  `Delete a Docker image from the registry`,
-	RunE:  runImagesDelete,
-}
-
-// logsCmd represents the logs command
-var logsCmd = &cobra.Command{
-	Use:   "logs",
-	Short: "View image build logs",
-	Long:  `View the build logs for a specific Docker image`,
-	RunE:  runImagesLogs,
+// pushCmd represents the push command
+var pushCmd = &cobra.Command{
+	Use:   "push",
+	Short: "Push Docker image",
+	Long: `Push a Docker image to the registry.
+Example:
+  nexlayer ci images push --tag v1.0.0`,
+	RunE: runPush,
 }
 
 func init() {
-	imagesCmd.AddCommand(listCmd)
-	imagesCmd.AddCommand(deleteCmd)
-	imagesCmd.AddCommand(logsCmd)
+	imagesCmd.AddCommand(buildCmd)
+	imagesCmd.AddCommand(pushCmd)
 
-	// Add flags for delete and logs commands
-	deleteCmd.Flags().StringVar(&imageName, "image-name", "", "Name of the Docker image")
-	deleteCmd.Flags().StringVar(&imageTag, "tag", "latest", "Image tag")
-	deleteCmd.MarkFlagRequired("image-name")
-
-	logsCmd.Flags().StringVar(&imageName, "image-name", "", "Name of the Docker image")
-	logsCmd.Flags().StringVar(&imageTag, "tag", "latest", "Image tag")
-	logsCmd.MarkFlagRequired("image-name")
+	// Add flags
+	buildCmd.Flags().StringVar(&vars.ImageTag, "tag", "latest", "Image tag")
+	pushCmd.Flags().StringVar(&vars.ImageTag, "tag", "latest", "Image tag")
 }
 
-type Image struct {
-	Name string    `json:"name"`
-	Tags []string  `json:"tags"`
-	Size int64     `json:"size"`
-	Date string    `json:"date"`
-}
+func runBuild(cmd *cobra.Command, args []string) error {
+	// Build Docker image
+	buildCmd := exec.Command("docker", "build", "-t", fmt.Sprintf("ghcr.io/%s:%s", vars.AppName, vars.ImageTag), ".")
+	buildCmd.Stdout = os.Stdout
+	buildCmd.Stderr = os.Stderr
 
-func runImagesList(cmd *cobra.Command, args []string) error {
-	// Get auth token
-	token := os.Getenv("NEXLAYER_AUTH_TOKEN")
-	if token == "" {
-		return fmt.Errorf("NEXLAYER_AUTH_TOKEN environment variable is not set")
+	fmt.Printf("🔨 Building Docker image ghcr.io/%s:%s...\n", vars.AppName, vars.ImageTag)
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("failed to build image: %w", err)
 	}
 
-	// Create tabwriter for formatted output
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.TabIndent)
-	fmt.Fprintln(w, "NAME\tTAGS\tSIZE\tCREATED")
-
-	// TODO: Replace with actual API call to list images
-	images := []Image{
-		{
-			Name: "example/app",
-			Tags: []string{"latest", "v1.0.0"},
-			Size: 156000000,
-			Date: "2024-01-22T10:00:00Z",
-		},
-	}
-
-	for _, img := range images {
-		fmt.Fprintf(w, "%s\t%v\t%d MB\t%s\n",
-			img.Name,
-			img.Tags,
-			img.Size/(1024*1024),
-			img.Date,
-		)
-	}
-
-	return w.Flush()
-}
-
-func runImagesDelete(cmd *cobra.Command, args []string) error {
-	// Get auth token
-	token := os.Getenv("NEXLAYER_AUTH_TOKEN")
-	if token == "" {
-		return fmt.Errorf("NEXLAYER_AUTH_TOKEN environment variable is not set")
-	}
-
-	// TODO: Implement actual image deletion
-	fmt.Printf("🗑️  Deleting image %s:%s...\n", imageName, imageTag)
+	fmt.Printf("✅ Successfully built image ghcr.io/%s:%s\n", vars.AppName, vars.ImageTag)
 	return nil
 }
 
-func runImagesLogs(cmd *cobra.Command, args []string) error {
-	// Get auth token
-	token := os.Getenv("NEXLAYER_AUTH_TOKEN")
-	if token == "" {
-		return fmt.Errorf("NEXLAYER_AUTH_TOKEN environment variable is not set")
+func runPush(cmd *cobra.Command, args []string) error {
+	// Push Docker image
+	pushCmd := exec.Command("docker", "push", fmt.Sprintf("ghcr.io/%s:%s", vars.AppName, vars.ImageTag))
+	pushCmd.Stdout = os.Stdout
+	pushCmd.Stderr = os.Stderr
+
+	fmt.Printf("📤 Pushing Docker image ghcr.io/%s:%s...\n", vars.AppName, vars.ImageTag)
+	if err := pushCmd.Run(); err != nil {
+		return fmt.Errorf("failed to push image: %w", err)
 	}
 
-	// TODO: Implement actual log retrieval
-	fmt.Printf("📋 Build logs for %s:%s\n", imageName, imageTag)
-	fmt.Println("Building image...")
-	fmt.Println("Step 1/5: Pulling base image")
-	fmt.Println("Step 2/5: Installing dependencies")
+	fmt.Printf("✅ Successfully pushed image ghcr.io/%s:%s\n", vars.AppName, vars.ImageTag)
 	return nil
 }

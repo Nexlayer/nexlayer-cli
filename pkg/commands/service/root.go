@@ -7,16 +7,17 @@ import (
 // ServiceCmd represents the service command
 var ServiceCmd = &cobra.Command{
 	Use:   "service",
-	Short: "Manage service configurations",
-	Long: `Configure and manage services in your Nexlayer deployments.
+	Short: "Manage services",
+	Long: `Manage services in your Nexlayer deployment.
 Includes commands for:
-- Configuring service settings
-- Managing environment variables
-- Visualizing service connections`,
+- Deploying services
+- Configuring services
+- Visualizing service connections
+- Managing service dependencies`,
 }
 
 func init() {
-	// Add subcommands
+	ServiceCmd.AddCommand(deployCmd)
 	ServiceCmd.AddCommand(configureCmd)
 	ServiceCmd.AddCommand(visualizeCmd)
 }

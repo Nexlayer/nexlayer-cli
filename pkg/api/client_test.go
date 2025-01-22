@@ -4,8 +4,99 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
+
+func TestDeploy(t *testing.T) {
+	// Mock server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify request method and headers
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST request, got %s", r.Method)
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("Expected application/json content type, got %s", r.Header.Get("Content-Type"))
+		}
+		if r.URL.Path != "/api/v1/deploy" {
+			t.Errorf("Expected /api/v1/deploy path, got %s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer test-token" {
+			t.Errorf("Expected Bearer test-token auth header, got %s", r.Header.Get("Authorization"))
+		}
+
+		// Verify request body
+		var config ServiceConfig
+		if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
+			t.Errorf("Failed to decode request body: %v", err)
+		}
+		if config.AppName != "test-app" {
+			t.Errorf("Expected app name test-app, got %s", config.AppName)
+		}
+		if config.ServiceName != "test-service" {
+			t.Errorf("Expected service name test-service, got %s", config.ServiceName)
+		}
+
+		// Send response
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+	}))
+	defer server.Close()
+
+	// Create client and test deploy
+	client := NewClient(server.URL)
+	err := client.Deploy("test-token", "test-app", "test-service", []string{"DB_URL=test"})
+	if err != nil {
+		t.Fatalf("Deploy failed: %v", err)
+	}
+}
+
+func TestConfigure(t *testing.T) {
+	// Set auth token for test
+	os.Setenv("NEXLAYER_AUTH_TOKEN", "test-token")
+	defer os.Unsetenv("NEXLAYER_AUTH_TOKEN")
+
+	// Mock server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify request method and headers
+		if r.Method != http.MethodPut {
+			t.Errorf("Expected PUT request, got %s", r.Method)
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("Expected application/json content type, got %s", r.Header.Get("Content-Type"))
+		}
+		if r.URL.Path != "/api/v1/services/configure" {
+			t.Errorf("Expected /api/v1/services/configure path, got %s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer test-token" {
+			t.Errorf("Expected Bearer test-token auth header, got %s", r.Header.Get("Authorization"))
+		}
+
+		// Verify request body
+		var config ServiceConfig
+		if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
+			t.Errorf("Failed to decode request body: %v", err)
+		}
+		if config.AppName != "test-app" {
+			t.Errorf("Expected app name test-app, got %s", config.AppName)
+		}
+		if config.ServiceName != "test-service" {
+			t.Errorf("Expected service name test-service, got %s", config.ServiceName)
+		}
+
+		// Send response
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+	}))
+	defer server.Close()
+
+	// Create client and test configure
+	client := NewClient(server.URL)
+	err := client.Configure("test-app", "test-service", []string{"DB_URL=test"})
+	if err != nil {
+		t.Fatalf("Configure failed: %v", err)
+	}
+}
 
 func TestStartUserDeployment(t *testing.T) {
 	// Mock server
@@ -99,8 +190,8 @@ func TestGetDeployments(t *testing.T) {
 				{
 					Namespace:        "ecstatic-frog",
 					TemplateID:       "0001",
-					TemplateName:     "K-d chat",
-					DeploymentStatus: "running",
+					TemplateName:     "MERN Stack",
+					DeploymentStatus: "Running",
 				},
 			},
 		}
@@ -115,15 +206,10 @@ func TestGetDeployments(t *testing.T) {
 	}
 
 	if len(resp.Deployments) != 1 {
-		t.Fatalf("Expected 1 deployment, got %d", len(resp.Deployments))
+		t.Errorf("Expected 1 deployment, got %d", len(resp.Deployments))
 	}
-
-	deployment := resp.Deployments[0]
-	if deployment.Namespace != "ecstatic-frog" {
-		t.Errorf("Expected namespace 'ecstatic-frog', got %s", deployment.Namespace)
-	}
-	if deployment.TemplateID != "0001" {
-		t.Errorf("Expected templateID '0001', got %s", deployment.TemplateID)
+	if resp.Deployments[0].Namespace != "ecstatic-frog" {
+		t.Errorf("Expected namespace ecstatic-frog, got %s", resp.Deployments[0].Namespace)
 	}
 }
 

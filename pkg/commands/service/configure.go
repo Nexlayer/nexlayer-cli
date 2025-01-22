@@ -2,15 +2,10 @@ package service
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/Nexlayer/nexlayer-cli/pkg/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 	"github.com/spf13/cobra"
-)
-
-var (
-	appName  string
-	service  string
-	envPairs []string
 )
 
 // configureCmd represents the configure command
@@ -25,69 +20,24 @@ Examples:
 }
 
 func init() {
-	configureCmd.Flags().StringVar(&appName, "app", "", "Application name")
-	configureCmd.Flags().StringVar(&service, "service", "", "Service name (e.g., frontend, backend)")
-	configureCmd.Flags().StringArrayVar(&envPairs, "env", []string{}, "Environment variables in KEY=VALUE format")
+	configureCmd.Flags().StringVar(&vars.AppName, "app", "", "Application name")
+	configureCmd.Flags().StringVar(&vars.ServiceName, "service", "", "Service name")
+	configureCmd.Flags().StringSliceVar(&vars.EnvVars, "env", []string{}, "Environment variables (KEY=VALUE)")
+	configureCmd.Flags().StringVar(&vars.APIURL, "api-url", "https://api.nexlayer.io", "API URL")
 
 	configureCmd.MarkFlagRequired("app")
 	configureCmd.MarkFlagRequired("service")
 }
 
 func runConfigure(cmd *cobra.Command, args []string) error {
-	// Parse environment variables
-	envVars := make(map[string]string)
-	for _, pair := range envPairs {
-		parts := strings.SplitN(pair, "=", 2)
-		if len(parts) != 2 {
-			return fmt.Errorf("invalid environment variable format: %s (should be KEY=VALUE)", pair)
-		}
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-		envVars[key] = value
+	client := api.NewClient(vars.APIURL)
+
+	fmt.Printf("⚙️  Configuring service %s in app %s...\n", vars.ServiceName, vars.AppName)
+
+	if err := client.Configure(vars.AppName, vars.ServiceName, vars.EnvVars); err != nil {
+		return fmt.Errorf("failed to configure service: %w", err)
 	}
 
-	// Get auth token
-	token := os.Getenv("NEXLAYER_AUTH_TOKEN")
-	if token == "" {
-		return fmt.Errorf("NEXLAYER_AUTH_TOKEN environment variable is not set")
-	}
-
-	// Create API client
-	client := api.NewClient("https://app.nexlayer.io")
-
-	// Update service configuration
-	err := client.UpdateServiceConfig(appName, service, envVars, token)
-	if err != nil {
-		return fmt.Errorf("failed to update service configuration: %w", err)
-	}
-
-	fmt.Printf("✅ Successfully updated configuration for %s service in %s\n", service, appName)
-	for k, v := range envVars {
-		maskedValue := maskSensitiveValue(v)
-		fmt.Printf("  %s=%s\n", k, maskedValue)
-	}
-
+	fmt.Printf("✅ Successfully configured service %s\n", vars.ServiceName)
 	return nil
-}
-
-// maskSensitiveValue masks potentially sensitive values
-func maskSensitiveValue(value string) string {
-	sensitiveKeys := []string{
-		"password", "secret", "key", "token", "credential",
-		"auth", "pwd", "pass",
-	}
-
-	// Check if the value is a URL
-	if strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://") {
-		return value
-	}
-
-	// Check if the value might be sensitive
-	for _, key := range sensitiveKeys {
-		if strings.Contains(strings.ToLower(value), key) {
-			return "********"
-		}
-	}
-
-	return value
 }

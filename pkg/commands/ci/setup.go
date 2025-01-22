@@ -4,44 +4,31 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"text/template"
 
+	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 	"github.com/spf13/cobra"
-)
-
-var (
-	stack    string
-	registry string
-	token    string
 )
 
 // setupCmd represents the setup command
 var setupCmd = &cobra.Command{
 	Use:   "setup",
-	Short: "Set up CI/CD workflows",
-	Long: `Generate CI/CD workflow files for different platforms.
+	Short: "Set up CI/CD pipelines",
+	Long: `Set up CI/CD pipelines for your project.
 Currently supports:
-- GitHub Actions`,
+- GitHub Actions workflow setup`,
 }
 
-// githubActionsCmd represents the github-actions command
-var githubActionsCmd = &cobra.Command{
+// githubActionsSetupCmd represents the github-actions command
+var githubActionsSetupCmd = &cobra.Command{
 	Use:   "github-actions",
-	Short: "Generate GitHub Actions workflow",
-	Long:  `Generate a GitHub Actions workflow file for building and publishing Docker images`,
-	RunE:  runGithubActionsSetup,
+	Short: "Set up GitHub Actions workflow",
+	Long: `Set up GitHub Actions workflow for your project.
+This will create a basic workflow file in .github/workflows/build.yml`,
+	RunE: runGithubActionsSetup,
 }
 
 func init() {
-	setupCmd.AddCommand(githubActionsCmd)
-
-	// Add flags
-	githubActionsCmd.Flags().StringVar(&stack, "stack", "", "Application stack (e.g., mern, next, django)")
-	githubActionsCmd.Flags().StringVar(&registry, "registry", "ghcr.io", "Container registry")
-	githubActionsCmd.Flags().StringVar(&token, "token", "", "GitHub token")
-
-	// Mark required flags
-	githubActionsCmd.MarkFlagRequired("stack")
+	setupCmd.AddCommand(githubActionsSetupCmd)
 }
 
 func runGithubActionsSetup(cmd *cobra.Command, args []string) error {
@@ -51,48 +38,23 @@ func runGithubActionsSetup(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create workflow directory: %w", err)
 	}
 
-	// Get workflow template based on stack
-	tmpl, err := getWorkflowTemplate(stack)
-	if err != nil {
-		return err
+	// Check if workflow file already exists
+	workflowPath := filepath.Join(workflowDir, "build.yml")
+	if _, err := os.Stat(workflowPath); err == nil {
+		return fmt.Errorf("workflow file already exists: %s", workflowPath)
 	}
 
 	// Create workflow file
-	workflowFile := filepath.Join(workflowDir, "docker-publish.yml")
-	f, err := os.Create(workflowFile)
-	if err != nil {
-		return fmt.Errorf("failed to create workflow file: %w", err)
-	}
-	defer f.Close()
-
-	// Execute template
-	data := struct {
-		Registry string
-		Stack    string
-	}{
-		Registry: registry,
-		Stack:    stack,
-	}
-
-	if err := tmpl.Execute(f, data); err != nil {
-		return fmt.Errorf("failed to generate workflow file: %w", err)
-	}
-
-	fmt.Printf("✅ Successfully created GitHub Actions workflow in %s\n", workflowFile)
-	return nil
-}
-
-func getWorkflowTemplate(stack string) (*template.Template, error) {
-	const workflowTemplate = `name: Docker Image CI
+	workflow := fmt.Sprintf(`name: Build and Push Docker Image
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
 
 env:
-  REGISTRY: {{ .Registry }}
+  REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
@@ -104,37 +66,26 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Log in to the Container registry
       uses: docker/login-action@v3
       with:
-        registry: {{ .Registry }}
+        registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Extract metadata for Docker
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-    
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
-        context: .
+        context: %s
         push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-{{- if eq .Stack "mern" }}
-        # MERN stack specific settings
-        build-args: |
-          NODE_ENV=production
-          REACT_APP_API_URL=${{ secrets.API_URL }}
-{{- else if eq .Stack "next" }}
-        # Next.js specific settings
-        build-args: |
-          NEXT_PUBLIC_API_URL=${{ secrets.API_URL }}
-{{- end }}`
+        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:%s
+`, vars.BuildContext, vars.ImageTag)
 
-	return template.New("workflow").Parse(workflowTemplate)
+	if err := os.WriteFile(workflowPath, []byte(workflow), 0644); err != nil {
+		return fmt.Errorf("failed to write workflow file: %w", err)
+	}
+
+	fmt.Printf("✅ Successfully created GitHub Actions workflow in %s\n", workflowPath)
+	return nil
 }
