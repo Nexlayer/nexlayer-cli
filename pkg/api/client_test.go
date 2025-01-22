@@ -1,7 +1,6 @@
 package api
 
 // Formatted with gofmt -s
-
 import (
 	"encoding/json"
 	"net/http"
@@ -22,7 +21,6 @@ func TestStartDeployment(t *testing.T) {
 		if r.Header.Get("Content-Type") != "text/x-yaml" {
 			t.Errorf("Expected Content-Type text/x-yaml, got %s", r.Header.Get("Content-Type"))
 		}
-
 		// Return success response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -33,19 +31,16 @@ func TestStartDeployment(t *testing.T) {
 		})
 	}))
 	defer server.Close()
-
 	// Create client
 	client := &Client{
 		httpClient: server.Client(),
 		baseURL:    server.URL,
 	}
-
 	// Test deployment
 	resp, err := client.StartDeployment("test-app", []byte("test yaml"))
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-
 	if resp.Message != "Deployment started successfully" {
 		t.Errorf("Expected message 'Deployment started successfully', got '%s'", resp.Message)
 	}
@@ -56,7 +51,6 @@ func TestStartDeployment(t *testing.T) {
 		t.Errorf("Expected URL 'https://test-url.com', got '%s'", resp.URL)
 	}
 }
-
 func TestGetDeployments(t *testing.T) {
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +61,6 @@ func TestGetDeployments(t *testing.T) {
 		if r.URL.Path != "/getDeployments/test-app" {
 			t.Errorf("Expected path /getDeployments/test-app, got %s", r.URL.Path)
 		}
-
 		// Return success response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -83,23 +76,19 @@ func TestGetDeployments(t *testing.T) {
 		})
 	}))
 	defer server.Close()
-
 	// Create client
 	client := &Client{
 		httpClient: server.Client(),
 		baseURL:    server.URL,
 	}
-
 	// Test get deployments
 	resp, err := client.GetDeployments("test-app")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-
 	if len(resp.Deployments) != 1 {
 		t.Fatalf("Expected 1 deployment, got %d", len(resp.Deployments))
 	}
-
 	deployment := resp.Deployments[0]
 	if deployment.Namespace != "test-namespace" {
 		t.Errorf("Expected namespace 'test-namespace', got '%s'", deployment.Namespace)
@@ -108,7 +97,6 @@ func TestGetDeployments(t *testing.T) {
 		t.Errorf("Expected template ID 'test-template', got '%s'", deployment.TemplateID)
 	}
 }
-
 func TestGetDeploymentInfo(t *testing.T) {
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +107,6 @@ func TestGetDeploymentInfo(t *testing.T) {
 		if r.URL.Path != "/getDeploymentInfo/test-namespace/test-app" {
 			t.Errorf("Expected path /getDeploymentInfo/test-namespace/test-app, got %s", r.URL.Path)
 		}
-
 		// Return success response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -133,19 +120,16 @@ func TestGetDeploymentInfo(t *testing.T) {
 		})
 	}))
 	defer server.Close()
-
 	// Create client
 	client := &Client{
 		httpClient: server.Client(),
 		baseURL:    server.URL,
 	}
-
 	// Test get deployment info
 	resp, err := client.GetDeploymentInfo("test-namespace", "test-app")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-
 	deployment := resp.Deployment
 	if deployment.Namespace != "test-namespace" {
 		t.Errorf("Expected namespace 'test-namespace', got '%s'", deployment.Namespace)

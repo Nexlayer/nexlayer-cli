@@ -1,14 +1,12 @@
 package cmd
 
 // Formatted with gofmt -s
-
 import (
 	"fmt"
-	"os"
-
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands"
 	"github.com/Nexlayer/nexlayer-cli/pkg/version"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 var rootCmd = &cobra.Command{
@@ -17,7 +15,6 @@ var rootCmd = &cobra.Command{
 	Version: version.Version,
 	Long: `Nexlayer CLI helps you deploy and manage full-stack applications with ease.
 Built for developers who value simplicity without sacrificing power.
-
 Find more information at: https://docs.nexlayer.io`,
 }
 
@@ -29,7 +26,6 @@ func Execute() {
 		os.Exit(1)
 	}
 }
-
 func init() {
 	// Add commands
 	rootCmd.AddCommand(commands.InitCmd)

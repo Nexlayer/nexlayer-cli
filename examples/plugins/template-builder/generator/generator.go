@@ -1,31 +1,26 @@
 package generator
 
 // Formatted with gofmt -s
-
 import (
 	"fmt"
-	"strings"
-
 	"github.com/nexlayer/nexlayer-cli/plugins/template-builder/types"
+	"strings"
 )
 
 // GenerateTemplate creates a template based on project name and detected stack
 func GenerateTemplate(projectName string, stack *types.ProjectStack) *types.NexlayerTemplate {
 	tmpl := &types.NexlayerTemplate{}
 	t := &tmpl.Application.Template
-
 	// Basic template info
 	t.Name = projectName
 	t.TemplateID = fmt.Sprintf("%s-NrqurwWL", strings.ToLower(projectName))
 	t.DeploymentName = projectName
-
 	// Registry login info
 	t.RegistryLogin = &types.Registry{
 		Registry:            "ghcr.io",
 		Username:            "nexlayer",
 		PersonalAccessToken: "${GITHUB_TOKEN}",
 	}
-
 	// Add pods based on stack
 	if stack.HasFrontend() {
 		t.Pods = append(t.Pods, generateFrontendPod(projectName, stack))
@@ -36,10 +31,8 @@ func GenerateTemplate(projectName string, stack *types.ProjectStack) *types.Nexl
 	if stack.HasDatabase() {
 		t.Pods = append(t.Pods, generateDatabasePod(projectName, stack))
 	}
-
 	return tmpl
 }
-
 func generateFrontendPod(projectName string, stack *types.ProjectStack) types.Pod {
 	vars := []types.EnvVar{
 		{
@@ -47,7 +40,6 @@ func generateFrontendPod(projectName string, stack *types.ProjectStack) types.Po
 			Value: "BACKEND_CONNECTION_URL",
 		},
 	}
-
 	// Add NODE_ENV for Node.js projects
 	if stack.Language == "nodejs" {
 		vars = append(vars, types.EnvVar{
@@ -55,7 +47,6 @@ func generateFrontendPod(projectName string, stack *types.ProjectStack) types.Po
 			Value: "development",
 		})
 	}
-
 	return types.Pod{
 		Type:       "web",
 		Name:       "frontend",
@@ -66,7 +57,6 @@ func generateFrontendPod(projectName string, stack *types.ProjectStack) types.Po
 		Vars:       vars,
 	}
 }
-
 func generateBackendPod(projectName string, stack *types.ProjectStack) types.Pod {
 	vars := []types.EnvVar{
 		{
@@ -74,7 +64,6 @@ func generateBackendPod(projectName string, stack *types.ProjectStack) types.Pod
 			Value: "DATABASE_CONNECTION_STRING",
 		},
 	}
-
 	// Add language-specific env vars
 	switch stack.Language {
 	case "nodejs":
@@ -93,7 +82,6 @@ func generateBackendPod(projectName string, stack *types.ProjectStack) types.Pod
 			Value: "development",
 		})
 	}
-
 	return types.Pod{
 		Type:       "api",
 		Name:       "backend",
@@ -104,7 +92,6 @@ func generateBackendPod(projectName string, stack *types.ProjectStack) types.Pod
 		Vars:       vars,
 	}
 }
-
 func generateDatabasePod(projectName string, stack *types.ProjectStack) types.Pod {
 	dbType := stack.GetDatabaseType()
 	vars := []types.EnvVar{
@@ -121,7 +108,6 @@ func generateDatabasePod(projectName string, stack *types.ProjectStack) types.Po
 			Value: strings.ToLower(projectName),
 		},
 	}
-
 	// Add database-specific env vars
 	switch dbType {
 	case "mongodb":
@@ -140,7 +126,6 @@ func generateDatabasePod(projectName string, stack *types.ProjectStack) types.Po
 			},
 		}
 	}
-
 	return types.Pod{
 		Type:       "database",
 		Name:       "database",

@@ -2,12 +2,10 @@ package tui
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"os"
 	"path/filepath"
 	"strings"
-
-	tea "github.com/charmbracelet/bubbletea"
-	"gopkg.in/yaml.v2"
 )
 
 // DeploymentWizard handles the interactive deployment creation process
@@ -29,20 +27,16 @@ func (w *DeploymentWizard) Run() error {
 	if err != nil {
 		return fmt.Errorf("error running wizard: %w", err)
 	}
-
 	finalModel := model.(Model)
 	if finalModel.err != nil {
 		return finalModel.err
 	}
-
 	// Generate YAML configuration
 	config := w.generateConfig(finalModel.config)
-
 	// Save configuration
 	if err := w.saveConfig(config); err != nil {
 		return fmt.Errorf("error saving configuration: %w", err)
 	}
-
 	return nil
 }
 
@@ -73,26 +67,21 @@ type AppConfig struct {
 
 func (w *DeploymentWizard) generateConfig(config DeploymentConfig) *AppConfig {
 	appConfig := &AppConfig{}
-
 	// Generate template name based on stack
 	stack := strings.ToLower(fmt.Sprintf("%s-%s-%s",
 		config.DatabaseType,
 		config.BackendType,
 		config.FrontendType,
 	))
-
 	appConfig.Application.Template.Name = stack
 	appConfig.Application.Template.DeploymentName = config.DeploymentName
-
 	// Registry login
 	appConfig.Application.Template.RegistryLogin.Registry = "ghcr.io"
 	appConfig.Application.Template.RegistryLogin.Username = config.GithubUsername
 	appConfig.Application.Template.RegistryLogin.PersonalAccessToken = config.GithubToken
-
 	// Generate image tags based on app name
 	appName := strings.ToLower(config.AppName)
 	username := strings.ToLower(config.GithubUsername)
-
 	// Pods configuration
 	appConfig.Application.Template.Pods = []struct {
 		Type       string `yaml:"type"`
@@ -147,33 +136,27 @@ func (w *DeploymentWizard) generateConfig(config DeploymentConfig) *AppConfig {
 			},
 		},
 	}
-
 	return appConfig
 }
-
 func (w *DeploymentWizard) saveConfig(config *AppConfig) error {
 	// Create deployment directory if it doesn't exist
 	deployDir := "deployment"
 	if err := os.MkdirAll(deployDir, 0755); err != nil {
 		return err
 	}
-
 	// Marshal configuration to YAML
 	yamlData, err := yaml.Marshal(config)
 	if err != nil {
 		return err
 	}
-
 	// Save to deployment.yaml
 	configPath := filepath.Join(deployDir, "deployment.yaml")
 	if err := os.WriteFile(configPath, yamlData, 0644); err != nil {
 		return err
 	}
-
 	fmt.Printf("\nConfiguration saved to %s\n", configPath)
 	fmt.Println("\nTo deploy your application, run:")
 	fmt.Printf("nexlayer deploy -f %s\n\n", configPath)
-
 	return nil
 }
 
