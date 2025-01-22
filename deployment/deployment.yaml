@@ -1,16 +1,16 @@
 application:
   template:
-    name: mongo-expres-next
-    deploymentName: dgasdgg
+    name: mongodb-express-nextjs
+    deploymentName: sals app is a test
     registryLogin:
       registry: ghcr.io
-      username: dafdsa
-      personalAccessToken: gjkhfk'
+      username: sasdeployer
+      personalAccessToken: na
     pods:
     - type: database
       exposeHttp: false
-      name: mongo
-      tag: ghcr.io/dafdsa/ddffff-mongo:v0.0.1
+      name: mongodb
+      tag: ghcr.io/sasdeployer/sals-app-mongodb:v0.0.1
       privateTag: true
       vars:
       - key: DB_USERNAME
@@ -18,19 +18,19 @@ application:
       - key: DB_PASSWORD
         value: passw0rd
       - key: DB_NAME
-        value: ddffff
+        value: sals-app
     - type: backend
       exposeHttp: false
-      name: expres
-      tag: ghcr.io/dafdsa/ddffff-expres:v0.0.1
+      name: express
+      tag: ghcr.io/sasdeployer/sals-app-express:v0.0.1
       privateTag: true
       vars:
       - key: DATABASE_URL
         value: DATABASE_CONNECTION_STRING
     - type: frontend
       exposeHttp: true
-      name: next
-      tag: ghcr.io/dafdsa/ddffff-next:v0.0.1
+      name: nextjs
+      tag: ghcr.io/sasdeployer/sals-app-nextjs:v0.0.1
       privateTag: true
       vars:
       - key: BACKEND_URL

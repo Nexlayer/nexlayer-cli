@@ -19,11 +19,14 @@
 # 1. Install the CLI
 go install github.com/Nexlayer/nexlayer-cli@latest
 
-# 2. Start the interactive wizard
+# 2. Login to Nexlayer (opens browser)
+nexlayer login
+
+# 3. Start the interactive wizard
 nexlayer wizard
 ```
 
-That's it! The wizard will guide you through deployment setup. Want more control? Check out the manual setup below.
+That's it! The wizard will guide you through deployment setup. Your GitHub authentication is handled automatically through Nexlayer.
 
 ## Requirements
 
