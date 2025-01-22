@@ -32,11 +32,14 @@ var (
 
 // CI variables
 var (
-	// BuildContext is the directory containing the Dockerfile
-	BuildContext string
-
-	// ImageTag is the tag to apply to the built Docker image
-	ImageTag string
+	// Registry configuration
+	RegistryType     string // Container registry type (ghcr or dockerhub)
+	Registry         string // Container registry URL
+	RegistryUsername string // Registry username
+	
+	// Build configuration
+	BuildContext string // Docker build context path
+	ImageTag     string // Docker image tag
 )
 
 // Graph variables
@@ -52,4 +55,13 @@ var (
 
 	// EnvPairs are key-value pairs for environment variables
 	EnvPairs []string
+)
+
+// Service command variables
+var (
+	AppName      string
+	Service      string
+	OutputFormat string
+	OutputFile   string
+	EnvPairs     []string
 )

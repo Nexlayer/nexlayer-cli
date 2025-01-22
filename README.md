@@ -100,6 +100,34 @@ nexlayer logs my-app
 
 ## CI/CD Integration
 
+### Container Registry Setup
+
+The CLI supports two popular container registries out of the box:
+
+1. **GitHub Container Registry (GHCR)** - Default option
+   ```bash
+   # Set up with GHCR (default)
+   nexlayer ci setup github-actions --registry-type ghcr
+   ```
+   - Uses `ghcr.io` as the registry
+   - Automatically uses GitHub Actions token for authentication
+   - No additional setup required
+
+2. **Docker Hub**
+   ```bash
+   # Set up with Docker Hub
+   nexlayer ci setup github-actions --registry-type dockerhub
+   ```
+   - Uses `docker.io` as the registry
+   - Requires setting up the following GitHub secrets:
+     - `DOCKERHUB_USERNAME`: Your Docker Hub username
+     - `DOCKERHUB_TOKEN`: Your Docker Hub access token
+
+You can also customize the registry URL if needed:
+```bash
+nexlayer ci setup github-actions --registry-type dockerhub --registry registry.custom.com
+```
+
 ### Build Automation
 
 The CLI helps you set up automated builds using GitHub Actions:
