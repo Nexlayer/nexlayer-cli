@@ -1,6 +1,5 @@
 package api
 
-// Formatted with gofmt -s
 import (
 	"encoding/json"
 	"net/http"
@@ -8,133 +7,163 @@ import (
 	"testing"
 )
 
-func TestStartDeployment(t *testing.T) {
-	// Create test server
+func TestStartUserDeployment(t *testing.T) {
+	// Mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify request
-		if r.Method != "POST" {
+		if r.Method != http.MethodPost {
 			t.Errorf("Expected POST request, got %s", r.Method)
 		}
-		if r.URL.Path != "/startUserDeployment/test-app" {
-			t.Errorf("Expected path /startUserDeployment/test-app, got %s", r.URL.Path)
-		}
 		if r.Header.Get("Content-Type") != "text/x-yaml" {
-			t.Errorf("Expected Content-Type text/x-yaml, got %s", r.Header.Get("Content-Type"))
+			t.Errorf("Expected text/x-yaml content type, got %s", r.Header.Get("Content-Type"))
 		}
-		// Return success response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(StartDeploymentResponse{
+		if r.URL.Path != "/startUserDeployment/test-app" {
+			t.Errorf("Expected /startUserDeployment/test-app path, got %s", r.URL.Path)
+		}
+
+		// Send response
+		resp := StartUserDeploymentResponse{
 			Message:   "Deployment started successfully",
-			Namespace: "test-namespace",
-			URL:       "https://test-url.com",
-		})
+			Namespace: "fantastic-fox",
+			URL:      "https://fantastic-fox-my-mern-app.alpha.nexlayer.ai",
+		}
+		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
+
 	// Create client
-	client := &Client{
-		httpClient: server.Client(),
-		baseURL:    server.URL,
-	}
+	client := NewClient(server.URL)
+
 	// Test deployment
-	resp, err := client.StartDeployment("test-app", []byte("test yaml"))
+	yamlContent := []byte("name: test-app\nversion: 1.0.0")
+	resp, err := client.StartUserDeployment("test-app", yamlContent)
 	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
+		t.Fatalf("StartUserDeployment failed: %v", err)
 	}
+
+	// Verify response
 	if resp.Message != "Deployment started successfully" {
-		t.Errorf("Expected message 'Deployment started successfully', got '%s'", resp.Message)
+		t.Errorf("Expected 'Deployment started successfully', got %s", resp.Message)
 	}
-	if resp.Namespace != "test-namespace" {
-		t.Errorf("Expected namespace 'test-namespace', got '%s'", resp.Namespace)
-	}
-	if resp.URL != "https://test-url.com" {
-		t.Errorf("Expected URL 'https://test-url.com', got '%s'", resp.URL)
+	if resp.Namespace != "fantastic-fox" {
+		t.Errorf("Expected 'fantastic-fox', got %s", resp.Namespace)
 	}
 }
-func TestGetDeployments(t *testing.T) {
-	// Create test server
+
+func TestSaveCustomDomain(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify request
-		if r.Method != "GET" {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST request, got %s", r.Method)
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("Expected application/json content type, got %s", r.Header.Get("Content-Type"))
+		}
+		if r.URL.Path != "/saveCustomDomain/test-app" {
+			t.Errorf("Expected /saveCustomDomain/test-app path, got %s", r.URL.Path)
+		}
+
+		resp := SaveCustomDomainResponse{
+			Message: "Custom domain saved successfully",
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL)
+	resp, err := client.SaveCustomDomain("test-app", "example.com")
+	if err != nil {
+		t.Fatalf("SaveCustomDomain failed: %v", err)
+	}
+
+	if resp.Message != "Custom domain saved successfully" {
+		t.Errorf("Expected 'Custom domain saved successfully', got %s", resp.Message)
+	}
+}
+
+func TestGetDeployments(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
 			t.Errorf("Expected GET request, got %s", r.Method)
 		}
 		if r.URL.Path != "/getDeployments/test-app" {
-			t.Errorf("Expected path /getDeployments/test-app, got %s", r.URL.Path)
+			t.Errorf("Expected /getDeployments/test-app path, got %s", r.URL.Path)
 		}
-		// Return success response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(GetDeploymentsResponse{
-			Deployments: []DeploymentInfo{
+
+		resp := GetDeploymentsResponse{
+			Deployments: []struct {
+				Namespace        string `json:"namespace"`
+				TemplateID       string `json:"templateID"`
+				TemplateName     string `json:"templateName"`
+				DeploymentStatus string `json:"deploymentStatus"`
+			}{
 				{
-					Namespace:        "test-namespace",
-					TemplateID:       "test-template",
-					TemplateName:     "Test Template",
+					Namespace:        "ecstatic-frog",
+					TemplateID:       "0001",
+					TemplateName:     "K-d chat",
 					DeploymentStatus: "running",
 				},
 			},
-		})
+		}
+		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
-	// Create client
-	client := &Client{
-		httpClient: server.Client(),
-		baseURL:    server.URL,
-	}
-	// Test get deployments
+
+	client := NewClient(server.URL)
 	resp, err := client.GetDeployments("test-app")
 	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
+		t.Fatalf("GetDeployments failed: %v", err)
 	}
+
 	if len(resp.Deployments) != 1 {
 		t.Fatalf("Expected 1 deployment, got %d", len(resp.Deployments))
 	}
+
 	deployment := resp.Deployments[0]
-	if deployment.Namespace != "test-namespace" {
-		t.Errorf("Expected namespace 'test-namespace', got '%s'", deployment.Namespace)
+	if deployment.Namespace != "ecstatic-frog" {
+		t.Errorf("Expected namespace 'ecstatic-frog', got %s", deployment.Namespace)
 	}
-	if deployment.TemplateID != "test-template" {
-		t.Errorf("Expected template ID 'test-template', got '%s'", deployment.TemplateID)
+	if deployment.TemplateID != "0001" {
+		t.Errorf("Expected templateID '0001', got %s", deployment.TemplateID)
 	}
 }
+
 func TestGetDeploymentInfo(t *testing.T) {
-	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify request
-		if r.Method != "GET" {
+		if r.Method != http.MethodGet {
 			t.Errorf("Expected GET request, got %s", r.Method)
 		}
-		if r.URL.Path != "/getDeploymentInfo/test-namespace/test-app" {
-			t.Errorf("Expected path /getDeploymentInfo/test-namespace/test-app, got %s", r.URL.Path)
+		if r.URL.Path != "/getDeploymentInfo/ecstatic-frog/test-app" {
+			t.Errorf("Expected /getDeploymentInfo/ecstatic-frog/test-app path, got %s", r.URL.Path)
 		}
-		// Return success response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(GetDeploymentInfoResponse{
-			Deployment: DeploymentInfo{
-				Namespace:        "test-namespace",
-				TemplateID:       "test-template",
-				TemplateName:     "Test Template",
+
+		resp := GetDeploymentInfoResponse{
+			Deployment: struct {
+				Namespace        string `json:"namespace"`
+				TemplateID       string `json:"templateID"`
+				TemplateName     string `json:"templateName"`
+				DeploymentStatus string `json:"deploymentStatus"`
+			}{
+				Namespace:        "ecstatic-frog",
+				TemplateID:       "0001",
+				TemplateName:     "K-d chat",
 				DeploymentStatus: "running",
 			},
-		})
+		}
+		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
-	// Create client
-	client := &Client{
-		httpClient: server.Client(),
-		baseURL:    server.URL,
-	}
-	// Test get deployment info
-	resp, err := client.GetDeploymentInfo("test-namespace", "test-app")
+
+	client := NewClient(server.URL)
+	resp, err := client.GetDeploymentInfo("ecstatic-frog", "test-app")
 	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
+		t.Fatalf("GetDeploymentInfo failed: %v", err)
 	}
+
 	deployment := resp.Deployment
-	if deployment.Namespace != "test-namespace" {
-		t.Errorf("Expected namespace 'test-namespace', got '%s'", deployment.Namespace)
+	if deployment.Namespace != "ecstatic-frog" {
+		t.Errorf("Expected namespace 'ecstatic-frog', got %s", deployment.Namespace)
 	}
-	if deployment.TemplateID != "test-template" {
-		t.Errorf("Expected template ID 'test-template', got '%s'", deployment.TemplateID)
+	if deployment.TemplateID != "0001" {
+		t.Errorf("Expected templateID '0001', got %s", deployment.TemplateID)
 	}
 }

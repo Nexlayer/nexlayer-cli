@@ -1,64 +1,38 @@
 package config
 
-// Formatted with gofmt -s
 import (
 	"os"
-	"sync"
+	"path/filepath"
 )
 
-// Environment represents different deployment environments
-type Environment string
-
-const (
-	Production Environment = "production"
-	Staging    Environment = "staging"
-	// Default API endpoints
-	productionAPI = "https://app.nexlayer.io"
-	stagingAPI    = "https://app.staging.nexlayer.io"
-)
-
-var (
-	once     sync.Once
-	instance *Config
-)
-
-// Config holds all configuration values
+// Config represents the application configuration
 type Config struct {
-	APIEndpoints map[Environment]string
+	APIEndpoints map[string]string
 }
 
-// GetConfig returns a singleton instance of Config
+// GetConfig returns the application configuration
 func GetConfig() *Config {
-	once.Do(func() {
-		instance = &Config{
-			APIEndpoints: map[Environment]string{
-				Production: productionAPI,
-				Staging:    stagingAPI,
-			},
-		}
-	})
-	return instance
+	return &Config{
+		APIEndpoints: map[string]string{
+			"staging":    "https://app.staging.nexlayer.io",
+			"production": "https://app.nexlayer.io",
+		},
+	}
 }
 
-// GetAPIEndpoint returns the appropriate API endpoint for the given environment
-func (c *Config) GetAPIEndpoint(env Environment) string {
+// GetAPIEndpoint returns the API endpoint for the given environment
+func (c *Config) GetAPIEndpoint(env string) string {
 	if endpoint, ok := c.APIEndpoints[env]; ok {
 		return endpoint
 	}
-	return c.APIEndpoints[Staging] // Default to staging if environment not found
+	return c.APIEndpoints["staging"] // default to staging
 }
 
-// ValidateEnvironment checks if the provided environment string is valid
-func ValidateEnvironment(env string) (Environment, bool) {
-	switch Environment(env) {
-	case Production, Staging:
-		return Environment(env), true
-	default:
-		return "", false
+// GetConfigDir returns the configuration directory
+func GetConfigDir() string {
+	configDir := os.Getenv("NEXLAYER_CONFIG_DIR")
+	if configDir == "" {
+		configDir = filepath.Join(os.Getenv("HOME"), ".nexlayer")
 	}
-}
-
-// GetAuthToken returns the authentication token or an empty string if not set
-func GetAuthToken() string {
-	return os.Getenv("NEXLAYER_AUTH_TOKEN")
+	return configDir
 }

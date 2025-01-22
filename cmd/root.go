@@ -1,21 +1,19 @@
 package cmd
 
-// Formatted with gofmt -s
 import (
 	"fmt"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands"
-	"github.com/Nexlayer/nexlayer-cli/pkg/version"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands"
+	"github.com/spf13/cobra"
 )
 
+// rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:     "nexlayer",
-	Short:   "Nexlayer CLI - Deploy and manage full-stack applications",
-	Version: version.Version,
-	Long: `Nexlayer CLI helps you deploy and manage full-stack applications with ease.
-Built for developers who value simplicity without sacrificing power.
-Find more information at: https://docs.nexlayer.io`,
+	Use:   "nexlayer",
+	Short: "Nexlayer CLI - Deploy your applications with ease",
+	Long: `Nexlayer CLI is a tool for deploying and managing your applications.
+It provides a simple interface for deploying applications to Nexlayer's platform.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -26,14 +24,16 @@ func Execute() {
 		os.Exit(1)
 	}
 }
+
 func init() {
-	// Add commands
-	rootCmd.AddCommand(commands.InitCmd)
-	rootCmd.AddCommand(commands.DeployCmd)
+	// Add subcommands
 	rootCmd.AddCommand(commands.ListCmd)
+	rootCmd.AddCommand(commands.DeployCmd)
 	rootCmd.AddCommand(commands.StatusCmd)
-	rootCmd.AddCommand(commands.DomainCmd)
+	rootCmd.AddCommand(commands.InitCmd)
 	rootCmd.AddCommand(commands.InfoCmd)
+	rootCmd.AddCommand(commands.DomainCmd)
 	rootCmd.AddCommand(commands.ScaleCmd)
-	rootCmd.AddCommand(commands.WizardCmd)
+	rootCmd.AddCommand(commands.PluginCmd)
+	rootCmd.AddCommand(commands.AISuggestCmd)
 }
