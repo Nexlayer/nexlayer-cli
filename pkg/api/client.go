@@ -5,14 +5,14 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 )
 
 const (
 	defaultTimeout = 30 * time.Second
-	baseURL        = "https://app.nexlayer.io" // Production URL from OpenAPI spec
+	baseURL       = "https://app.nexlayer.io" // From OpenAPI spec
 )
 
 // Client represents a Nexlayer API client
@@ -43,27 +43,109 @@ func NewClient(baseURL string) *Client {
 	}
 }
 
-// StartDeployment initiates a new deployment
-func (c *Client) StartDeployment(applicationID string, yamlContent []byte) (*StartDeploymentResponse, error) {
+// StartUserDeploymentResponse matches OpenAPI spec
+type StartUserDeploymentResponse struct {
+	Message   string `json:"message"`
+	Namespace string `json:"namespace"`
+	URL       string `json:"url"`
+}
+
+// StartUserDeployment starts a new deployment with a YAML configuration
+func (c *Client) StartUserDeployment(applicationID string, yamlContent []byte) (*StartUserDeploymentResponse, error) {
 	url := fmt.Sprintf("%s/startUserDeployment/%s", c.baseURL, applicationID)
 
-	fmt.Printf("DEBUG: Making request to %s", url)
-	fmt.Printf("DEBUG: YAML content:\n%s", string(yamlContent))
-
-	req, err := http.NewRequest("POST", url, bytes.NewReader(yamlContent))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(yamlContent))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set headers exactly as curl does
 	req.Header.Set("Content-Type", "text/x-yaml")
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("User-Agent", "curl/8.7.1")
 
-	// Debug headers
-	fmt.Printf("DEBUG: Request headers:\n")
-	for k, v := range req.Header {
-		fmt.Printf("  %s: %s\n", k, v[0])
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("deployment failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result StartUserDeploymentResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// SaveCustomDomainRequest matches OpenAPI spec
+type SaveCustomDomainRequest struct {
+	Domain string `json:"domain"`
+}
+
+// SaveCustomDomainResponse matches OpenAPI spec
+type SaveCustomDomainResponse struct {
+	Message string `json:"message"`
+}
+
+// SaveCustomDomain saves a custom domain for a deployment
+func (c *Client) SaveCustomDomain(applicationID string, domain string) (*SaveCustomDomainResponse, error) {
+	url := fmt.Sprintf("%s/saveCustomDomain/%s", c.baseURL, applicationID)
+
+	payload := SaveCustomDomainRequest{
+		Domain: domain,
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to set custom domain: %s", string(body))
+	}
+
+	var result SaveCustomDomainResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetDeploymentsResponse matches OpenAPI spec
+type GetDeploymentsResponse struct {
+	Deployments []struct {
+		Namespace        string `json:"namespace"`
+		TemplateID       string `json:"templateID"`
+		TemplateName     string `json:"templateName"`
+		DeploymentStatus string `json:"deploymentStatus"`
+	} `json:"deployments"`
+}
+
+// GetDeployments retrieves all deployments for a given application
+func (c *Client) GetDeployments(applicationID string) (*GetDeploymentsResponse, error) {
+	url := fmt.Sprintf("%s/getDeployments/%s", c.baseURL, applicationID)
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -72,59 +154,61 @@ func (c *Client) StartDeployment(applicationID string, yamlContent []byte) (*Sta
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("deployment failed (HTTP %d): %s", resp.StatusCode, string(body))
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get deployments: %s", string(body))
 	}
 
-	var deployResp StartDeploymentResponse
-	if err := json.Unmarshal(body, &deployResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	var result GetDeploymentsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return &deployResp, nil
+	return &result, nil
 }
 
-// GetDeployments retrieves all deployments for a given application
-func (c *Client) GetDeployments(applicationID string) (*GetDeploymentsResponse, error) {
-	url := fmt.Sprintf("%s/getDeployments/%s", c.baseURL, applicationID)
+// GetDeploymentInfoResponse matches OpenAPI spec
+type GetDeploymentInfoResponse struct {
+	Deployment struct {
+		Namespace        string `json:"namespace"`
+		TemplateID       string `json:"templateID"`
+		TemplateName     string `json:"templateName"`
+		DeploymentStatus string `json:"deploymentStatus"`
+	} `json:"deployment"`
+}
 
-	req, err := http.NewRequest("GET", url, nil)
+// GetDeploymentInfo retrieves detailed information about a specific deployment
+func (c *Client) GetDeploymentInfo(namespace, applicationID string) (*GetDeploymentInfoResponse, error) {
+	url := fmt.Sprintf("%s/getDeploymentInfo/%s/%s", c.baseURL, namespace, applicationID)
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
+		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get deployments (HTTP %d): %s", resp.StatusCode, string(body))
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get deployment info: %s", string(body))
 	}
 
-	var deploymentsResp GetDeploymentsResponse
-	if err := json.Unmarshal(body, &deploymentsResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	var result GetDeploymentInfoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return &deploymentsResp, nil
+	return &result, nil
 }
 
-// GetDeployments retrieves all deployments for a user
-func (c *Client) GetDeployments(sessionID string) (*GetDeploymentsResponse, error) {
+// GetUserDeployments retrieves all deployments for a user
+func (c *Client) GetUserDeployments(sessionID string) (*GetDeploymentsResponse, error) {
 	url := fmt.Sprintf("%s/deployments", c.baseURL)
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -150,90 +234,118 @@ func (c *Client) GetDeployments(sessionID string) (*GetDeploymentsResponse, erro
 	return &result, nil
 }
 
-// GetDeploymentInfo retrieves detailed information about a specific deployment
-func (c *Client) GetDeploymentInfo(namespace, applicationID string) (*GetDeploymentInfoResponse, error) {
-	url := fmt.Sprintf("%s/getDeploymentInfo/%s/%s", c.baseURL, namespace, applicationID)
+// ScaleDeployment scales a deployment to the specified number of replicas
+func (c *Client) ScaleDeployment(namespace, sessionID string, replicas int) error {
+	url := fmt.Sprintf("%s/api/v1/deployments/%s/scale", c.baseURL, namespace)
 
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+	payload := struct {
+		Replicas int `json:"replicas"`
+	}{
+		Replicas: replicas,
 	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sessionID))
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get deployment info (HTTP %d): %s", resp.StatusCode, string(body))
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to scale deployment: %s", string(body))
 	}
 
-	var deploymentInfoResp GetDeploymentInfoResponse
-	if err := json.Unmarshal(body, &deploymentInfoResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	return &deploymentInfoResp, nil
+	return nil
 }
 
-// SaveCustomDomain saves a custom domain for a deployment
-func (c *Client) SaveCustomDomain(applicationID string, domain string) (*SaveCustomDomainResponse, error) {
-	url := fmt.Sprintf("%s/saveCustomDomain/%s", c.baseURL, applicationID)
+// SetCustomDomain sets a custom domain for a deployment
+func (c *Client) SetCustomDomain(namespace, sessionID, domain string) error {
+	url := fmt.Sprintf("%s/api/v1/deployments/%s/domain", c.baseURL, namespace)
 
-	reqBody := SaveCustomDomainRequest{
+	payload := SaveCustomDomainRequest{
 		Domain: domain,
 	}
 
-	jsonBody, err := json.Marshal(reqBody)
+	jsonData, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonBody))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sessionID))
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to set custom domain: %s", string(body))
+	}
+
+	return nil
+}
+
+// GetAISuggestions gets AI-powered suggestions for a query
+func (c *Client) GetAISuggestions(query, sessionID string) ([]string, error) {
+	url := fmt.Sprintf("%s/api/v1/ai/suggest", c.baseURL)
+
+	payload := struct {
+		Query string `json:"query"`
+	}{
+		Query: query,
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sessionID))
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
+		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to save custom domain (HTTP %d): %s", resp.StatusCode, string(body))
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get AI suggestions: %s", string(body))
 	}
 
-	var saveResp SaveCustomDomainResponse
-	if err := json.Unmarshal(body, &saveResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	var result struct {
+		Suggestions []string `json:"suggestions"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return &saveResp, nil
-}
-
-// GetDeploymentsResponse represents the response from the deployments endpoint
-type GetDeploymentsResponse struct {
-	Deployments []Deployment `json:"deployments"`
-}
-
-// Deployment represents a single deployment
-type Deployment struct {
-	Namespace        string `json:"namespace"`
-	TemplateName     string `json:"templateName"`
-	TemplateID       string `json:"templateId"`
-	DeploymentStatus string `json:"status"`
+	return result.Suggestions, nil
 }

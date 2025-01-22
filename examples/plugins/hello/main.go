@@ -1,34 +1,27 @@
-package hello
+package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
-type PluginMetadata struct {
-	Name        string `json:"name"`
-	Version     string `json:"version"`
-	Description string `json:"description"`
-	Usage       string `json:"usage"`
+var rootCmd = &cobra.Command{
+	Use:   "hello",
+	Short: "A hello world plugin",
+	Long: `A hello world plugin for Nexlayer CLI.
+Example: nexlayer hello world`,
+	Args: cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		name := args[0]
+		fmt.Printf("Hello, %s!\n", name)
+	},
 }
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "--describe" {
-		metadata := PluginMetadata{
-			Name:        "hello",
-			Version:     "1.0.0",
-			Description: "A simple hello world plugin for Nexlayer CLI",
-			Usage:       "nexlayer hello [name]",
-		}
-		json.NewEncoder(os.Stdout).Encode(metadata)
-		return
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
-
-	name := "World"
-	if len(os.Args) > 1 {
-		name = os.Args[1]
-	}
-	fmt.Printf("Hello, %s!"
-", name)"
 }

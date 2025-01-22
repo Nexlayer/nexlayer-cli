@@ -1,3 +1,4 @@
+// Package commands contains the CLI commands for the application.
 package commands
 
 import (
@@ -8,60 +9,53 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// InitCmd represents the init command
 var InitCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Initialize Nexlayer CLI configuration",
-	Long: `Initialize Nexlayer CLI configuration and set up your environment.
-This command will help you set up your authentication token and configure
-basic settings for the Nexlayer CLI.`,
+	Use:   "init [name]",
+	Short: "Initialize a new project",
+	Long: `Initialize a new project with the given name.
+Example: nexlayer init my-app`,
+	Args: cobra.ExactArgs(1),
 	RunE: runInit,
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	fmt.Println("🚀 Welcome to Nexlayer CLI!")
-	fmt.Println(""
-Let's get you set up with everything you need.")"
+	projectName := args[0]
 
-	// Create config directory if it doesn't exist
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+	// Create project directory
+	if err := os.MkdirAll(projectName, 0755); err != nil {
+		return fmt.Errorf("failed to create project directory: %w", err)
 	}
 
-	configDir := filepath.Join(homeDir, ".nexlayer")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
+	// Create templates directory
+	templatesDir := filepath.Join(projectName, "templates")
+	if err := os.MkdirAll(templatesDir, 0755); err != nil {
+		return fmt.Errorf("failed to create templates directory: %w", err)
 	}
 
-	// Check if auth token is already set
-	token := os.Getenv("NEXLAYER_AUTH_TOKEN")
-	if token == "" {
-		fmt.Println(""
-📝 To get started, you'll need an authentication token.")"
-		fmt.Println("You can get your token by visiting: https://app.nexlayer.io/settings/tokens")
-		fmt.Println(""
-Once you have your token, set it in your environment:")"
-		fmt.Println(""
-export NEXLAYER_AUTH_TOKEN=your_token_here")"
-
-		// Add to common shell config files
-		fmt.Println(""
-Pro tip: Add this to your shell configuration file (~/.bashrc, ~/.zshrc, etc.)")"
-		fmt.Println("to make it permanent.")
-	} else {
-		fmt.Println(""
- Authentication token is already set!")"
+	// Create default template file
+	templatePath := filepath.Join(templatesDir, "default.yaml")
+	defaultTemplate := []byte(`name: default
+version: 1.0.0
+description: Default template
+components:
+  - name: app
+    type: container
+    image: nginx:latest
+    ports:
+      - 80:80
+`)
+	if err := os.WriteFile(templatePath, defaultTemplate, 0644); err != nil {
+		return fmt.Errorf("failed to create default template: %w", err)
 	}
 
-	fmt.Println(""
-🎉 Next steps:")"
-	fmt.Println("1. Run 'nexlayer wizard' to start the interactive deployment wizard")
-	fmt.Println("2. Or use 'nexlayer deploy' to deploy an existing template")
-	fmt.Println(""
-📚 For more information:")"
-	fmt.Println("- Run 'nexlayer --help' to see all available commands")
-	fmt.Println("- Visit our documentation at https://docs.nexlayer.io")
-	fmt.Println("- Join our community at https://community.nexlayer.io")
+	fmt.Printf("Created new project: %s\n", projectName)
+	fmt.Printf("  - Created %s/\n", projectName)
+	fmt.Printf("  - Created %s/templates/\n", projectName)
+	fmt.Printf("  - Created %s/templates/default.yaml\n", projectName)
+	fmt.Println("\nNext steps:")
+	fmt.Printf("  cd %s\n", projectName)
+	fmt.Println("  nexlayer deploy default")
 
 	return nil
 }

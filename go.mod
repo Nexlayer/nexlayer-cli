@@ -1,19 +1,18 @@
 module github.com/Nexlayer/nexlayer-cli
 
-go 1.22.0
+go 1.21.0
 
-toolchain go1.23.4
+require (
+	github.com/fatih/color v1.16.0 // indirect
+	github.com/spf13/cobra v1.8.0
+)
 
 require (
 	github.com/briandowns/spinner v1.23.2
 	github.com/charmbracelet/bubbles v0.20.0
 	github.com/charmbracelet/bubbletea v1.2.4
 	github.com/charmbracelet/lipgloss v1.0.0
-	github.com/fatih/color v1.18.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/spf13/cobra v1.8.0
-	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
-	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
@@ -33,8 +32,8 @@ require (
 	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/sync v0.10.0 // indirect
+	golang.org/x/sync v0.9.0 // indirect
 	golang.org/x/sys v0.27.0 // indirect
 	golang.org/x/term v0.1.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/text v0.3.8 // indirect
 )

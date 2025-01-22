@@ -62,14 +62,14 @@ func (e Editor) View() string {
 	style := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62")).
-		Padding(1)
+		Padding(1).
+		Width(100).
+		Height(20)
 
-	return style.Render(e.textarea.View()) + ""
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241"))
 
-" +"
-		lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
-			Render("Press Ctrl+S to save, ESC to exit")
+	return style.Render(e.textarea.View()) + "\n" + helpStyle.Render("Press Ctrl+S to save, ESC to exit")
 }
 
 // GetContent returns the editor content

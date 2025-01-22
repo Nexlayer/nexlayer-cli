@@ -2,34 +2,42 @@ package commands
 
 import (
 	"fmt"
-	"strings"
+	"os"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/ai"
+	"github.com/Nexlayer/nexlayer-cli/pkg/api"
 	"github.com/spf13/cobra"
 )
 
-var AIClient ai.AIClient
-
-// AISuggestCmd represents the ai:suggest command
+// AISuggestCmd represents the ai-suggest command
 var AISuggestCmd = &cobra.Command{
-	Use:   "ai:suggest [prompt]",
-	Short: "Send a prompt to your configured AI provider and receive a suggestion",
-	Args:  cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		if AIClient == nil {
-			fmt.Println("AI not configured. Set either OPENAI_API_KEY or CLAUDE_API_KEY environment variable.")
-			return
-		}
+	Use:   "ai-suggest [query]",
+	Short: "Get AI suggestions",
+	Long: `Get AI-powered suggestions for your deployment.
+Example: nexlayer ai-suggest "optimize my nodejs app"`,
+	Args: cobra.ExactArgs(1),
+	RunE: runAISuggest,
+}
 
-		prompt := strings.Join(args, " ")
-		suggestion, err := AIClient.Suggest(prompt)
-		if err != nil {
-			fmt.Printf("AI Suggestion Error: %v"
-", err)"
-			return
-		}
+func runAISuggest(cmd *cobra.Command, args []string) error {
+	query := args[0]
 
-		fmt.Printf("[%s/%s]: %s"
-", AIClient.GetProvider(), AIClient.GetModel(), suggestion)"
-	},
+	// Get session ID from environment
+	sessionID := os.Getenv("NEXLAYER_AUTH_TOKEN")
+	if sessionID == "" {
+		return fmt.Errorf("NEXLAYER_AUTH_TOKEN environment variable is not set")
+	}
+
+	// Create client
+	client := api.NewClient("https://app.staging.nexlayer.io")
+	suggestions, err := client.GetAISuggestions(query, sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to get AI suggestions: %w", err)
+	}
+
+	fmt.Printf("AI Suggestions for: %s\n\n", query)
+	for i, suggestion := range suggestions {
+		fmt.Printf("%d. %s\n", i+1, suggestion)
+	}
+
+	return nil
 }

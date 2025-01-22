@@ -1,3 +1,4 @@
+// Package commands contains the CLI commands for the Nexlayer CLI.
 package commands
 
 import (
@@ -8,18 +9,27 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	domainName string
+)
+
+func init() {
+	DomainCmd.Flags().StringVarP(&domainName, "domain", "d", "", "Custom domain name")
+	_ = DomainCmd.MarkFlagRequired("domain")
+}
+
 // DomainCmd represents the domain command
 var DomainCmd = &cobra.Command{
-	Use:   "domain [domain]",
-	Short: "Set a custom domain",
-	Long: `Set a custom domain for your deployment.
-Example: nexlayer domain mydomain.com`,
+	Use:   "domain [namespace]",
+	Short: "Set custom domain",
+	Long: `Set a custom domain for a deployment.
+Example: nexlayer domain my-app --domain example.com`,
 	Args: cobra.ExactArgs(1),
 	RunE: runDomain,
 }
 
 func runDomain(cmd *cobra.Command, args []string) error {
-	domain := args[0]
+	namespace := args[0]
 
 	// Get session ID from environment
 	sessionID := os.Getenv("NEXLAYER_AUTH_TOKEN")
@@ -27,14 +37,13 @@ func runDomain(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("NEXLAYER_AUTH_TOKEN environment variable is not set")
 	}
 
-	// Create client with staging URL
+	// Create client
 	client := api.NewClient("https://app.staging.nexlayer.io")
-	resp, err := client.SaveCustomDomain(sessionID, domain)
+	err := client.SetCustomDomain(namespace, sessionID, domainName)
 	if err != nil {
-		return fmt.Errorf("failed to save custom domain: %w", err)
+		return fmt.Errorf("failed to set custom domain: %w", err)
 	}
 
-	fmt.Printf("✓ %s"
-", resp.Message)"
+	fmt.Printf("Successfully set custom domain %s for %s\n", domainName, namespace)
 	return nil
 }
