@@ -1,0 +1,43 @@
+# Secrets and environment variables
+.env
+.env.*
+*.pem
+*.key
+*.cert
+
+# IDE and system files
+.idea/
+.vscode/
+.DS_Store
+
+# Build artifacts
+bin/
+dist/
+
+# Test files
+*.test
+coverage.out
+
+# Debug files
+debug
+*.debug
+__debug_bin
+
+# Local development
+local/
+*.local
+*.local.*
+
+# Dependency directories
+vendor/
+
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Log files
+*.log
+logs/

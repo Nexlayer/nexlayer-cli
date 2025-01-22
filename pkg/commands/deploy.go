@@ -11,6 +11,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/config"
 	"github.com/Nexlayer/nexlayer-cli/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
@@ -53,7 +54,8 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	s.Start()
 
 	// Validate environment
-	if environment != "staging" && environment != "production" {
+	env, valid := config.ValidateEnvironment(environment)
+	if !valid {
 		return errors.NewValidationError(
 			"Invalid environment specified",
 			nil,
@@ -100,11 +102,9 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	// Update spinner for deployment
 	s.Suffix = " Initiating deployment"
 	
-	// Create client with appropriate URL
-	baseURL := "https://app.staging.nexlayer.io"
-	if environment == "production" {
-		baseURL = "https://app.nexlayer.io"
-	}
+	// Get API endpoint from config
+	cfg := config.GetConfig()
+	baseURL := cfg.GetAPIEndpoint(env)
 	
 	if debug {
 		fmt.Printf("\n🔍 Debug: Using API endpoint %s\n", baseURL)

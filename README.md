@@ -121,6 +121,74 @@ app:
     targetCPU: 70
 ```
 
+## Security Best Practices
+
+### Environment Variables
+
+The CLI uses the following environment variables:
+
+```bash
+# Required
+NEXLAYER_AUTH_TOKEN="your_auth_token"    # Your authentication token
+
+# Optional - Override default API endpoints
+NEXLAYER_API_URL="https://custom.api.url" # Production API endpoint
+NEXLAYER_STAGING_API_URL="https://staging.api.url" # Staging API endpoint
+```
+
+### Authentication Token Security
+
+1. **Never commit tokens to version control**
+   - Store tokens in environment variables
+   - Use secure secret management in CI/CD pipelines
+   - Consider using tools like HashiCorp Vault or AWS Secrets Manager
+
+2. **Token Best Practices**
+   - Rotate tokens regularly
+   - Use tokens with minimal required permissions
+   - One token per environment/purpose
+   - Revoke tokens immediately if exposed
+
+3. **Local Development**
+   - Use `.env` files (not committed to git)
+   - Different tokens for different environments
+   ```bash
+   # .env.development
+   NEXLAYER_AUTH_TOKEN=dev_token
+   NEXLAYER_STAGING_API_URL=http://localhost:8080
+   ```
+
+### Secure CI/CD Integration
+
+```yaml
+# GitHub Actions example with secure token handling
+name: Deploy with Nexlayer
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Nexlayer CLI
+        run: go install github.com/Nexlayer/nexlayer-cli@latest
+      - name: Deploy to Production
+        env:
+          # Use GitHub's secret management
+          NEXLAYER_AUTH_TOKEN: ${{ secrets.NEXLAYER_AUTH_TOKEN }}
+        run: nexlayer deploy my-app --env production
+```
+
+### File Security
+
+Ensure these files are in your `.gitignore`:
+- `.env` and `.env.*` files
+- `*.pem`, `*.key`, `*.cert` files
+- Local development configurations
+- Build artifacts and logs
+
 ## Troubleshooting
 
 ### Common Error Messages
