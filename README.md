@@ -121,20 +121,24 @@ app:
     targetCPU: 70
 ```
 
-## Security Best Practices
+## Environment Setup
 
-### Environment Variables
-
-The CLI uses the following environment variables:
+The CLI requires only one environment variable:
 
 ```bash
-# Required
-NEXLAYER_AUTH_TOKEN="your_auth_token"    # Your authentication token
-
-# Optional - Override default API endpoints
-NEXLAYER_API_URL="https://custom.api.url" # Production API endpoint
-NEXLAYER_STAGING_API_URL="https://staging.api.url" # Staging API endpoint
+NEXLAYER_AUTH_TOKEN="your_auth_token"    # Your authentication token from https://app.nexlayer.io/settings/tokens
 ```
+
+This token is used to authenticate your CLI requests with the Nexlayer API. You can get your token by:
+1. Logging into your Nexlayer account
+2. Going to Settings → API Tokens
+3. Creating a new token with appropriate permissions
+
+For different environments:
+- Use `--env staging` (default) to deploy to `https://app.staging.nexlayer.io`
+- Use `--env production` to deploy to `https://app.nexlayer.io`
+
+## Security Best Practices
 
 ### Authentication Token Security
 

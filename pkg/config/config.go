@@ -11,6 +11,10 @@ type Environment string
 const (
 	Production Environment = "production"
 	Staging    Environment = "staging"
+
+	// Default API endpoints
+	productionAPI = "https://app.nexlayer.io"
+	stagingAPI    = "https://app.staging.nexlayer.io"
 )
 
 var (
@@ -28,8 +32,8 @@ func GetConfig() *Config {
 	once.Do(func() {
 		instance = &Config{
 			APIEndpoints: map[Environment]string{
-				Production: getEnvOrDefault("NEXLAYER_API_URL", "https://app.nexlayer.io"),
-				Staging:    getEnvOrDefault("NEXLAYER_STAGING_API_URL", "https://app.staging.nexlayer.io"),
+				Production: productionAPI,
+				Staging:    stagingAPI,
 			},
 		}
 	})
@@ -44,14 +48,6 @@ func (c *Config) GetAPIEndpoint(env Environment) string {
 	return c.APIEndpoints[Staging] // Default to staging if environment not found
 }
 
-// getEnvOrDefault returns environment variable value or default if not set
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
 // ValidateEnvironment checks if the provided environment string is valid
 func ValidateEnvironment(env string) (Environment, bool) {
 	switch Environment(env) {
@@ -60,4 +56,9 @@ func ValidateEnvironment(env string) (Environment, bool) {
 	default:
 		return "", false
 	}
+}
+
+// GetAuthToken returns the authentication token or an empty string if not set
+func GetAuthToken() string {
+	return os.Getenv("NEXLAYER_AUTH_TOKEN")
 }
