@@ -6,19 +6,17 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands"
+	"github.com/Nexlayer/nexlayer-cli/pkg/version"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "nexlayer",
-	Short: "Nexlayer CLI - Deploy and manage your applications",
-	Long: `Nexlayer CLI is a command-line tool for deploying and managing your applications.
-It provides a simple interface to interact with the Nexlayer platform.
+	Use:     "nexlayer",
+	Short:   "Nexlayer CLI - Deploy and manage full-stack applications",
+	Version: version.Version,
+	Long: `Nexlayer CLI helps you deploy and manage full-stack applications with ease.
+Built for developers who value simplicity without sacrificing power.
 
-Example usage:
-  nexlayer deploy hello-world    # Deploy a template
-  nexlayer list                  # List all deployments
-  nexlayer info my-namespace     # Get deployment information
-  nexlayer domain mydomain.com   # Set a custom domain`,
+Find more information at: https://docs.nexlayer.io`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
