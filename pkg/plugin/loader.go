@@ -1,5 +1,6 @@
-// Formatted with gofmt -s
 package plugin
+
+// Formatted with gofmt -s
 
 import (
 	"context"

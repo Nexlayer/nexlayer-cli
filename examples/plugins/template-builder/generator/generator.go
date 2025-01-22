@@ -1,5 +1,6 @@
-// Formatted with gofmt -s
 package generator
+
+// Formatted with gofmt -s
 
 import (
 	"fmt"

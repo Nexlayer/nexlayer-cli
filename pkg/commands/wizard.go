@@ -1,5 +1,6 @@
-// Formatted with gofmt -s
 package commands
+
+// Formatted with gofmt -s
 
 import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/tui"

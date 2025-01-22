@@ -1,5 +1,6 @@
-// Formatted with gofmt -s
 package detector
+
+// Formatted with gofmt -s
 
 import (
 	"encoding/json"

@@ -1,5 +1,6 @@
-// Formatted with gofmt -s
 package ai
+
+// Formatted with gofmt -s
 
 // AIClient defines the interface that all AI providers must implement
 type AIClient interface {
