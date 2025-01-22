@@ -37,6 +37,13 @@ For a comprehensive guide to using Nexlayer CLI, see our [documentation](https:/
 curl -sf https://get.nexlayer.com | sh
 ```
 
+### Using Go (for latest version)
+
+```bash
+go install github.com/Nexlayer/nexlayer-cli@latest
+```
+Make sure your `$GOPATH/bin` is in your system PATH to access the CLI globally.
+
 ### Using package managers
 
 macOS with Homebrew:
@@ -49,7 +56,46 @@ Windows with Scoop:
 scoop install nexlayer-cli
 ```
 
-For other installation methods, see our [installation guide](https://docs.nexlayer.com/cli/install).
+## Getting Started
+
+After installation, verify the CLI is properly installed:
+
+```bash
+nexlayer --version
+```
+
+### Quick Start with Wizard
+
+The fastest way to get started is using our interactive wizard:
+
+```bash
+nexlayer wizard
+```
+
+The wizard will guide you through:
+- Project initialization
+- Configuration setup
+- Deployment options
+- Plugin selection and setup
+
+### Manual Setup
+
+1. Initialize a new project:
+```bash
+nexlayer init
+```
+
+2. Configure your project:
+```bash
+nexlayer config set
+```
+
+3. Deploy your application:
+```bash
+nexlayer deploy
+```
+
+For more detailed information and advanced usage, see our [documentation](https://docs.nexlayer.com).
 
 ## Quickstart
 
