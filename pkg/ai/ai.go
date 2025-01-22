@@ -1,3 +1,4 @@
+// Formatted with gofmt -s
 package ai
 
 // AIClient defines the interface that all AI providers must implement

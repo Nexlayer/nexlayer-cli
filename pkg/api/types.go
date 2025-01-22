@@ -1,3 +1,4 @@
+// Formatted with gofmt -s
 package api
 
 // StartDeploymentResponse represents the response from startUserDeployment endpoint

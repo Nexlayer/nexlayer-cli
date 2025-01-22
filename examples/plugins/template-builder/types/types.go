@@ -1,3 +1,4 @@
+// Formatted with gofmt -s
 package types
 
 // NexlayerTemplate represents a complete deployment template

@@ -1,3 +1,4 @@
+// Formatted with gofmt -s
 package plugin
 
 import (

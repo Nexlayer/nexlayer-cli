@@ -1,3 +1,4 @@
+// Formatted with gofmt -s
 package version
 
 // Version is the current version of the Nexlayer CLI
