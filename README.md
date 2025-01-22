@@ -42,38 +42,123 @@ go install github.com/Nexlayer/nexlayer-cli@latest
 
 Make sure your `$GOPATH/bin` is in your system PATH to access the CLI globally.
 
+## Workflow Overview
+
+Nexlayer CLI helps you manage both the build and deployment processes of your application:
+
+1. **Build Process** (via CI commands)
+   - Automate container image builds
+   - Push to your preferred container registry
+   - Run tests and quality checks
+
+2. **Deployment Process** (via Nexlayer platform)
+   - Deploy your built images
+   - Manage scaling and resources
+   - Monitor application health
+
 ## Common Commands
 
 ```bash
-# Start the interactive wizard (recommended for first-time users)
-nexlayer wizard
+# Build Process Commands
+# ---------------------
+# Set up GitHub Actions workflow for building images
+nexlayer ci setup github-actions --stack mern --registry ghcr.io
 
-# Initialize a new project
-nexlayer init
+# Customize build parameters
+nexlayer ci customize github-actions --image-tag v1.0.0 --build-context ./frontend
 
-# Deploy your application
+# Manage your container images
+nexlayer ci images list
+nexlayer ci images logs --image-name my-app --tag latest
+
+# Deployment Commands
+# ------------------
+# Deploy your built image
 nexlayer deploy my-app
 
 # Check deployment status
 nexlayer status my-app
 
-# View logs
-nexlayer logs my-app
-
-# Scale your application
+# Scale your deployment
 nexlayer scale my-app --replicas 3
 
-# Set up GitHub Actions workflow
+# View deployment logs
+nexlayer logs my-app
+```
+
+## CI/CD Integration
+
+### Build Automation
+
+The CLI helps you set up automated builds using GitHub Actions:
+
+```bash
+# Generate workflow file for building container images
 nexlayer ci setup github-actions --stack mern --registry ghcr.io
+```
 
-# Customize workflow parameters
-nexlayer ci customize github-actions --image-tag v1.0.0 --build-context ./frontend
+This creates a workflow that:
+- Builds your container image
+- Runs tests
+- Pushes to your container registry
 
-# List Docker images
+### Container Image Management
+
+Monitor and manage your container images:
+
+```bash
+# List all images in your registry
 nexlayer ci images list
 
-# View image build logs
+# View build logs
 nexlayer ci images logs --image-name my-app --tag latest
+```
+
+### Deployment
+
+Once your images are built and pushed, deploy them using Nexlayer:
+
+```bash
+# Deploy the latest version
+nexlayer deploy my-app
+
+# Scale your deployment
+nexlayer scale my-app --replicas 3
+```
+
+## Example: Full Workflow
+
+Here's a typical workflow using Nexlayer CLI:
+
+1. **Set Up Build Pipeline**
+```bash
+# Generate GitHub Actions workflow
+nexlayer ci setup github-actions --stack mern --registry ghcr.io
+```
+
+2. **Customize Build Settings**
+```bash
+# Configure build parameters
+nexlayer ci customize github-actions \
+  --image-tag v1.0.0 \
+  --build-context ./frontend
+```
+
+3. **Deploy Your Application**
+```bash
+# Deploy the built image
+nexlayer deploy my-app \
+  --image ghcr.io/your-org/your-app:v1.0.0 \
+  --env production
+```
+
+4. **Monitor and Scale**
+```bash
+# Check deployment status
+nexlayer status my-app
+
+# Scale if needed
+nexlayer scale my-app --replicas 3
 ```
 
 ## Real-World Examples
@@ -134,35 +219,6 @@ app:
     min: 2
     max: 5
     targetCPU: 70
-```
-
-## CI/CD Integration
-
-### GitHub Actions Setup
-
-Automatically generate and customize GitHub Actions workflows for your application:
-
-```bash
-# Generate workflow file
-nexlayer ci setup github-actions --stack mern --registry ghcr.io
-
-# Customize workflow
-nexlayer ci customize github-actions --image-tag v1.0.0 --build-context ./frontend
-```
-
-### Docker Image Management
-
-Manage your Docker images directly from the CLI:
-
-```bash
-# List all images
-nexlayer ci images list
-
-# Delete an image
-nexlayer ci images delete --image-name my-app --tag latest
-
-# View build logs
-nexlayer ci images logs --image-name my-app --tag latest
 ```
 
 ## Environment Setup
