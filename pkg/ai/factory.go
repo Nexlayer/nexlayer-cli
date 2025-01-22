@@ -1,7 +1,6 @@
 package ai
 
 // Formatted with gofmt -s
-
 import (
 	"fmt"
 	"os"

@@ -1,7 +1,6 @@
 package ai
 
 // Formatted with gofmt -s
-
 // AIClient defines the interface that all AI providers must implement
 type AIClient interface {
 	// Suggest receives a prompt and returns a suggestion or an error

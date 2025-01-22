@@ -1,7 +1,6 @@
 package config
 
 // Formatted with gofmt -s
-
 import (
 	"os"
 	"sync"
@@ -13,7 +12,6 @@ type Environment string
 const (
 	Production Environment = "production"
 	Staging    Environment = "staging"
-
 	// Default API endpoints
 	productionAPI = "https://app.nexlayer.io"
 	stagingAPI    = "https://app.staging.nexlayer.io"

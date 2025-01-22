@@ -1,7 +1,6 @@
 package types
 
 // Formatted with gofmt -s
-
 // NexlayerTemplate represents a complete deployment template
 type NexlayerTemplate struct {
 	Application struct {

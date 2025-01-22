@@ -4,12 +4,11 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"github.com/spf13/cobra"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
-
-	"github.com/spf13/cobra"
 )
 
 // PluginMetadata represents the JSON structure that plugins must output when called with --describe
