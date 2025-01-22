@@ -37,4 +37,5 @@ func init() {
 	rootCmd.AddCommand(commands.ScaleCmd)
 	rootCmd.AddCommand(commands.PluginCmd)
 	rootCmd.AddCommand(commands.AISuggestCmd)
+	rootCmd.AddCommand(commands.CICmd)
 }

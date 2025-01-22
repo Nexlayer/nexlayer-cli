@@ -62,6 +62,18 @@ nexlayer logs my-app
 
 # Scale your application
 nexlayer scale my-app --replicas 3
+
+# Set up GitHub Actions workflow
+nexlayer ci setup github-actions --stack mern --registry ghcr.io
+
+# Customize workflow parameters
+nexlayer ci customize github-actions --image-tag v1.0.0 --build-context ./frontend
+
+# List Docker images
+nexlayer ci images list
+
+# View image build logs
+nexlayer ci images logs --image-name my-app --tag latest
 ```
 
 ## Real-World Examples
@@ -122,6 +134,35 @@ app:
     min: 2
     max: 5
     targetCPU: 70
+```
+
+## CI/CD Integration
+
+### GitHub Actions Setup
+
+Automatically generate and customize GitHub Actions workflows for your application:
+
+```bash
+# Generate workflow file
+nexlayer ci setup github-actions --stack mern --registry ghcr.io
+
+# Customize workflow
+nexlayer ci customize github-actions --image-tag v1.0.0 --build-context ./frontend
+```
+
+### Docker Image Management
+
+Manage your Docker images directly from the CLI:
+
+```bash
+# List all images
+nexlayer ci images list
+
+# Delete an image
+nexlayer ci images delete --image-name my-app --tag latest
+
+# View build logs
+nexlayer ci images logs --image-name my-app --tag latest
 ```
 
 ## Environment Setup
