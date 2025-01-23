@@ -57,12 +57,12 @@ func newInitCmd() *cobra.Command {
 			}
 
 			template := &types.NexlayerTemplate{
-				Name:        args[0],
-				Version:    "0.1.0",
-				Services:   make([]types.Service, 0),
-				Resources:  make(map[string]types.Resource),
-				Config:     make(map[string]string),
-				Variables:  make(map[string]string),
+				Name:      args[0],
+				Version:   "0.1.0",
+				Services:  make([]types.Service, 0),
+				Resources: make(map[string]types.Resource),
+				Config:    make(map[string]string),
+				Variables: make(map[string]string),
 			}
 
 			outputPath := fmt.Sprintf("%s.yaml", args[0])
@@ -295,22 +295,22 @@ func BuildTemplate(projectDir string) (*types.NexlayerTemplate, error) {
 
 	// Temporarily disable AI refinement
 	/*
-	if aiProvider != "" {
-		if verbose {
-			color.Blue("Refining template with AI...")
-		}
+		if aiProvider != "" {
+			if verbose {
+				color.Blue("Refining template with AI...")
+			}
 
-		refiner, err := NewAIRefiner()
-		if err != nil {
-			return template, fmt.Errorf("warning: AI refinement not available: %v", err)
-		}
+			refiner, err := NewAIRefiner()
+			if err != nil {
+				return template, fmt.Errorf("warning: AI refinement not available: %v", err)
+			}
 
-		refined, err := refiner.RefineTemplate(*stack, template)
-		if err != nil {
-			return nil, fmt.Errorf("error refining template: %v", err)
+			refined, err := refiner.RefineTemplate(*stack, template)
+			if err != nil {
+				return nil, fmt.Errorf("error refining template: %v", err)
+			}
+			template = refined
 		}
-		template = refined
-	}
 	*/
 
 	return template, nil

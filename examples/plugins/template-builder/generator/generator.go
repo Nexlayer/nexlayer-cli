@@ -73,11 +73,11 @@ func generateServiceConfig(stack *types.ProjectStack) *types.Service {
 		if dbPort > 0 {
 			service.Ports = append(service.Ports, types.PortConfig{
 				Name:       stack.Database,
-				Port:      dbPort,
+				Port:       dbPort,
 				TargetPort: dbPort,
 				Protocol:   "TCP",
-				Host:      false,
-				Public:    false,
+				Host:       false,
+				Public:     false,
 			})
 		}
 	}

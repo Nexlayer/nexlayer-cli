@@ -114,7 +114,7 @@ func TestStartUserDeployment(t *testing.T) {
 		// Return response
 		resp := DeploymentResponse{
 			Message:   "Deployment started",
-			URL:      "https://test-app.nexlayer.io",
+			URL:       "https://test-app.nexlayer.io",
 			Namespace: "test-namespace",
 		}
 		json.NewEncoder(w).Encode(resp)

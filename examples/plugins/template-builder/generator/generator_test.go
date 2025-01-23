@@ -21,7 +21,7 @@ func TestGenerateTemplate(t *testing.T) {
 		{
 			name: "Node.js API with MongoDB",
 			stack: &types.ProjectStack{
-				Language:   "javascript",
+				Language:  "javascript",
 				Framework: "express",
 				Database:  "mongodb",
 			},
@@ -65,7 +65,7 @@ func TestGenerateTemplate(t *testing.T) {
 		{
 			name: "Python Web App",
 			stack: &types.ProjectStack{
-				Language:   "python",
+				Language:  "python",
 				Framework: "flask",
 				Database:  "postgres",
 			},

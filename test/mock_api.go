@@ -11,8 +11,8 @@ import (
 // Mock responses
 var mockDeployment = map[string]interface{}{
 	"namespace":        "test-namespace",
-	"templateID":      "0001",
-	"templateName":    "K-d chat",
+	"templateID":       "0001",
+	"templateName":     "K-d chat",
 	"deploymentStatus": "running",
 }
 
@@ -47,7 +47,7 @@ func handleStartUserDeployment(w http.ResponseWriter, r *http.Request) {
 	response := map[string]string{
 		"message":   "Deployment started",
 		"namespace": "fantastic-fox",
-		"url":      "https://fantastic-fox-my-mern-app.alpha.nexlayer.io",
+		"url":       "https://fantastic-fox-my-mern-app.alpha.nexlayer.io",
 	}
 
 	w.Header().Set("Content-Type", "application/json")

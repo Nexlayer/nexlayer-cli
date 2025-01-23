@@ -2,14 +2,14 @@ package types
 
 // NexlayerTemplate represents a complete infrastructure template
 type NexlayerTemplate struct {
-	Name      string            `json:"name" yaml:"name"`
-	Version   string            `json:"version" yaml:"version"`
-	Stack     ProjectStack      `json:"stack" yaml:"stack"`
-	Services  []Service         `json:"services" yaml:"services"`
+	Name      string              `json:"name" yaml:"name"`
+	Version   string              `json:"version" yaml:"version"`
+	Stack     ProjectStack        `json:"stack" yaml:"stack"`
+	Services  []Service           `json:"services" yaml:"services"`
 	Resources map[string]Resource `json:"resources,omitempty" yaml:"resources,omitempty"`
-	Config    map[string]string `json:"config,omitempty" yaml:"config,omitempty"`
-	Variables map[string]string `json:"variables,omitempty" yaml:"variables,omitempty"`
-	Secrets   map[string]string `json:"secrets,omitempty" yaml:"secrets,omitempty"`
+	Config    map[string]string   `json:"config,omitempty" yaml:"config,omitempty"`
+	Variables map[string]string   `json:"variables,omitempty" yaml:"variables,omitempty"`
+	Secrets   map[string]string   `json:"secrets,omitempty" yaml:"secrets,omitempty"`
 }
 
 // ProjectStack represents the technology stack of a project
@@ -21,12 +21,12 @@ type ProjectStack struct {
 
 // Service represents a deployable service
 type Service struct {
-	Name        string            `json:"name" yaml:"name"`
-	Image       string            `json:"image" yaml:"image"`
-	Command     []string          `json:"command,omitempty" yaml:"command,omitempty"`
-	Environment map[string]string `json:"environment,omitempty" yaml:"environment,omitempty"`
-	Ports       []PortConfig      `json:"ports,omitempty" yaml:"ports,omitempty"`
-	Resources   ResourceRequests  `json:"resources" yaml:"resources"`
+	Name        string             `json:"name" yaml:"name"`
+	Image       string             `json:"image" yaml:"image"`
+	Command     []string           `json:"command,omitempty" yaml:"command,omitempty"`
+	Environment map[string]string  `json:"environment,omitempty" yaml:"environment,omitempty"`
+	Ports       []PortConfig       `json:"ports,omitempty" yaml:"ports,omitempty"`
+	Resources   ResourceRequests   `json:"resources" yaml:"resources"`
 	Healthcheck *HealthcheckConfig `json:"healthcheck,omitempty" yaml:"healthcheck,omitempty"`
 }
 
@@ -56,11 +56,11 @@ type HealthcheckConfig struct {
 
 // Resource defines a deployable resource
 type Resource struct {
-	Type       string            `json:"type" yaml:"type"`
-	Version    string            `json:"version" yaml:"version"`
-	Config     map[string]string `json:"config,omitempty" yaml:"config,omitempty"`
-	Storage    []Storage         `json:"storage,omitempty" yaml:"storage,omitempty"`
-	Network    Network           `json:"network,omitempty" yaml:"network,omitempty"`
+	Type    string            `json:"type" yaml:"type"`
+	Version string            `json:"version" yaml:"version"`
+	Config  map[string]string `json:"config,omitempty" yaml:"config,omitempty"`
+	Storage []Storage         `json:"storage,omitempty" yaml:"storage,omitempty"`
+	Network Network           `json:"network,omitempty" yaml:"network,omitempty"`
 }
 
 // TemplateInfo represents template metadata for registry listings
@@ -118,9 +118,9 @@ type SecurityIssue struct {
 
 // ResourceCost represents the cost of a specific resource
 type ResourceCost struct {
-	Type         string  `json:"type" yaml:"type"`
-	MonthlyCost  float64 `json:"monthly_cost" yaml:"monthly_cost"`
-	Description  string  `json:"description" yaml:"description"`
+	Type        string  `json:"type" yaml:"type"`
+	MonthlyCost float64 `json:"monthly_cost" yaml:"monthly_cost"`
+	Description string  `json:"description" yaml:"description"`
 }
 
 // CostEstimate represents a complete cost estimation

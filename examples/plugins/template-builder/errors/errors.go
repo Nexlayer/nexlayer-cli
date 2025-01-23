@@ -10,18 +10,18 @@ type ErrorCode string
 
 const (
 	// Template related errors
-	ErrTemplateNotFound    ErrorCode = "TEMPLATE_NOT_FOUND"
-	ErrTemplateInvalid     ErrorCode = "TEMPLATE_INVALID"
-	ErrTemplateGeneration  ErrorCode = "TEMPLATE_GENERATION_FAILED"
-	
+	ErrTemplateNotFound   ErrorCode = "TEMPLATE_NOT_FOUND"
+	ErrTemplateInvalid    ErrorCode = "TEMPLATE_INVALID"
+	ErrTemplateGeneration ErrorCode = "TEMPLATE_GENERATION_FAILED"
+
 	// Project related errors
-	ErrProjectNotFound     ErrorCode = "PROJECT_NOT_FOUND"
-	ErrProjectInvalid      ErrorCode = "PROJECT_INVALID"
-	
+	ErrProjectNotFound ErrorCode = "PROJECT_NOT_FOUND"
+	ErrProjectInvalid  ErrorCode = "PROJECT_INVALID"
+
 	// Configuration related errors
-	ErrConfigInvalid       ErrorCode = "CONFIG_INVALID"
-	ErrConfigNotFound      ErrorCode = "CONFIG_NOT_FOUND"
-	
+	ErrConfigInvalid  ErrorCode = "CONFIG_INVALID"
+	ErrConfigNotFound ErrorCode = "CONFIG_NOT_FOUND"
+
 	// Registry related errors
 	ErrRegistryUnavailable ErrorCode = "REGISTRY_UNAVAILABLE"
 	ErrRegistryAuth        ErrorCode = "REGISTRY_AUTH_FAILED"
@@ -38,18 +38,18 @@ type CLIError struct {
 func (e *CLIError) Error() string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("[%s] %s", e.Code, e.Message))
-	
+
 	if e.Err != nil {
 		sb.WriteString(fmt.Sprintf(": %v", e.Err))
 	}
-	
+
 	if len(e.Context) > 0 {
 		sb.WriteString("\nContext:")
 		for k, v := range e.Context {
 			sb.WriteString(fmt.Sprintf("\n  %s: %v", k, v))
 		}
 	}
-	
+
 	return sb.String()
 }
 

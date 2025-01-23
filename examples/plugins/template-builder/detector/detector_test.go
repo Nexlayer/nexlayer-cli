@@ -14,7 +14,7 @@ func TestDetectStack(t *testing.T) {
 		name     string
 		files    map[string]string
 		expected struct {
-			Language   string
+			Language  string
 			Framework string
 			Database  string
 		}
@@ -30,11 +30,11 @@ func TestDetectStack(t *testing.T) {
 				}`,
 			},
 			expected: struct {
-				Language   string
+				Language  string
 				Framework string
 				Database  string
 			}{
-				Language:   "nodejs",
+				Language:  "nodejs",
 				Framework: "react",
 				Database:  "mongodb",
 			},
@@ -48,11 +48,11 @@ func TestDetectStack(t *testing.T) {
 				`,
 			},
 			expected: struct {
-				Language   string
+				Language  string
 				Framework string
 				Database  string
 			}{
-				Language:   "python",
+				Language:  "python",
 				Framework: "django",
 				Database:  "postgres",
 			},
@@ -66,11 +66,11 @@ func TestDetectStack(t *testing.T) {
 				`,
 			},
 			expected: struct {
-				Language   string
+				Language  string
 				Framework string
 				Database  string
 			}{
-				Language:   "go",
+				Language:  "go",
 				Framework: "gin",
 				Database:  "",
 			},
@@ -90,24 +90,24 @@ func TestDetectStack(t *testing.T) {
 				`,
 			},
 			expected: struct {
-				Language   string
+				Language  string
 				Framework string
 				Database  string
 			}{
-				Language:   "java",
+				Language:  "java",
 				Framework: "spring",
 				Database:  "",
 			},
 		},
 		{
-			name: "Empty directory",
+			name:  "Empty directory",
 			files: map[string]string{},
 			expected: struct {
-				Language   string
+				Language  string
 				Framework string
 				Database  string
 			}{
-				Language:   "",
+				Language:  "",
 				Framework: "",
 				Database:  "",
 			},

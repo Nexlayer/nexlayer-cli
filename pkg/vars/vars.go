@@ -39,7 +39,7 @@ var (
 	RegistryType     string // Container registry type (ghcr or dockerhub)
 	Registry         string // Container registry URL
 	RegistryUsername string // Registry username
-	
+
 	// Build configuration
 	BuildContext string // Docker build context path
 	ImageTag     string // Docker image tag

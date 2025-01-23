@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	
+
 	"github.com/nexlayer/nexlayer-cli/plugins/template-builder/v2/errors"
 )
 
@@ -40,10 +40,10 @@ func NewManager() (*Manager, error) {
 	if err != nil {
 		return nil, errors.NewError(errors.ErrConfigNotFound, "could not find home directory", err)
 	}
-	
+
 	configDir := filepath.Join(homeDir, ".nexlayer")
 	configPath := filepath.Join(configDir, "config.json")
-	
+
 	return &Manager{
 		configPath: configPath,
 	}, nil
@@ -54,7 +54,7 @@ func (m *Manager) Load() error {
 	if err := os.MkdirAll(filepath.Dir(m.configPath), 0755); err != nil {
 		return errors.NewError(errors.ErrConfigNotFound, "could not create config directory", err)
 	}
-	
+
 	data, err := os.ReadFile(m.configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -63,12 +63,12 @@ func (m *Manager) Load() error {
 		}
 		return errors.NewError(errors.ErrConfigNotFound, "could not read config file", err)
 	}
-	
+
 	config := DefaultConfig()
 	if err := json.Unmarshal(data, config); err != nil {
 		return errors.NewError(errors.ErrConfigInvalid, "could not parse config file", err)
 	}
-	
+
 	m.config = config
 	return nil
 }
@@ -79,11 +79,11 @@ func (m *Manager) Save() error {
 	if err != nil {
 		return errors.NewError(errors.ErrConfigInvalid, "could not marshal config", err)
 	}
-	
+
 	if err := os.WriteFile(m.configPath, data, 0644); err != nil {
 		return errors.NewError(errors.ErrConfigInvalid, "could not write config file", err)
 	}
-	
+
 	return nil
 }
 

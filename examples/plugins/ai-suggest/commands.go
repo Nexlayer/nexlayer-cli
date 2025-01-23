@@ -5,8 +5,8 @@ import (
 )
 
 var (
-	modelFlag        string
-	docsPathFlag     string
+	modelFlag         string
+	docsPathFlag      string
 	templatesPathFlag string
 )
 

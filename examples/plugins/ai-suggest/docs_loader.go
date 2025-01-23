@@ -85,7 +85,7 @@ func LoadDocumentation(docsPath, templatesPath string) (*DocsContent, error) {
 // GetRelevantDocs returns relevant documentation content for a specific category
 func (d *DocsContent) GetRelevantDocs(category string) []string {
 	var content []string
-	
+
 	switch category {
 	case "deployment":
 		for _, doc := range d.Deployment {

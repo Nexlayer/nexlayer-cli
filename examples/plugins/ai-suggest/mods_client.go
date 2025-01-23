@@ -15,21 +15,21 @@ import (
 
 var (
 	styleHeading = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#7B61FF")).
-		Bold(true).
-		Padding(1, 0)
+			Foreground(lipgloss.Color("#7B61FF")).
+			Bold(true).
+			Padding(1, 0)
 
 	styleSelected = lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#874BFD")).
-		Padding(1).
-		MarginTop(1)
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#874BFD")).
+			Padding(1).
+			MarginTop(1)
 
 	styleUnselected = lipgloss.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.NoColor{}).
-		Padding(1).
-		MarginTop(1)
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.NoColor{}).
+			Padding(1).
+			MarginTop(1)
 )
 
 // suggestion represents a single AI suggestion
@@ -81,9 +81,9 @@ func newModel(client AIClient) model {
 	return model{
 		spinner:   s,
 		textInput: ti,
-		list:     l,
-		client:   client,
-		renderer: renderer,
+		list:      l,
+		client:    client,
+		renderer:  renderer,
 	}
 }
 
@@ -201,7 +201,7 @@ func (m model) View() string {
 
 type suggestionsMsg struct {
 	suggestions []string
-	err        error
+	err         error
 }
 
 func (m model) getSuggestions() tea.Msg {

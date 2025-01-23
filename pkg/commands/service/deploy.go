@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	serviceName  string
+	serviceName string
 )
 
 // DeployCmd represents the deploy command

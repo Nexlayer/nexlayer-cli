@@ -30,7 +30,7 @@ This will create a basic workflow file in .github/workflows/build.yml`,
 
 func init() {
 	setupCmd.AddCommand(githubActionsSetupCmd)
-	
+
 	// Add flags for registry configuration
 	githubActionsSetupCmd.Flags().StringVar(&vars.RegistryType, "registry-type", "ghcr", "Container registry type (ghcr or dockerhub)")
 	githubActionsSetupCmd.Flags().StringVar(&vars.Registry, "registry", "", "Container registry URL (optional, defaults based on type)")
@@ -154,6 +154,6 @@ jobs:
 		fmt.Println("  - DOCKERHUB_USERNAME: Your Docker Hub username")
 		fmt.Println("  - DOCKERHUB_TOKEN: Your Docker Hub access token (create at https://hub.docker.com/settings/security)")
 	}
-	
+
 	return nil
 }

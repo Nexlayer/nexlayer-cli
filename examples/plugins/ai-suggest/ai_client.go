@@ -98,7 +98,7 @@ func NewAIClient(model, docsPath, templatesPath string) (AIClient, error) {
 
 // Config represents the configuration file structure
 type Config struct {
-	OpenAIKey   string `yaml:"openai_api_key"`
+	OpenAIKey    string `yaml:"openai_api_key"`
 	AnthropicKey string `yaml:"anthropic_api_key"`
 }
 
@@ -122,7 +122,7 @@ func loadConfig() (*Config, error) {
 // GetSuggestions gets AI-powered suggestions from OpenAI
 func (c *OpenAIClient) GetSuggestions(ctx context.Context, category string, appInfo map[string]interface{}) ([]string, error) {
 	prompt := c.generatePrompt(category, appInfo)
-	
+
 	resp, err := c.client.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
@@ -168,7 +168,7 @@ Format your responses in Markdown with the following structure:
 // StreamSuggestions streams AI-powered suggestions from OpenAI
 func (c *OpenAIClient) StreamSuggestions(ctx context.Context, category string, appInfo map[string]interface{}) (<-chan string, <-chan error) {
 	prompt := c.generatePrompt(category, appInfo)
-	
+
 	suggestions := make(chan string)
 	errors := make(chan error)
 
@@ -226,11 +226,11 @@ Format your responses in Markdown with the following structure:
 // generatePrompt creates a prompt for the AI model
 func (c *OpenAIClient) generatePrompt(category string, appInfo map[string]interface{}) string {
 	var prompt strings.Builder
-	
+
 	// Base prompt
 	prompt.WriteString("You are an expert in Nexlayer deployments and cloud-native applications.\n\n")
 	prompt.WriteString(fmt.Sprintf("Analyze this Nexlayer application and provide %s optimization suggestions based on Nexlayer's best practices:\n\n", category))
-	
+
 	// Add app info
 	prompt.WriteString("Application Configuration:\n")
 	for k, v := range appInfo {
@@ -275,7 +275,7 @@ func (c *OpenAIClient) generatePrompt(category string, appInfo map[string]interf
 4. Health checks and monitoring
 5. Deployment strategies specific to Nexlayer
 6. Environment configuration`)
-	
+
 	case "domain":
 		prompt.WriteString(`
 1. Custom domain setup using saveCustomDomain API
@@ -284,7 +284,7 @@ func (c *OpenAIClient) generatePrompt(category string, appInfo map[string]interf
 4. Domain routing strategies
 5. Subdomain organization
 6. URL structure optimization`)
-	
+
 	case "status":
 		prompt.WriteString(`
 1. Deployment status monitoring via getDeployments API
@@ -293,7 +293,7 @@ func (c *OpenAIClient) generatePrompt(category string, appInfo map[string]interf
 4. Performance metrics collection
 5. Alert configuration
 6. Troubleshooting approaches`)
-	
+
 	case "template":
 		prompt.WriteString(`
 1. Template selection and customization
@@ -303,13 +303,13 @@ func (c *OpenAIClient) generatePrompt(category string, appInfo map[string]interf
 5. Volume management
 6. Template migration strategies`)
 	}
-	
+
 	prompt.WriteString("\n\nFor each suggestion:\n")
 	prompt.WriteString("1. Explain WHY it follows Nexlayer's best practices\n")
 	prompt.WriteString("2. Show HOW to implement it using Nexlayer commands\n")
 	prompt.WriteString("3. Include relevant configuration examples\n")
 	prompt.WriteString("4. Reference specific Nexlayer features or APIs\n")
-	
+
 	return prompt.String()
 }
 
@@ -327,7 +327,7 @@ func (c *OpenAIClient) generateSearchQueries(category string, appInfo map[string
 				queries = append(queries, fmt.Sprintf("deploy %s service", service))
 			}
 		}
-		queries = append(queries, 
+		queries = append(queries,
 			"deployment configuration yaml",
 			"zero downtime deployment",
 			"resource allocation",

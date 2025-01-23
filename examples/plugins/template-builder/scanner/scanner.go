@@ -123,9 +123,9 @@ func (c *CostScanner) EstimateCosts(template *types.NexlayerTemplate) (*types.Co
 		if cpu != "" && memory != "" {
 			computeCost := c.estimateComputeCost(cpu, memory)
 			resourceCosts = append(resourceCosts, types.ResourceCost{
-				Type:         "compute",
-				MonthlyCost:  computeCost,
-				Description:  fmt.Sprintf("Compute resources for service %s", service.Name),
+				Type:        "compute",
+				MonthlyCost: computeCost,
+				Description: fmt.Sprintf("Compute resources for service %s", service.Name),
 			})
 			totalCost += computeCost
 		}
@@ -136,9 +136,9 @@ func (c *CostScanner) EstimateCosts(template *types.NexlayerTemplate) (*types.Co
 		for _, storage := range resource.Storage {
 			storageCost := c.estimateStorageCost(storage.Size, storage.Type)
 			resourceCosts = append(resourceCosts, types.ResourceCost{
-				Type:         "storage",
-				MonthlyCost:  storageCost,
-				Description:  fmt.Sprintf("Storage resources for %s", name),
+				Type:        "storage",
+				MonthlyCost: storageCost,
+				Description: fmt.Sprintf("Storage resources for %s", name),
 			})
 			totalCost += storageCost
 		}
@@ -147,9 +147,9 @@ func (c *CostScanner) EstimateCosts(template *types.NexlayerTemplate) (*types.Co
 		if resource.Network.Ingress != "" || resource.Network.Egress != "" {
 			networkCost := c.estimateNetworkCost(resource.Network)
 			resourceCosts = append(resourceCosts, types.ResourceCost{
-				Type:         "network",
-				MonthlyCost:  networkCost,
-				Description:  fmt.Sprintf("Network resources for %s", name),
+				Type:        "network",
+				MonthlyCost: networkCost,
+				Description: fmt.Sprintf("Network resources for %s", name),
 			})
 			totalCost += networkCost
 		}
@@ -165,8 +165,8 @@ func (c *CostScanner) EstimateCosts(template *types.NexlayerTemplate) (*types.Co
 func (c *CostScanner) estimateComputeCost(cpu, memory string) float64 {
 	// Simple cost estimation based on CPU and memory
 	// In a real implementation, this would use cloud provider pricing
-	cpuCost := 50.0  // $50 per CPU per month
-	memCost := 10.0  // $10 per GB per month
+	cpuCost := 50.0 // $50 per CPU per month
+	memCost := 10.0 // $10 per GB per month
 
 	// Parse CPU value (assuming format like "1" or "0.5")
 	var cpuValue float64

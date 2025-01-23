@@ -147,7 +147,7 @@ func TestTemplateDiff(t *testing.T) {
 		Stack: types.ProjectStack{
 			Language:  "javascript",
 			Framework: "react",
-			Database: "mongodb",
+			Database:  "mongodb",
 		},
 	}
 

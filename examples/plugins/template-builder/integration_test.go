@@ -18,7 +18,7 @@ func buildCLI(t *testing.T, dir string) string {
 		"GOARCH=amd64",
 		"CGO_ENABLED=0",
 	)
-	
+
 	buildOutput, err := buildCmd.CombinedOutput()
 	require.NoError(t, err, "failed to build CLI: %s", buildOutput)
 
