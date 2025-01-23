@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/app"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/deploy"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/domain"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/info"
@@ -32,10 +33,21 @@ func Execute() {
 func init() {
 	// Add commands
 	rootCmd.AddCommand(
-		deploy.Command,
-		domain.Command,
-		info.Command,
-		list.Command,
 		login.Command,
+	)
+	rootCmd.AddCommand(
+		deploy.Command,
+	)
+	rootCmd.AddCommand(
+		domain.Command,
+	)
+	rootCmd.AddCommand(
+		info.Command,
+	)
+	rootCmd.AddCommand(
+		list.Command,
+	)
+	rootCmd.AddCommand(
+		app.Cmd,
 	)
 }

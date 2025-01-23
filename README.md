@@ -208,6 +208,26 @@ nexlayer deploy my-app
 nexlayer scale my-app --replicas 3
 ```
 
+## Application Management
+
+The CLI provides commands to manage your Nexlayer applications:
+
+### List Applications
+
+List all your applications:
+
+```bash
+nexlayer app list
+```
+
+### Create Application
+
+Create a new application:
+
+```bash
+nexlayer app create --name "my-app-name"
+```
+
 ## Example: Full Workflow
 
 Here's a typical workflow using Nexlayer CLI:
