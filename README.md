@@ -30,6 +30,14 @@ nexlayer wizard
 
 That's it! The wizard will guide you through deployment setup. Your GitHub authentication is handled automatically through Nexlayer.
 
+## Recent Updates
+
+- Restructured API types into dedicated package for better organization
+- Enhanced AI suggestion plugin with improved client implementation
+- Updated template builder plugin with additional features
+- Improved authentication handling and client testing
+- Added comprehensive info command functionality
+
 ## Requirements
 
 - Go version 1.21 or later

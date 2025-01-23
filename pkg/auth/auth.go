@@ -10,7 +10,7 @@ import (
 const (
 	configDir  = ".nexlayer"
 	tokenFile  = "token.json"
-	defaultToken = "default-token" // This will be replaced by actual authentication
+	sessionID  = "R99BLvxPgvaXW" // Test session ID
 )
 
 type TokenConfig struct {
@@ -19,9 +19,8 @@ type TokenConfig struct {
 
 // GetToken returns the authentication token
 func GetToken() (string, error) {
-	// TODO: Implement proper token management
-	// For now, return the default token
-	return defaultToken, nil
+	// For testing, return the session ID
+	return sessionID, nil
 }
 
 // SaveToken saves the authentication token

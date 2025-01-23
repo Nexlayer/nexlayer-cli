@@ -7,46 +7,44 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	applicationID string
-	namespace     string
-)
+func NewInfoCmd() *cobra.Command {
+	var namespace string
+	var applicationID string
 
-// Command represents the info command
-var Command = &cobra.Command{
-	Use:   "info",
-	Short: "Get deployment information",
-	Long: `Get detailed information about a deployment.
-Example:
-  nexlayer-cli info --app my-app --namespace my-namespace`,
-	RunE: runInfo,
-}
+	cmd := &cobra.Command{
+		Use:   "info",
+		Short: "Get detailed information about a deployment",
+		Long:  `Get detailed information about a deployment, including its status and logs.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Create API client
+			client, err := api.NewClient("https://api.nexlayer.dev")
+			if err != nil {
+				return fmt.Errorf("failed to create API client: %w", err)
+			}
 
-func init() {
-	Command.Flags().StringVar(&applicationID, "app", "", "Application ID")
-	Command.Flags().StringVar(&namespace, "namespace", "", "Deployment namespace")
-	Command.MarkFlagRequired("app")
-	Command.MarkFlagRequired("namespace")
-}
+			// Get deployment info
+			resp, err := client.GetDeploymentInfo(namespace, applicationID)
+			if err != nil {
+				return fmt.Errorf("failed to get deployment info: %w", err)
+			}
 
-func runInfo(cmd *cobra.Command, args []string) error {
-	// Create API client
-	client, err := api.NewClient("https://app.nexlayer.io")
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
+			// Print deployment info
+			fmt.Printf("Deployment Information:\n")
+			fmt.Printf("  Namespace: %s\n", resp.Namespace)
+			fmt.Printf("  Template: %s (%s)\n", resp.TemplateName, resp.TemplateID)
+			fmt.Printf("  Status: %s\n", resp.DeploymentStatus)
+
+			return nil
+		},
 	}
 
-	// Get deployment info
-	fmt.Printf("Fetching deployment information for application %s...\n", applicationID)
-	resp, err := client.GetDeploymentInfo(namespace, applicationID)
-	if err != nil {
-		return fmt.Errorf("failed to get deployment info: %w", err)
-	}
+	// Add flags
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace of the deployment")
+	cmd.Flags().StringVarP(&applicationID, "app", "a", "", "Application ID")
 
-	fmt.Printf("\nDeployment Information:\n")
-	fmt.Printf("Namespace: %s\n", resp.Deployment.Namespace)
-	fmt.Printf("Application ID: %s\n", resp.Deployment.ApplicationID)
-	fmt.Printf("Status: %s\n", resp.Deployment.DeploymentStatus)
+	// Mark flags as required
+	cmd.MarkFlagRequired("namespace")
+	cmd.MarkFlagRequired("app")
 
-	return nil
+	return cmd
 }

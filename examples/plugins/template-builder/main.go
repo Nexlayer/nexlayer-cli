@@ -195,7 +195,7 @@ func loadTemplate(path string) (*types.NexlayerTemplate, error) {
 	return &template, nil
 }
 
-func compareTemplates(t1, t2 *types.NexlayerTemplate) string {
+func compareTemplates(_t1, _t2 *types.NexlayerTemplate) string {
 	// TODO: Implement detailed template comparison
 	return "Template comparison not implemented yet"
 }
@@ -205,12 +205,12 @@ func incrementVersion(version string) string {
 	return version + "-next"
 }
 
-func updateTemplate(template *types.NexlayerTemplate) error {
+func updateTemplate(_template *types.NexlayerTemplate) error {
 	// TODO: Implement template update logic
 	return nil
 }
 
-func estimateTemplateCosts(template *types.NexlayerTemplate) (float64, error) {
+func estimateTemplateCosts(_template *types.NexlayerTemplate) (float64, error) {
 	// TODO: Implement cost estimation
 	return 0.0, nil
 }

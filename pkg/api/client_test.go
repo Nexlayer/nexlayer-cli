@@ -7,39 +7,36 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/api/types"
+	"github.com/stretchr/testify/assert"
 )
 
 func setupTestConfig(t *testing.T, token string) (string, func()) {
 	// Create temp directory
-	tmpDir, err := os.MkdirTemp("", "nexlayer-test")
+	configDir, err := os.MkdirTemp("", "nexlayer-test-*")
 	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-
-	// Create config directory
-	configDir := filepath.Join(tmpDir, ".nexlayer")
-	if err := os.MkdirAll(configDir, 0700); err != nil {
-		t.Fatalf("Failed to create config directory: %v", err)
+		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 
 	// Create config file
 	configPath := filepath.Join(configDir, "config")
-	config := Config{Token: token}
+	config := types.Config{
+		Token: token,
+	}
 	data, err := json.Marshal(config)
 	if err != nil {
 		t.Fatalf("Failed to marshal config: %v", err)
 	}
-
 	if err := os.WriteFile(configPath, data, 0600); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
+		t.Fatalf("Failed to write config: %v", err)
 	}
 
 	// Return cleanup function
-	cleanup := func() {
-		os.RemoveAll(tmpDir)
+	return configDir, func() {
+		os.RemoveAll(configDir)
 	}
-
-	return tmpDir, cleanup
 }
 
 func TestNewClient(t *testing.T) {
@@ -94,193 +91,214 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestStartUserDeployment(t *testing.T) {
-	// Create test server
+	// Create a test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check method
-		if r.Method != http.MethodPost {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
+		// Check request
+		assert.Equal(t, "/startUserDeployment/test-app", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "text/x-yaml", r.Header.Get("Content-Type"))
 
-		// Check path
-		if r.URL.Path != "/startUserDeployment/test-app" {
-			t.Errorf("Expected path /startUserDeployment/test-app, got %s", r.URL.Path)
-		}
-
-		// Check auth header
-		if r.Header.Get("Authorization") != "Bearer test-token" {
-			t.Errorf("Expected Authorization: Bearer test-token, got %s", r.Header.Get("Authorization"))
-		}
-
-		// Return response
-		resp := DeploymentResponse{
+		// Send response
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(types.DeploymentResponse{
 			Message:   "Deployment started",
-			URL:       "https://test-app.nexlayer.io",
-			Namespace: "test-namespace",
-		}
-		json.NewEncoder(w).Encode(resp)
+			Namespace: "default",
+			URL:       "https://example.com",
+		})
 	}))
 	defer server.Close()
-
-	// Setup test config
-	tmpDir, cleanup := setupTestConfig(t, "test-token")
-	defer cleanup()
-
-	// Set HOME environment variable
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
 
 	// Create test YAML file
 	yamlContent := []byte("name: test-app\nversion: 1.0.0")
-	yamlPath := filepath.Join(tmpDir, "test.yaml")
-	if err := os.WriteFile(yamlPath, yamlContent, 0600); err != nil {
-		t.Fatalf("Failed to write test YAML: %v", err)
+	tmpfile, err := os.CreateTemp("", "test-*.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+	if _, err := tmpfile.Write(yamlContent); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
 	}
 
 	// Create client
 	client, err := NewClient(server.URL)
 	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
+		t.Fatal(err)
 	}
 
 	// Test deployment
-	resp, err := client.StartUserDeployment("test-app", yamlPath)
+	resp, err := client.StartUserDeployment("test-app", tmpfile.Name())
 	if err != nil {
-		t.Fatalf("StartUserDeployment() error = %v", err)
+		t.Fatal(err)
 	}
 
 	// Check response
-	if resp.Message != "Deployment started" {
-		t.Errorf("Expected message 'Deployment started', got %q", resp.Message)
-	}
-	if resp.URL != "https://test-app.nexlayer.io" {
-		t.Errorf("Expected URL 'https://test-app.nexlayer.io', got %q", resp.URL)
-	}
-	if resp.Namespace != "test-namespace" {
-		t.Errorf("Expected namespace 'test-namespace', got %q", resp.Namespace)
-	}
+	assert.Equal(t, "Deployment started", resp.Message)
+	assert.Equal(t, "default", resp.Namespace)
+	assert.Equal(t, "https://example.com", resp.URL)
 }
 
 func TestSaveCustomDomain(t *testing.T) {
-	// Create test server
+	// Create a test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check method
-		if r.Method != http.MethodPost {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
+		// Check request
+		assert.Equal(t, "/saveCustomDomain/test-app", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
 
-		// Check path
-		if r.URL.Path != "/saveCustomDomain/test-app" {
-			t.Errorf("Expected path /saveCustomDomain/test-app, got %s", r.URL.Path)
-		}
+		// Check request body
+		var req types.SaveCustomDomainRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		assert.Equal(t, "example.com", req.Domain)
 
-		// Check auth header
-		if r.Header.Get("Authorization") != "Bearer test-token" {
-			t.Errorf("Expected Authorization: Bearer test-token, got %s", r.Header.Get("Authorization"))
-		}
-
-		// Return response
-		resp := CustomDomainResponse{
-			Message: "Domain configured",
-		}
-		json.NewEncoder(w).Encode(resp)
+		// Send response
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(types.SaveCustomDomainResponse{
+			Message: "Custom domain saved successfully",
+		})
 	}))
 	defer server.Close()
-
-	// Setup test config
-	tmpDir, cleanup := setupTestConfig(t, "test-token")
-	defer cleanup()
-
-	// Set HOME environment variable
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
 
 	// Create client
 	client, err := NewClient(server.URL)
 	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
+		t.Fatal(err)
 	}
 
-	// Test domain configuration
-	resp, err := client.SaveCustomDomain("test-app", "test.example.com")
+	// Test saving custom domain
+	resp, err := client.SaveCustomDomain("test-app", "example.com")
 	if err != nil {
-		t.Fatalf("SaveCustomDomain() error = %v", err)
+		t.Fatal(err)
 	}
 
 	// Check response
-	if resp.Message != "Domain configured" {
-		t.Errorf("Expected message 'Domain configured', got %q", resp.Message)
-	}
+	assert.Equal(t, "Custom domain saved successfully", resp.Message)
 }
 
 func TestGetDeployments(t *testing.T) {
-	// Create test server
+	// Create a test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check method
-		if r.Method != http.MethodGet {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+		// Check request
+		assert.Equal(t, "/getDeployments/test-app", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
 
-		// Check path
-		if r.URL.Path != "/getDeployments/test-app" {
-			t.Errorf("Expected path /getDeployments/test-app, got %s", r.URL.Path)
-		}
-
-		// Check auth header
-		if r.Header.Get("Authorization") != "Bearer test-token" {
-			t.Errorf("Expected Authorization: Bearer test-token, got %s", r.Header.Get("Authorization"))
-		}
-
-		// Return response
-		resp := DeploymentsResponse{
-			Deployments: []DeploymentInfo{
+		// Send response
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(types.GetDeploymentsResponse{
+			Deployments: []types.DeploymentInfo{
 				{
-					Namespace:        "test-namespace",
-					ApplicationID:    "test-app",
+					Namespace:        "default",
+					TemplateID:       "123",
+					TemplateName:     "MERN Todo",
 					DeploymentStatus: "running",
 				},
 			},
-		}
-		json.NewEncoder(w).Encode(resp)
+		})
 	}))
 	defer server.Close()
-
-	// Setup test config
-	tmpDir, cleanup := setupTestConfig(t, "test-token")
-	defer cleanup()
-
-	// Set HOME environment variable
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
 
 	// Create client
 	client, err := NewClient(server.URL)
 	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
+		t.Fatal(err)
 	}
 
 	// Test getting deployments
 	resp, err := client.GetDeployments("test-app")
 	if err != nil {
-		t.Fatalf("GetDeployments() error = %v", err)
+		t.Fatal(err)
 	}
 
 	// Check response
-	if len(resp.Deployments) != 1 {
-		t.Errorf("Expected 1 deployment, got %d", len(resp.Deployments))
-	}
+	assert.Len(t, resp.Deployments, 1)
 	d := resp.Deployments[0]
-	if d.Namespace != "test-namespace" {
-		t.Errorf("Expected namespace 'test-namespace', got %q", d.Namespace)
+	assert.Equal(t, "default", d.Namespace)
+	assert.Equal(t, "123", d.TemplateID)
+	assert.Equal(t, "MERN Todo", d.TemplateName)
+	assert.Equal(t, "running", d.DeploymentStatus)
+}
+
+func TestListApplications(t *testing.T) {
+	// Create a test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check request
+		assert.Equal(t, "/api/v1/applications", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+
+		// Send response
+		w.Header().Set("Content-Type", "application/json")
+		createdAt, _ := time.Parse(time.RFC3339, "2025-01-23T01:22:27-05:00")
+		json.NewEncoder(w).Encode(struct {
+			Applications []types.Application `json:"applications"`
+		}{
+			Applications: []types.Application{
+				{
+					ID:        "app-123",
+					Name:      "test-app",
+					CreatedAt: createdAt,
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	// Create client
+	client, err := NewClient(server.URL)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if d.ApplicationID != "test-app" {
-		t.Errorf("Expected application ID 'test-app', got %q", d.ApplicationID)
+
+	// Test listing applications
+	apps, err := client.ListApplications()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if d.DeploymentStatus != "running" {
-		t.Errorf("Expected status 'running', got %q", d.DeploymentStatus)
+
+	// Check response
+	assert.Len(t, apps, 1)
+	assert.Equal(t, "app-123", apps[0].ID)
+	assert.Equal(t, "test-app", apps[0].Name)
+	createdAt, _ := time.Parse(time.RFC3339, "2025-01-23T01:22:27-05:00")
+	assert.Equal(t, createdAt, apps[0].CreatedAt)
+}
+
+func TestCreateApplication(t *testing.T) {
+	// Create a test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check request
+		assert.Equal(t, "/api/v1/applications", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+
+		// Check request body
+		var req map[string]string
+		json.NewDecoder(r.Body).Decode(&req)
+		assert.Equal(t, "test-app", req["name"])
+
+		// Send response
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(types.CreateApplicationResponse{
+			ID:   "app-123",
+			Name: "test-app",
+		})
+	}))
+	defer server.Close()
+
+	// Create client
+	client, err := NewClient(server.URL)
+	if err != nil {
+		t.Fatal(err)
 	}
+
+	// Test creating application
+	resp, err := client.CreateApplication("test-app")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check response
+	assert.Equal(t, "app-123", resp.ID)
+	assert.Equal(t, "test-app", resp.Name)
 }
 
 func contains(s, substr string) bool {

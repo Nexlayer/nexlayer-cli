@@ -302,6 +302,33 @@ func (c *OpenAIClient) generatePrompt(category string, appInfo map[string]interf
 4. Environment variables
 5. Volume management
 6. Template migration strategies`)
+
+		// Add template guidance
+		prompt.WriteString(`
+Template Guidance:
+You are generating a Nexlayer infrastructure template. Please follow these guidelines:
+
+1. Use the standard Nexlayer YAML structure as shown in the documentation
+2. Include all necessary sections: infrastructure, application, environment, and networking
+3. Utilize Nexlayer-provided environment variables instead of creating custom ones
+4. Follow Nexlayer's best practices for resource naming and configuration
+5. Ensure the template includes proper health checks and scaling configurations
+6. Add appropriate comments to explain configuration choices
+7. Include all required dependencies and their versions
+8. Configure proper resource limits and requests
+9. Set up appropriate logging and monitoring
+10. Include security best practices
+
+The template should be production-ready and follow cloud-native best practices.
+
+Available Nexlayer environment variables:
+- Core: NEXLAYER_APP_NAME, NEXLAYER_APP_VERSION, NEXLAYER_ENVIRONMENT, NEXLAYER_NAMESPACE, NEXLAYER_CLUSTER, NEXLAYER_REGION
+- Networking: NEXLAYER_SERVICE_HOST, NEXLAYER_SERVICE_PORT, NEXLAYER_INGRESS_HOST, NEXLAYER_INGRESS_PORT, NEXLAYER_INTERNAL_URL, NEXLAYER_EXTERNAL_URL
+- Database: NEXLAYER_DB_HOST, NEXLAYER_DB_PORT, NEXLAYER_DB_NAME, NEXLAYER_DB_USER, NEXLAYER_DB_PASSWORD, NEXLAYER_DB_URL
+- Cache: NEXLAYER_CACHE_HOST, NEXLAYER_CACHE_PORT, NEXLAYER_CACHE_PASSWORD, NEXLAYER_CACHE_URL
+- Storage: NEXLAYER_STORAGE_BUCKET, NEXLAYER_STORAGE_REGION, NEXLAYER_STORAGE_ACCESS_KEY, NEXLAYER_STORAGE_SECRET_KEY
+- Security: NEXLAYER_API_KEY, NEXLAYER_JWT_SECRET, NEXLAYER_ENCRYPTION_KEY
+- Monitoring: NEXLAYER_METRICS_PORT, NEXLAYER_TRACING_ENDPOINT, NEXLAYER_LOGGING_LEVEL`)
 	}
 
 	prompt.WriteString("\n\nFor each suggestion:\n")
@@ -384,4 +411,166 @@ func (c *ClaudeClient) StreamSuggestions(ctx context.Context, category string, a
 		}
 	}()
 	return results, errors
+}
+
+const (
+	defaultModel = "gpt-4"
+	maxTokens    = 2000
+)
+
+const TemplateGuidance = `You are generating a Nexlayer infrastructure template. Please follow these guidelines:
+
+1. Use the standard Nexlayer pod-based YAML structure
+2. Include required template fields: name, deploymentName, and optional registryLogin
+3. Define pods with correct type, name, tag, and exposeHttp settings
+4. Use Nexlayer-provided environment variables for service connections
+5. Configure appropriate environment variables for each pod type
+6. Follow pod naming conventions for databases, frontends, and backends
+7. Set proper exposure settings for public-facing services
+8. Include registry configuration for private images
+9. Add descriptive comments for maintainability
+10. Follow security best practices for sensitive variables
+
+Template Structure Example:
+application:
+  template:
+    name: "my-stack-name"
+    deploymentName: "My Application"
+    registryLogin:
+      registry: ghcr.io
+      username: <username>
+      personalAccessToken: <token>
+    pods:
+    - type: database
+      exposeHttp: false
+      name: mongoDB
+      tag: mongo:latest
+      privateTag: false
+      vars:
+      - key: MONGO_INITDB_ROOT_USERNAME
+        value: mongo
+
+Supported Pod Types:
+- Database: postgres, mysql, neo4j, redis, mongodb
+- Frontend: react, angular, vue
+- Backend: django, fastapi, express
+- Others: nginx, llm
+
+Available Nexlayer environment variables:
+- Core: PROXY_URL, PROXY_DOMAIN
+- Database: DATABASE_HOST, NEO4J_URI, DATABASE_CONNECTION_STRING
+- Service URLs: FRONTEND_CONNECTION_URL, BACKEND_CONNECTION_URL, LLM_CONNECTION_URL
+- Service Domains: FRONTEND_CONNECTION_DOMAIN, BACKEND_CONNECTION_DOMAIN, LLM_CONNECTION_DOMAIN`
+
+type Client struct {
+	openaiClient *openai.Client
+	model       string
+}
+
+func NewClient(apiKey string) *Client {
+	client := openai.NewClient(apiKey)
+	return &Client{
+		openaiClient: client,
+		model:       defaultModel,
+	}
+}
+
+func (c *Client) SetModel(model string) {
+	c.model = model
+}
+
+func (c *Client) SuggestTemplate(ctx context.Context, requirements string) (string, error) {
+	prompt := fmt.Sprintf("%s\n\nRequirements:\n%s\n\nPlease generate a Nexlayer template that meets these requirements:", TemplateGuidance, requirements)
+
+	resp, err := c.openaiClient.CreateChatCompletion(
+		ctx,
+		openai.ChatCompletionRequest{
+			Model: c.model,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleSystem,
+					Content: "You are a Nexlayer infrastructure expert. Generate infrastructure templates that follow Nexlayer's pod-based architecture and best practices.",
+				},
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: prompt,
+				},
+			},
+			MaxTokens: maxTokens,
+		},
+	)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to get template suggestion: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("no suggestions received")
+	}
+
+	return resp.Choices[0].Message.Content, nil
+}
+
+func (c *Client) RefineTemplate(ctx context.Context, template, feedback string) (string, error) {
+	prompt := fmt.Sprintf("%s\n\nCurrent template:\n%s\n\nFeedback:\n%s\n\nPlease refine this template based on the feedback:", TemplateGuidance, template, feedback)
+
+	resp, err := c.openaiClient.CreateChatCompletion(
+		ctx,
+		openai.ChatCompletionRequest{
+			Model: c.model,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleSystem,
+					Content: "You are a Nexlayer infrastructure expert. Refine infrastructure templates to follow Nexlayer's pod-based architecture and best practices.",
+				},
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: prompt,
+				},
+			},
+			MaxTokens: maxTokens,
+		},
+	)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to get template refinement: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("no refinements received")
+	}
+
+	return resp.Choices[0].Message.Content, nil
+}
+
+func (c *Client) AnalyzeTemplate(ctx context.Context, template string) (string, error) {
+	prompt := fmt.Sprintf("%s\n\nTemplate to analyze:\n%s\n\nPlease analyze this template and provide suggestions for improvement:", TemplateGuidance, template)
+
+	resp, err := c.openaiClient.CreateChatCompletion(
+		ctx,
+		openai.ChatCompletionRequest{
+			Model: c.model,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleSystem,
+					Content: "You are a Nexlayer infrastructure expert. Analyze infrastructure templates and provide suggestions for improvement based on Nexlayer's pod-based architecture and best practices.",
+				},
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: prompt,
+				},
+			},
+			MaxTokens: maxTokens,
+		},
+	)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to analyze template: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("no analysis received")
+	}
+
+	return resp.Choices[0].Message.Content, nil
 }

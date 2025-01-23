@@ -8,13 +8,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 	"github.com/Nexlayer/nexlayer-cli/pkg/auth"
-)
-
-const (
-	configDir  = ".nexlayer"
-	configFile = "config"
+	"github.com/Nexlayer/nexlayer-cli/pkg/api/types"
 )
 
 // Client represents the Nexlayer API client
@@ -22,11 +19,6 @@ type Client struct {
 	baseURL    string
 	httpClient *http.Client
 	mockMode   bool
-}
-
-// Config represents the configuration file structure
-type Config struct {
-	Token string `json:"token"`
 }
 
 // NewClient creates a new Nexlayer API client
@@ -42,7 +34,7 @@ func NewClient(baseURL string) (*Client, error) {
 			Transport: tr,
 			Timeout:   30 * time.Second,
 		},
-		mockMode: true, // Enable mock mode for testing
+		mockMode: false, // Disable mock mode for real testing
 	}, nil
 }
 
@@ -73,6 +65,7 @@ func (c *Client) doRequest(method, path string, body interface{}) ([]byte, error
 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -120,50 +113,94 @@ func (c *Client) getMockResponse(method, path string, body interface{}) ([]byte,
 			"name": "%s"
 		}`, time.Now().Format("20060102150405"), name)), nil
 	case path == "/startUserDeployment/app-123" && method == "POST":
-		return []byte(`{"id": "dep-123", "status": "running"}`), nil
+		return []byte(`{"message": "Deployment started", "namespace": "default", "url": "https://example.com"}`), nil
 	case path == "/saveCustomDomain/app-123" && method == "POST":
-		return []byte(`{"domain": "example.com", "status": "active"}`), nil
+		return []byte(`{"message": "Custom domain saved successfully"}`), nil
 	case path == "/getDeployments/app-123" && method == "GET":
-		return []byte(`{"deployments": [{"id": "dep-123", "status": "running"}]}`), nil
+		return []byte(`{
+			"deployments": [
+				{
+					"namespace": "default",
+					"templateID": "123",
+					"templateName": "MERN Todo",
+					"deploymentStatus": "running"
+				}
+			]
+		}`), nil
 	case path == "/getDeploymentInfo/default/app-123" && method == "GET":
-		return []byte(`{"id": "dep-123", "status": "running", "logs": "example logs"}`), nil
+		return []byte(`{
+			"deployment": {
+				"namespace": "default",
+				"templateID": "123",
+				"templateName": "MERN Todo",
+				"deploymentStatus": "running"
+			}
+		}`), nil
 	default:
 		return nil, fmt.Errorf("mock: unknown endpoint %s %s", method, path)
 	}
 }
 
 // StartUserDeployment starts a new deployment
-func (c *Client) StartUserDeployment(applicationID, yamlPath string) (*DeploymentResponse, error) {
+func (c *Client) StartUserDeployment(applicationID, yamlPath string) (*types.DeploymentResponse, error) {
 	// Read YAML file
-	yaml, err := os.ReadFile(yamlPath)
+	yamlContent, err := os.ReadFile(yamlPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read YAML file: %w", err)
 	}
 
-	// Create request body
-	reqBody := StartDeploymentRequest{
-		YAML: string(yaml),
+	// Create request
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/startUserDeployment/%s", c.baseURL, applicationID), bytes.NewBuffer(yamlContent))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Make request
-	respBody, err := c.doRequest(http.MethodPost, fmt.Sprintf("/startUserDeployment/%s", applicationID), reqBody)
+	// Set headers
+	token, err := auth.GetToken()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get auth token: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "text/x-yaml")
+	req.Header.Set("Accept", "application/json")
+
+	// Make request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Check status code
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("deployment failed: %s", string(body))
+	}
+
+	// Check content type
+	contentType := resp.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "application/json") {
+		return nil, fmt.Errorf("unexpected content type: %s. Response: %s", contentType, string(body))
 	}
 
 	// Parse response
-	var resp DeploymentResponse
-	if err := json.Unmarshal(respBody, &resp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	var deployResp types.DeploymentResponse
+	if err := json.Unmarshal(body, &deployResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w. Response body: %s", err, string(body))
 	}
 
-	return &resp, nil
+	return &deployResp, nil
 }
 
 // SaveCustomDomain configures a custom domain for an application
-func (c *Client) SaveCustomDomain(applicationID, domain string) (*CustomDomainResponse, error) {
+func (c *Client) SaveCustomDomain(applicationID, domain string) (*types.SaveCustomDomainResponse, error) {
 	// Create request body
-	reqBody := SaveCustomDomainRequest{
+	reqBody := types.SaveCustomDomainRequest{
 		Domain: domain,
 	}
 
@@ -174,7 +211,7 @@ func (c *Client) SaveCustomDomain(applicationID, domain string) (*CustomDomainRe
 	}
 
 	// Parse response
-	var resp CustomDomainResponse
+	var resp types.SaveCustomDomainResponse
 	if err := json.Unmarshal(respBody, &resp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
@@ -183,7 +220,7 @@ func (c *Client) SaveCustomDomain(applicationID, domain string) (*CustomDomainRe
 }
 
 // GetDeployments gets all deployments for an application
-func (c *Client) GetDeployments(applicationID string) (*DeploymentsResponse, error) {
+func (c *Client) GetDeployments(applicationID string) (*types.GetDeploymentsResponse, error) {
 	// Make request
 	respBody, err := c.doRequest(http.MethodGet, fmt.Sprintf("/getDeployments/%s", applicationID), nil)
 	if err != nil {
@@ -191,7 +228,7 @@ func (c *Client) GetDeployments(applicationID string) (*DeploymentsResponse, err
 	}
 
 	// Parse response
-	var resp DeploymentsResponse
+	var resp types.GetDeploymentsResponse
 	if err := json.Unmarshal(respBody, &resp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
@@ -200,7 +237,7 @@ func (c *Client) GetDeployments(applicationID string) (*DeploymentsResponse, err
 }
 
 // GetDeploymentInfo gets detailed information about a deployment
-func (c *Client) GetDeploymentInfo(namespace, applicationID string) (*DeploymentInfoResponse, error) {
+func (c *Client) GetDeploymentInfo(namespace, applicationID string) (*types.DeploymentInfo, error) {
 	// Make request
 	respBody, err := c.doRequest(http.MethodGet, fmt.Sprintf("/getDeploymentInfo/%s/%s", namespace, applicationID), nil)
 	if err != nil {
@@ -208,29 +245,18 @@ func (c *Client) GetDeploymentInfo(namespace, applicationID string) (*Deployment
 	}
 
 	// Parse response
-	var resp DeploymentInfoResponse
+	var resp struct {
+		Deployment types.DeploymentInfo `json:"deployment"`
+	}
 	if err := json.Unmarshal(respBody, &resp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	return &resp, nil
-}
-
-// Application represents a Nexlayer application
-type Application struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-// CreateApplicationResponse represents the response from creating an application
-type CreateApplicationResponse struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	return &resp.Deployment, nil
 }
 
 // CreateApplication creates a new application
-func (c *Client) CreateApplication(name string) (*CreateApplicationResponse, error) {
+func (c *Client) CreateApplication(name string) (*types.CreateApplicationResponse, error) {
 	payload := map[string]string{
 		"name": name,
 	}
@@ -240,7 +266,7 @@ func (c *Client) CreateApplication(name string) (*CreateApplicationResponse, err
 		return nil, err
 	}
 
-	var resp CreateApplicationResponse
+	var resp types.CreateApplicationResponse
 	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
@@ -249,14 +275,14 @@ func (c *Client) CreateApplication(name string) (*CreateApplicationResponse, err
 }
 
 // ListApplications returns all applications for the authenticated user
-func (c *Client) ListApplications() ([]Application, error) {
+func (c *Client) ListApplications() ([]types.Application, error) {
 	data, err := c.doRequest("GET", "/api/v1/applications", nil)
 	if err != nil {
 		return nil, err
 	}
 
 	var resp struct {
-		Applications []Application `json:"applications"`
+		Applications []types.Application `json:"applications"`
 	}
 	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
