@@ -211,7 +211,7 @@ var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
 func signInWithOAuth(provider string) error {
 	// TO DO: implement OAuth sign-in
-	return nil
+	return fmt.Errorf("OAuth sign-in with %s provider not implemented yet", provider)
 }
 
 func signInWithEmail() error {

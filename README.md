@@ -13,17 +13,19 @@
 
 🚀 Deploy, manage and scale full-stack applications in minutes with Nexlayer CLI. Built for developers who value simplicity, speed and flexibility without sacrificing power.
 
-## Quick Start (30 seconds)
+## Get started in 3 simple steps:
+
 
 ```bash
-# 1. Install the CLI
+# 1. Install Nexlayer CLI
 go install github.com/Nexlayer/nexlayer-cli@latest
 
-# 2. Login to Nexlayer (opens browser)
-nexlayer login
+# 2. Log in to your Nexlayer account
+nexlayer login  # Opens a browser for quick login
 
-# 3. Start the interactive wizard
+# 3. Deploy your first app!
 nexlayer wizard
+
 ```
 
 That's it! The wizard will guide you through deployment setup. Your GitHub authentication is handled automatically through Nexlayer.
@@ -85,17 +87,18 @@ nexlayer ci images logs --image-name my-app --tag latest
 
 # Deployment Commands
 # ------------------
-# Deploy your built image
-nexlayer deploy my-app
+# Deploy your application (from your YAML deployment template configuration)
+nexlayer deploy my-app --template my-app.yaml
 
-# Check deployment status
-nexlayer status my-app
-
-# Scale your deployment
+# Scale your deployment to handle more traffic
 nexlayer scale my-app --replicas 3
 
-# View deployment logs
-nexlayer logs my-app
+# Check the status of your app in real-time
+nexlayer status my-app
+
+# View live logs to debug or monitor
+nexlayer logs my-app --follow
+
 ```
 
 ## CI/CD Integration
@@ -253,6 +256,43 @@ nexlayer service visualize --app my-app \
   --format png \
   --output services.png
 ```
+
+## AI Suggest Feature
+
+Enhance your development workflow with AI-powered suggestions directly from your terminal. The AI suggest feature provides intelligent recommendations for optimizing your Nexlayer applications using the latest AI models.
+
+### Setup
+
+Ensure you have the following environment variables set:
+
+- `OPENAI_API_KEY`: Your OpenAI API key for accessing GPT-4
+- `ANTHROPIC_API_KEY`: Your Anthropic API key for accessing Claude
+
+### Usage
+
+Run the AI suggest feature with the following command:
+
+```bash
+nexlayer ai-suggest --model openai --docs /path/to/docs --templates /path/to/templates
+```
+
+- `--model`: Specify the AI model to use (`openai` or `claude`)
+- `--docs`: Path to your documentation directory
+- `--templates`: Path to your templates directory
+
+### Features
+
+- **Interactive UI**: Navigate through suggestions with a beautiful terminal interface.
+- **Markdown Rendering**: View code snippets and explanations with proper formatting.
+- **Fuzzy Search**: Quickly find relevant documentation using fuzzy search.
+
+### Future Improvements
+
+- Streaming responses from AI models
+- History of previous queries
+- Export functionality
+
+For more details, visit our [Documentation](https://docs.nexlayer.com) or [Support](https://nexlayer.com/support).
 
 ## Real-World Examples
 
@@ -432,9 +472,142 @@ nexlayer deploy my-app --debug
 3. **CI/CD**: Use environment-specific configurations
 4. **Monitoring**: Regularly check `nexlayer status` and `nexlayer logs`
 
+## 🌟 Hidden Gems
+
+Discover some powerful features that make Nexlayer CLI even more magical:
+
+### 🎨 Template-based Deployments
+Deploy applications using pre-configured templates:
+```bash
+# Deploy using a custom template
+nexlayer deploy my-app --template my-app.yaml
+
+# Use different templates for different environments
+nexlayer deploy my-app --template staging.yaml
+```
+
+### 🔍 Deployment Management
+Keep track of your deployments:
+```bash
+# List all your applications
+nexlayer list
+
+# View application details
+nexlayer info my-app
+
+# Check deployment status
+nexlayer status my-app
+```
+
+### ⚡️ CI/CD Integration
+Automate your workflow:
+```bash
+# Set up GitHub Actions integration
+nexlayer ci setup github
+
+# Customize CI/CD pipeline
+nexlayer ci customize --template custom-pipeline.yaml
+```
+
+### 🌐 Domain Management
+Configure custom domains:
+```bash
+# Set custom domain for your app
+nexlayer domain set my-app --domain app.example.com
+
+# List configured domains
+nexlayer domain list my-app
+```
+
+### 🔌 Extend with Plugins
+
+Nexlayer CLI supports a powerful plugin system that lets you extend its functionality. All plugins are hosted on GitHub under the `nexlayer/plugin-*` organization.
+
+#### Available Plugins
+- `hello`: A simple example plugin to get started
+  ```bash
+  nexlayer plugin install hello
+  nexlayer hello world  # Outputs: Hello, world!
+  ```
+
+- `lint`: Code linting and style checking
+  ```bash
+  nexlayer plugin install lint
+  nexlayer lint ./...        # Check code
+  nexlayer lint ./... --fix  # Auto-fix issues
+  ```
+
+- `template-builder`: AI-powered deployment template generator
+  ```bash
+  # Install the plugin
+  nexlayer plugin install template-builder
+
+  # Generate optimized template using AI (requires OPENAI_API_KEY or ANTHROPIC_API_KEY)
+  nexlayer template:generate  # Analyzes your project and generates optimal deployment templates
+  nexlayer template:generate --dry-run  # Preview the generated template
+  
+  # The AI will optimize for:
+  # - Resource allocation
+  # - Security best practices
+  # - Scalability
+  ```
+
+#### Managing Plugins
+```bash
+# Install a plugin
+nexlayer plugin install <plugin-name>
+
+# List all installed plugins
+nexlayer plugin list
+
+# Remove a plugin (just delete its directory)
+rm -rf ~/.nexlayer/plugins/<plugin-name>
+```
+
+#### Create Your Own Plugin
+Creating a Nexlayer plugin is straightforward. Here's a quick guide:
+
+1. Create a new repository named `plugin-<your-plugin-name>`
+2. Structure your plugin like this:
+   ```
+   plugin-example/
+   ├── main.go       # Your plugin's entry point
+   ├── README.md     # Plugin documentation
+   └── go.mod        # Go module file
+   ```
+
+3. Example plugin code (based on the hello plugin):
+   ```go
+   package main
+
+   import (
+       "fmt"
+       "github.com/spf13/cobra"
+   )
+
+   var rootCmd = &cobra.Command{
+       Use:   "hello",
+       Short: "A hello world plugin",
+       Long:  `A hello world plugin for Nexlayer CLI.`,
+       Args:  cobra.MinimumNArgs(1),
+       Run: func(cmd *cobra.Command, args []string) {
+           name := args[0]
+           fmt.Printf("Hello, %s!\n", name)
+       },
+   }
+
+   func main() {
+       rootCmd.Execute()
+   }
+   ```
+
+4. Push to GitHub as `nexlayer/plugin-<your-plugin-name>`
+5. Install with `nexlayer plugin install <your-plugin-name>`
+
+Plugins are installed in `~/.nexlayer/plugins` and are automatically integrated into the CLI. Start with the `hello` plugin as a template for your own plugins!
+
 ## Support
 
 - 📚 [Documentation](https://docs.nexlayer.com)
-- 💬 [Discord Community](https://discord.gg/nexlayer)
 - 🐛 [Issue Tracker](https://github.com/Nexlayer/nexlayer-cli/issues)
 - 📧 [Email Support](mailto:support@nexlayer.com)

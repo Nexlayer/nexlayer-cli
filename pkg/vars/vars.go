@@ -1,6 +1,6 @@
 package vars
 
-// API variables
+// Global variables used across different commands
 var (
 	// APIURL is the base URL for the Nexlayer API
 	APIURL = "https://app.staging.nexlayer.io"
@@ -23,15 +23,18 @@ var (
 	// ServiceName is the name of the service
 	ServiceName string
 
+	// Service is the service identifier
+	Service string
+
 	// EnvVars are environment variables
 	EnvVars []string
 
+	// EnvPairs are key-value pairs for environment variables
+	EnvPairs []string
+
 	// URL is the API URL override
 	URL string
-)
 
-// CI variables
-var (
 	// Registry configuration
 	RegistryType     string // Container registry type (ghcr or dockerhub)
 	Registry         string // Container registry URL
@@ -40,28 +43,9 @@ var (
 	// Build configuration
 	BuildContext string // Docker build context path
 	ImageTag     string // Docker image tag
-)
 
-// Graph variables
-var (
-	// Depth is the maximum depth to traverse when visualizing dependencies
-	Depth int
-
-	// OutputFormat is the format to use when visualizing dependencies
-	OutputFormat string
-
-	// OutputFile is the file to write visualization output to
-	OutputFile string
-
-	// EnvPairs are key-value pairs for environment variables
-	EnvPairs []string
-)
-
-// Service command variables
-var (
-	AppName      string
-	Service      string
-	OutputFormat string
-	OutputFile   string
-	EnvPairs     []string
+	// Graph configuration
+	Depth        int    // Maximum depth to traverse when visualizing dependencies
+	OutputFormat string // Format to use when visualizing dependencies
+	OutputFile   string // File to write visualization output to
 )

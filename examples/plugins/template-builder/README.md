@@ -1,79 +1,255 @@
-# Nexlayer Template Builder Plugin
+# Nexlayer Template Builder
 
-A plugin for the Nexlayer CLI that automatically generates deployment templates by analyzing your local codebase and applying best practices.
+An intelligent infrastructure template generator with AI-powered refinements and security scanning.
 
 ## Features
 
-- Auto-detects your project's tech stack (Node.js, Python, etc.)
-- Fetches appropriate base templates from official Nexlayer repositories
-- Customizes templates with your project's details
-- Optional AI-powered template refinement (if OPENAI_API_KEY or CLAUDE_API_KEY is set)
-- Generates instantly deployable Nexlayer templates
+- 🤖 AI-powered template generation and refinement
+- 🔍 Automatic stack detection for various technologies
+- 🛡️ Comprehensive security scanning
+- 💰 Infrastructure cost estimation
+- 📦 Remote template registry integration
+- 🔄 Template versioning and upgrades
+- 🔧 Shell completion for enhanced productivity
+- ⚙️ Flexible configuration management
 
 ## Installation
 
-1. Build the plugin:
+### Using Go
+
 ```bash
-go build -o template-builder
+go install github.com/nexlayer/nexlayer-cli/plugins/template-builder/v2@latest
 ```
 
-2. Move the binary to your Nexlayer plugins directory:
+### Shell Completion
+
+Enable shell completion for your preferred shell:
+
 ```bash
-mkdir -p ~/.nexlayer/plugins
-mv template-builder ~/.nexlayer/plugins/
-chmod +x ~/.nexlayer/plugins/template-builder
+# Bash
+nexlayer completion bash > /usr/local/etc/bash_completion.d/nexlayer
+
+# Zsh
+nexlayer completion zsh > "${fpath[1]}/_nexlayer"
+
+# Fish
+nexlayer completion fish > ~/.config/fish/completions/nexlayer.fish
+
+# PowerShell
+nexlayer completion powershell > nexlayer.ps1
 ```
 
-## Usage
+## Configuration
 
-From your project's root directory, run:
-```bash
-nexlayer template:generate
+Nexlayer uses a configuration file located at `~/.nexlayer/config.json`. You can configure:
+
+- Registry URL
+- Default template
+- API keys
+- Output format
+- Verbosity
+
+Example configuration:
+```json
+{
+  "registry_url": "https://registry.nexlayer.dev",
+  "default_template": "default",
+  "api_keys": {
+    "openai": "your-api-key"
+  },
+  "output_format": "yaml",
+  "verbose": false
+}
 ```
 
-For a dry run (preview without writing files):
+## Quick Start
+
+1. Initialize a new template:
 ```bash
-nexlayer template:generate --dry-run
+nexlayer init my-app
 ```
 
-## How It Works
+2. Generate a template from an existing project:
+```bash
+nexlayer generate ./my-project --output yaml
+```
 
-1. **Stack Detection**: The plugin scans your project directory for common files:
-   - `package.json` → Node.js projects
-   - `requirements.txt` → Python projects
-   - `.env` → Database and environment configurations
+3. Upgrade a template with security scanning:
+```bash
+nexlayer upgrade my-app.yaml --security-scan --estimate-costs
+```
 
-2. **Template Selection**: Based on the detected stack, it selects the most appropriate template from official Nexlayer repositories.
+4. Compare two templates:
+```bash
+nexlayer diff template-v1.yaml template-v2.yaml
+```
 
-3. **Customization**: The template is customized with:
-   - Project name (from directory name)
-   - Detected technologies
-   - Environment configuration
+## Command Reference
 
-4. **AI Enhancement** (Optional): If an AI API key is configured, the template can be refined with:
-   - Best practices validation
-   - Resource optimization suggestions
-   - Configuration improvements
+### Global Flags
+- `--config`: Path to config file (default: ~/.nexlayer/config.json)
+- `--verbose, -v`: Enable verbose output
+- `--registry`: Template registry URL
 
-5. **Output**: Generates a `<projectName>-nexlayer-template.yaml` file ready for deployment.
+### `nexlayer init [template-name]`
+Initialize a new template with best practices and defaults.
 
-## Supported Stacks
+**Flags:**
+- `--type`: Template type (service|app|function)
+- `--stack`: Technology stack (node|python|go)
+- `--template`: Base template to use
 
-- MERN (MongoDB, Express, React, Node.js)
-- MEVN (MongoDB, Express, Vue.js, Node.js)
-- Django + PostgreSQL
-- More coming soon!
+**Example:**
+```bash
+nexlayer init my-service --type service --stack node
+```
 
-## Environment Variables
+### `nexlayer generate [project-dir]`
+Generate a template from an existing project.
 
-The plugin uses the same environment variables as the main Nexlayer CLI:
-- `OPENAI_API_KEY`: For OpenAI-powered template refinement
-- `CLAUDE_API_KEY`: For Claude AI-powered template refinement
+**Flags:**
+- `--output, -o`: Output format (yaml|json)
+- `--dry-run`: Preview without writing
+- `--ai-provider`: AI provider for refinement (openai|claude)
+- `--exclude`: Patterns to exclude
+- `--include-deps`: Include dependencies
+
+**Example:**
+```bash
+nexlayer generate ./my-project -o yaml --ai-provider openai
+```
+
+### `nexlayer upgrade [template-file]`
+Upgrade a template to the latest version.
+
+**Flags:**
+- `--security-scan`: Run security scan
+- `--estimate-costs`: Estimate infrastructure costs
+- `--force`: Force upgrade even with breaking changes
+- `--backup`: Create backup before upgrading
+
+**Example:**
+```bash
+nexlayer upgrade my-app.yaml --security-scan --backup
+```
+
+### `nexlayer diff [template1] [template2]`
+Show differences between two templates.
+
+**Flags:**
+- `--format`: Diff format (unified|context|json)
+- `--ignore-whitespace`: Ignore whitespace changes
+- `--summary`: Show only summary of changes
+
+**Example:**
+```bash
+nexlayer diff old.yaml new.yaml --format unified
+```
+
+## Template Registry
+
+Share and reuse templates using the Nexlayer Registry:
+
+```bash
+# Publish a template
+nexlayer publish my-app.yaml --version 1.0.0
+
+# Download a template
+nexlayer download my-app:1.0.0
+
+# List available templates
+nexlayer list --filter "type=service"
+```
+
+## Security Scanning
+
+The security scanner performs comprehensive checks:
+
+### Infrastructure Security
+- Resource encryption configuration
+- IAM roles and permissions
+- Network security groups
+- Public exposure analysis
+
+### Application Security
+- Exposed ports and protocols
+- TLS configuration
+- Secret management practices
+- Environment variable analysis
+
+### Compliance
+- GDPR requirements
+- SOC 2 controls
+- PCI DSS requirements
+- HIPAA compliance checks
+
+## Cost Estimation
+
+The cost estimator analyzes:
+
+- Compute resources (CPU, memory)
+- Storage requirements (volume types, sizes)
+- Network traffic patterns
+- Region-specific pricing
+- Reserved instance opportunities
+- Spot instance possibilities
+
+## Error Handling
+
+Nexlayer provides detailed error messages with:
+
+- Error codes for programmatic handling
+- Context-specific information
+- Suggested solutions
+- Debugging information in verbose mode
+
+Example error output:
+```
+[TEMPLATE_INVALID] Invalid template structure: missing required field 'resources'
+Context:
+  file: my-template.yaml
+  line: 25
+  field: resources
+Suggestion: Add a 'resources' section to define infrastructure components
+```
 
 ## Contributing
 
-Feel free to contribute by:
-1. Adding new template detectors
-2. Improving stack detection logic
-3. Adding new official templates
-4. Enhancing AI refinement capabilities
+1. Fork the repository
+2. Create your feature branch
+3. Run tests: `go test ./... -race -cover`
+4. Submit a pull request
+
+### Development Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/nexlayer/nexlayer-cli.git
+cd nexlayer-cli
+```
+
+2. Install dependencies:
+```bash
+go mod download
+```
+
+3. Run tests:
+```bash
+make test
+```
+
+4. Build locally:
+```bash
+make build
+```
+
+## Support
+
+- 📖 [Documentation](https://docs.nexlayer.dev)
+- 💬 [Discord Community](https://discord.gg/nexlayer)
+- 📧 [Email Support](mailto:support@nexlayer.dev)
+- 🐛 [Issue Tracker](https://github.com/nexlayer/nexlayer-cli/issues)
+
+## License
+
+Apache License 2.0 - See [LICENSE](LICENSE) for details.
