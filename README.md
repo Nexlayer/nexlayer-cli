@@ -105,31 +105,70 @@ nexlayer logs my-app --follow
 
 ### Container Registry Setup
 
-The CLI supports two popular container registries out of the box:
+The CLI supports multiple container registries for your CI/CD workflows:
 
-1. **GitHub Container Registry (GHCR)** - Default option
-   ```bash
-   # Set up with GHCR (default)
-   nexlayer ci setup github-actions --registry-type ghcr
-   ```
-   - Uses `ghcr.io` as the registry
-   - Automatically uses GitHub Actions token for authentication
-   - No additional setup required
+- GitHub Container Registry (GHCR)
+- Docker Hub
+- Google Artifact Registry (GCR)
+- Amazon Elastic Container Registry (ECR)
+- JFrog Artifactory
+- GitLab Container Registry
 
-2. **Docker Hub**
-   ```bash
-   # Set up with Docker Hub
-   nexlayer ci setup github-actions --registry-type dockerhub
-   ```
-   - Uses `docker.io` as the registry
-   - Requires setting up the following GitHub secrets:
-     - `DOCKERHUB_USERNAME`: Your Docker Hub username
-     - `DOCKERHUB_TOKEN`: Your Docker Hub access token
+#### Setting Up Container Registry
 
-You can also customize the registry URL if needed:
+Use the `ci setup github-actions` command with appropriate flags:
+
 ```bash
-nexlayer ci setup github-actions --registry-type dockerhub --registry registry.custom.com
+# GitHub Container Registry (default)
+nexlayer ci setup github-actions --registry-type ghcr
+
+# Docker Hub
+nexlayer ci setup github-actions --registry-type dockerhub
+
+# Google Artifact Registry
+nexlayer ci setup github-actions \
+  --registry-type gcr \
+  --registry-region us-east1 \
+  --registry-project my-project
+
+# Amazon ECR
+nexlayer ci setup github-actions \
+  --registry-type ecr \
+  --registry-region us-east-1 \
+  --registry-project 123456789012
+
+# JFrog Artifactory
+nexlayer ci setup github-actions \
+  --registry-type artifactory \
+  --registry your-artifactory-registry.jfrog.io
+
+# GitLab Container Registry
+nexlayer ci setup github-actions --registry-type gitlab
 ```
+
+#### Required Secrets
+
+Depending on your chosen registry, you'll need to configure different secrets in your GitHub repository:
+
+- **Docker Hub**:
+  - `DOCKERHUB_USERNAME`: Your Docker Hub username
+  - `DOCKERHUB_TOKEN`: Your Docker Hub access token
+
+- **Google Artifact Registry**:
+  - `GOOGLE_CREDENTIALS`: Your Google Cloud service account key
+
+- **Amazon ECR**:
+  - `AWS_ACCESS_KEY_ID`: Your AWS access key ID
+  - `AWS_SECRET_ACCESS_KEY`: Your AWS secret access key
+
+- **JFrog Artifactory**:
+  - `ARTIFACTORY_SERVER_ID`: Your Artifactory server ID
+  - `ARTIFACTORY_USERNAME`: Your Artifactory username
+  - `ARTIFACTORY_PASSWORD`: Your Artifactory password/token
+
+- **GitLab Container Registry**:
+  - `GITLAB_USERNAME`: Your GitLab username
+  - `GITLAB_PASSWORD`: Your GitLab personal access token
 
 ### Build Automation
 

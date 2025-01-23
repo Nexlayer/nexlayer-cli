@@ -36,9 +36,11 @@ var (
 	URL string
 
 	// Registry configuration
-	RegistryType     string // Container registry type (ghcr or dockerhub)
+	RegistryType     string // Container registry type (ghcr, dockerhub, gcr, ecr, artifactory, gitlab)
 	Registry         string // Container registry URL
 	RegistryUsername string // Registry username
+	RegistryRegion   string // Registry region (for ECR)
+	RegistryProject  string // Registry project ID (for GCR)
 
 	// Build configuration
 	BuildContext string // Docker build context path
