@@ -92,32 +92,48 @@ nexlayer status my-app
 # View live logs to debug or monitor
 nexlayer logs my-app --follow
 
-## AI Features
+## AI-Powered Features
 
-Nexlayer CLI comes with built-in AI capabilities to help you optimize your deployments:
+The Nexlayer CLI includes optional AI capabilities to help optimize your deployments. To enable AI features, you'll need:
 
-1. **AI-Powered Setup Wizard**
+1. An OpenAI API key
+2. The `--ai` flag when running commands
+
+### Setting up AI Features
+
+1. Get an OpenAI API key from [OpenAI's website](https://platform.openai.com)
+2. Set the environment variable:
    ```bash
-   nexlayer wizard  # Automatically detects your stack and configures deployment
+   export OPENAI_API_KEY=your-api-key
    ```
 
-2. **AI Deployment Optimization**
-   ```bash
-   nexlayer deploy my-app --template my-app.yaml --ai  # Get AI-powered deployment suggestions
-   ```
+### Using AI Features
 
-3. **AI Infrastructure Recommendations**
-   The AI assistant can help you:
-   - Optimize resource allocation
-   - Suggest scaling strategies
-   - Identify potential bottlenecks
-   - Recommend security improvements
-
-To use AI features, make sure you have configured your AI provider:
+Run the wizard with AI enabled:
 ```bash
-nexlayer config set ai.provider openai  # or other supported providers
-nexlayer config set ai.api_key your_api_key
+nexlayer wizard --ai
 ```
+
+The AI will provide:
+- Resource optimization suggestions
+- Security best practices
+- Scaling recommendations
+- Performance tips
+
+### Example AI Recommendations
+
+When you run the wizard with AI enabled, you'll receive suggestions like:
+- "Consider setting memory limits to 512Mi for optimal performance"
+- "Enable horizontal pod autoscaling for better scalability"
+- "Use resource quotas to prevent resource exhaustion"
+- "Implement liveness and readiness probes for better reliability"
+
+### Note on AI Usage
+
+AI features are completely optional. The CLI functions fully without AI capabilities enabled. If you want AI-powered suggestions, make sure to:
+1. Have an OpenAI API key
+2. Set the OPENAI_API_KEY environment variable
+3. Use the --ai flag with supported commands
 
 ### Container Registry Setup
 

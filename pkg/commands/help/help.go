@@ -7,7 +7,8 @@ const (
 It provides commands for deploying, managing, and monitoring your applications in a modern cloud environment.
 
 Key Features:
-• Interactive deployment wizard
+• AI-powered deployment optimization (use --ai flag)
+• Interactive deployment wizard with AI assistance
 • Custom domain management
 • Service scaling and monitoring
 • Container registry integration
@@ -16,19 +17,17 @@ Key Features:
 Environment Variables:
   NEXLAYER_CONFIG    Path to config file (default: $HOME/.nexlayer.yaml)
   NEXLAYER_TOKEN     Authentication token (optional)
-  NEXLAYER_DEBUG     Enable debug logging (1=true, 0=false)`
+  NEXLAYER_DEBUG     Enable debug logging (1=true, 0=false)
+  NEXLAYER_AI_KEY    AI provider API key for AI features`
 
 	RootExample = `  # Initialize a new project
   nexlayer init my-app
 
-  # Deploy using the interactive wizard
+  # Deploy using the AI-powered wizard (recommended)
   nexlayer wizard
 
-  # Deploy directly from a YAML file
-  nexlayer deploy -f stack.yaml
-
-  # Scale a service
-  nexlayer service scale my-app-backend --replicas 3
+  # Deploy with AI optimization
+  nexlayer deploy -f stack.yaml --ai
 
   # Add a custom domain
   nexlayer domain add my-app example.com`
@@ -36,15 +35,25 @@ Environment Variables:
 	// Deploy command
 	DeployLongDesc = `Deploy an application to Nexlayer cloud platform.
 You can deploy using a YAML configuration file or the interactive wizard.
+
 The deployment process includes:
 1. Validating your configuration
 2. Building and pushing container images
 3. Creating necessary cloud resources
 4. Setting up networking and routing
-5. Starting your application containers`
+5. Starting your application containers
+
+Use the --ai flag to get AI-powered suggestions for:
+• Resource optimization
+• Security improvements
+• Cost reduction
+• Performance tuning`
 
 	DeployExample = `  # Deploy using a configuration file
   nexlayer deploy -f stack.yaml
+
+  # Deploy with AI optimization
+  nexlayer deploy -f stack.yaml --ai
 
   # Deploy with environment variables
   nexlayer deploy -f stack.yaml --env-file .env
