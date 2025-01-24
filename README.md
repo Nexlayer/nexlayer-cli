@@ -86,9 +86,6 @@ nexlayer ci images logs --image-name my-app --tag latest
 # Deploy your application (from your YAML deployment template configuration)
 nexlayer deploy my-app --template my-app.yaml
 
-# Scale your deployment to handle more traffic
-nexlayer scale my-app --replicas 3
-
 # Check the status of your app in real-time
 nexlayer status my-app
 
