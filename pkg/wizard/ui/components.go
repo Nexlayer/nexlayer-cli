@@ -144,7 +144,7 @@ func RenderProgress(percent int) string {
 }
 
 // RenderComponentSelection returns the component selection screen
-func RenderComponentSelection(title string, options []string, selected int, progress int, stack map[string]string) string {
+func RenderComponentSelection(title string, options []string, selected int, stack map[string]string) string {
 	var sb strings.Builder
 
 	// Header
@@ -161,9 +161,6 @@ func RenderComponentSelection(title string, options []string, selected int, prog
 	}
 	sb.WriteString("\n")
 
-	// Progress bar
-	sb.WriteString(RenderProgress(progress) + "\n\n")
-
 	// YAML Preview
 	if stack["database"] != "" || stack["backend"] != "" || stack["frontend"] != "" {
 		sb.WriteString("\n" + YamlKeyStyle.Render(" YAML Preview:") + "\n")
@@ -171,20 +168,18 @@ func RenderComponentSelection(title string, options []string, selected int, prog
 		
 		if stack["database"] != "" && stack["database"] != "Skip (no database)" {
 			sb.WriteString(renderPodYAML("database", stack["database"], "mongo:6.0", map[string]string{
-				"MONGO_INITDB_ROOT_USERNAME": "mongo",
-				"MONGO_INITDB_ROOT_PASSWORD": "passw0rd",
+				"MONGO_INITDB_ROOT_USERNAME": "admin",
+				"MONGO_INITDB_ROOT_PASSWORD": "password",
 			}))
 		}
-		
 		if stack["backend"] != "" && stack["backend"] != "Skip (no backend)" {
-			sb.WriteString(renderPodYAML("backend", stack["backend"], "python:3.9", map[string]string{
-				"DATABASE_URL": "mongodb://mongo:passw0rd@mongodb:27017",
+			sb.WriteString(renderPodYAML("backend", stack["backend"], "node:18", map[string]string{
+				"PORT": "3000",
 			}))
 		}
-		
 		if stack["frontend"] != "" && stack["frontend"] != "Skip (no frontend)" {
-			sb.WriteString(renderPodYAML("frontend", stack["frontend"], "nginx:latest", map[string]string{
-				"BACKEND_URL": "http://backend:8000",
+			sb.WriteString(renderPodYAML("frontend", stack["frontend"], "node:18", map[string]string{
+				"PORT": "8080",
 			}))
 		}
 	}
