@@ -2,291 +2,238 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"strings"
 	"time"
-	"github.com/Nexlayer/nexlayer-cli/pkg/auth"
+
 	"github.com/Nexlayer/nexlayer-cli/pkg/api/types"
+)
+
+const (
+	defaultBaseURL = "https://api.nexlayer.io/v1"
+	defaultTimeout = 30 * time.Second
 )
 
 // Client represents the Nexlayer API client
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
-	mockMode   bool
+	token      string
 }
 
-// NewClient creates a new Nexlayer API client
-func NewClient(baseURL string) (*Client, error) {
-	// Skip TLS verification for staging environment
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+// NewClient creates a new API client
+func NewClient(baseURL string) *Client {
+	if baseURL == "" {
+		baseURL = defaultBaseURL
 	}
-	
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{},
+	}
+
+	// Skip SSL verification in test mode
+	if os.Getenv("NEXLAYER_TEST_MODE") == "true" {
+		tr.TLSClientConfig.InsecureSkipVerify = true
+	}
+
+	httpClient := &http.Client{
+		Timeout:   defaultTimeout,
+		Transport: tr,
+	}
+
 	return &Client{
 		baseURL:    baseURL,
-		httpClient: &http.Client{
-			Transport: tr,
-			Timeout:   30 * time.Second,
-		},
-		mockMode: false, // Disable mock mode for real testing
-	}, nil
-}
-
-// doRequest makes an HTTP request with proper authentication
-func (c *Client) doRequest(method, path string, body interface{}) ([]byte, error) {
-	if c.mockMode {
-		return c.getMockResponse(method, path, body)
-	}
-
-	var buf io.Reader
-	if body != nil {
-		jsonBody, err := json.Marshal(body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request body: %w", err)
-		}
-		buf = bytes.NewBuffer(jsonBody)
-	}
-
-	req, err := http.NewRequest(method, c.baseURL+path, buf)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	token, err := auth.GetToken()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get auth token: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API request failed: %s", string(data))
-	}
-
-	return data, nil
-}
-
-// getMockResponse returns mock data for testing
-func (c *Client) getMockResponse(method, path string, body interface{}) ([]byte, error) {
-	switch {
-	case path == "/api/v1/applications" && method == "GET":
-		return []byte(`{
-			"applications": [
-				{
-					"id": "app-123",
-					"name": "test-app",
-					"created_at": "2025-01-23T01:22:27-05:00"
-				},
-				{
-					"id": "app-124",
-					"name": "todo-mern-app",
-					"created_at": "2025-01-23T01:23:27-05:00"
-				}
-			]
-		}`), nil
-	case path == "/api/v1/applications" && method == "POST":
-		name := ""
-		if m, ok := body.(map[string]string); ok {
-			name = m["name"]
-		}
-		return []byte(fmt.Sprintf(`{
-			"id": "app-%s",
-			"name": "%s"
-		}`, time.Now().Format("20060102150405"), name)), nil
-	case path == "/startUserDeployment/app-123" && method == "POST":
-		return []byte(`{"message": "Deployment started", "namespace": "default", "url": "https://example.com"}`), nil
-	case path == "/saveCustomDomain/app-123" && method == "POST":
-		return []byte(`{"message": "Custom domain saved successfully"}`), nil
-	case path == "/getDeployments/app-123" && method == "GET":
-		return []byte(`{
-			"deployments": [
-				{
-					"namespace": "default",
-					"templateID": "123",
-					"templateName": "MERN Todo",
-					"deploymentStatus": "running"
-				}
-			]
-		}`), nil
-	case path == "/getDeploymentInfo/default/app-123" && method == "GET":
-		return []byte(`{
-			"deployment": {
-				"namespace": "default",
-				"templateID": "123",
-				"templateName": "MERN Todo",
-				"deploymentStatus": "running"
-			}
-		}`), nil
-	default:
-		return nil, fmt.Errorf("mock: unknown endpoint %s %s", method, path)
+		httpClient: httpClient,
 	}
 }
 
-// StartUserDeployment starts a new deployment
-func (c *Client) StartUserDeployment(applicationID, yamlPath string) (*types.DeploymentResponse, error) {
-	// Read YAML file
-	yamlContent, err := os.ReadFile(yamlPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read YAML file: %w", err)
-	}
-
-	// Create request
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/startUserDeployment/%s", c.baseURL, applicationID), bytes.NewBuffer(yamlContent))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Set headers
-	token, err := auth.GetToken()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get auth token: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "text/x-yaml")
-	req.Header.Set("Accept", "application/json")
-
-	// Make request
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	// Check status code
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("deployment failed: %s", string(body))
-	}
-
-	// Check content type
-	contentType := resp.Header.Get("Content-Type")
-	if !strings.Contains(contentType, "application/json") {
-		return nil, fmt.Errorf("unexpected content type: %s. Response: %s", contentType, string(body))
-	}
-
-	// Parse response
-	var deployResp types.DeploymentResponse
-	if err := json.Unmarshal(body, &deployResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w. Response body: %s", err, string(body))
-	}
-
-	return &deployResp, nil
-}
-
-// SaveCustomDomain configures a custom domain for an application
-func (c *Client) SaveCustomDomain(applicationID, domain string) (*types.SaveCustomDomainResponse, error) {
-	// Create request body
-	reqBody := types.SaveCustomDomainRequest{
-		Domain: domain,
-	}
-
-	// Make request
-	respBody, err := c.doRequest(http.MethodPost, fmt.Sprintf("/saveCustomDomain/%s", applicationID), reqBody)
-	if err != nil {
-		return nil, err
-	}
-
-	// Parse response
-	var resp types.SaveCustomDomainResponse
-	if err := json.Unmarshal(respBody, &resp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	return &resp, nil
-}
-
-// GetDeployments gets all deployments for an application
-func (c *Client) GetDeployments(applicationID string) (*types.GetDeploymentsResponse, error) {
-	// Make request
-	respBody, err := c.doRequest(http.MethodGet, fmt.Sprintf("/getDeployments/%s", applicationID), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Parse response
-	var resp types.GetDeploymentsResponse
-	if err := json.Unmarshal(respBody, &resp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	return &resp, nil
-}
-
-// GetDeploymentInfo gets detailed information about a deployment
-func (c *Client) GetDeploymentInfo(namespace, applicationID string) (*types.DeploymentInfo, error) {
-	// Make request
-	respBody, err := c.doRequest(http.MethodGet, fmt.Sprintf("/getDeploymentInfo/%s/%s", namespace, applicationID), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Parse response
-	var resp struct {
-		Deployment types.DeploymentInfo `json:"deployment"`
-	}
-	if err := json.Unmarshal(respBody, &resp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	return &resp.Deployment, nil
+// SetToken sets the authentication token
+func (c *Client) SetToken(token string) {
+	c.token = token
 }
 
 // CreateApplication creates a new application
-func (c *Client) CreateApplication(name string) (*types.CreateApplicationResponse, error) {
-	payload := map[string]string{
-		"name": name,
-	}
-
-	data, err := c.doRequest("POST", "/api/v1/applications", payload)
+func (c *Client) CreateApplication(ctx context.Context, req *types.CreateAppRequest) (*types.App, error) {
+	data, err := json.Marshal(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	var resp types.CreateApplicationResponse
-	if err := json.Unmarshal(data, &resp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	resp, err := c.doRequest(ctx, http.MethodPost, "/apps", bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create application: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var app types.App
+	if err := json.NewDecoder(resp.Body).Decode(&app); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return &resp, nil
+	return &app, nil
 }
 
-// ListApplications returns all applications for the authenticated user
-func (c *Client) ListApplications() ([]types.Application, error) {
-	data, err := c.doRequest("GET", "/api/v1/applications", nil)
+// ListApplications lists all applications
+func (c *Client) ListApplications(ctx context.Context) ([]types.App, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, "/apps", nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list applications: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var apps []types.App
+	if err := json.NewDecoder(resp.Body).Decode(&apps); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	var resp struct {
-		Applications []types.Application `json:"applications"`
+	return apps, nil
+}
+
+// GetAppInfo gets information about an application
+func (c *Client) GetAppInfo(ctx context.Context, appID string) (*types.App, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/apps/%s", appID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get app info: %w", err)
 	}
-	if err := json.Unmarshal(data, &resp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	defer resp.Body.Close()
+
+	var app types.App
+	if err := json.NewDecoder(resp.Body).Decode(&app); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return resp.Applications, nil
+	return &app, nil
+}
+
+// StartUserDeployment starts a deployment for a user
+func (c *Client) StartUserDeployment(ctx context.Context, appID string, req *types.DeployRequest) (*types.Deployment, error) {
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/apps/%s/deployments", appID), bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("failed to start deployment: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var deployment types.Deployment
+	if err := json.NewDecoder(resp.Body).Decode(&deployment); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &deployment, nil
+}
+
+// GetDeployments gets all deployments for an application
+func (c *Client) GetDeployments(ctx context.Context, appID string) ([]types.Deployment, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/apps/%s/deployments", appID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployments: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var deployments []types.Deployment
+	if err := json.NewDecoder(resp.Body).Decode(&deployments); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return deployments, nil
+}
+
+// GetDeploymentInfo gets detailed information about a deployment
+func (c *Client) GetDeploymentInfo(ctx context.Context, namespace, appID string) (*types.DeploymentInfo, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/deployments/%s/%s", namespace, appID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployment info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var info types.DeploymentInfo
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &info, nil
+}
+
+// SaveCustomDomain saves a custom domain for an application
+func (c *Client) SaveCustomDomain(ctx context.Context, appID string, domain string) error {
+	data, err := json.Marshal(map[string]string{"domain": domain})
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/apps/%s/domains", appID), bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("failed to save custom domain: %w", err)
+	}
+	defer resp.Body.Close()
+
+	return nil
+}
+
+// GetDomains gets all custom domains for an application
+func (c *Client) GetDomains(appID string) ([]types.Domain, error) {
+	ctx := context.Background()
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/apps/%s/domains", appID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get domains: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var domains []types.Domain
+	if err := json.NewDecoder(resp.Body).Decode(&domains); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return domains, nil
+}
+
+// RemoveDomain removes a custom domain from an application
+func (c *Client) RemoveDomain(appID, domain string) error {
+	ctx := context.Background()
+	resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/apps/%s/domains/%s", appID, domain), nil)
+	if err != nil {
+		return fmt.Errorf("failed to remove domain: %w", err)
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+// doRequest makes an HTTP request with proper authentication and error handling
+func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	if c.token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		defer resp.Body.Close()
+		var errResp types.ErrorResponse
+		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+			return nil, fmt.Errorf("request failed with status %d", resp.StatusCode)
+		}
+		return nil, fmt.Errorf("request failed: %s", errResp.Message)
+	}
+
+	return resp, nil
 }

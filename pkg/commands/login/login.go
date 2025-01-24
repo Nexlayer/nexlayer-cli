@@ -2,58 +2,37 @@ package login
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
+	"strings"
 
-	"github.com/pkg/browser"
+	"github.com/Nexlayer/nexlayer-cli/pkg/auth"
 	"github.com/spf13/cobra"
 )
 
-const (
-	configDir  = ".nexlayer"
-	configFile = "config"
-)
+var token string
 
-// Command represents the login command
-var Command = &cobra.Command{
-	Use:   "login",
-	Short: "Log in to Nexlayer using GitHub",
-	Long: `Log in to Nexlayer using your GitHub account.
-This will open your browser for authentication.
-After successful login, your credentials will be saved locally.`,
-	RunE: runLogin,
+func NewCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "login",
+		Short: "Login to Nexlayer",
+		Long:  "Login to Nexlayer using your API token",
+		RunE:  runLogin,
+	}
+
+	cmd.Flags().StringVarP(&token, "token", "t", "", "API token")
+	return cmd
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
-	fmt.Println("Opening browser for GitHub authentication...")
-
-	// Open browser for GitHub OAuth
-	err := browser.OpenURL("https://app.nexlayer.io/auth/github")
-	if err != nil {
-		return fmt.Errorf("failed to open browser: %w", err)
+	// Trim whitespace and validate
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return fmt.Errorf("token is required")
 	}
 
-	// Create config directory if it doesn't exist
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+	if err := auth.SaveToken(token); err != nil {
+		return fmt.Errorf("failed to save token: %w", err)
 	}
 
-	configPath := filepath.Join(homeDir, configDir)
-	if err := os.MkdirAll(configPath, 0700); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
-	}
-
-	fmt.Println("\nWaiting for authentication...")
-	fmt.Println("Please complete the login process in your browser.")
-	fmt.Println("The CLI will automatically receive your token when you're done.")
-
-	// Note: In a real implementation, we would:
-	// 1. Start a local server to receive the OAuth callback
-	// 2. Exchange the code for a token
-	// 3. Save the token to ~/.nexlayer/config
-	// For now, we'll just show a placeholder message
-
-	fmt.Println("\nSuccess! You are now logged in to Nexlayer.")
+	cmd.Printf("Successfully logged in\n")
 	return nil
 }
