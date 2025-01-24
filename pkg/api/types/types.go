@@ -4,10 +4,10 @@ import "time"
 
 // App represents a Nexlayer application
 type App struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"createdAt"`
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"createdAt"`
 	LastDeployAt time.Time `json:"lastDeployAt,omitempty"`
 }
 

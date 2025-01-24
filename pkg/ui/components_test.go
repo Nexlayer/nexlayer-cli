@@ -2,27 +2,27 @@ package ui
 
 import (
 	"fmt"
-	"testing"
-	"strings"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
+	"strings"
+	"testing"
 )
 
 func TestRenderTitle(t *testing.T) {
 	tests := []struct {
-		name     string
-		title    string
-		wantErr  bool
+		name    string
+		title   string
+		wantErr bool
 	}{
 		{
-			name:     "Valid title",
-			title:    "Hello World",
-			wantErr:  false,
+			name:    "Valid title",
+			title:   "Hello World",
+			wantErr: false,
 		},
 		{
-			name:     "Empty title",
-			title:    "",
-			wantErr:  true,
+			name:    "Empty title",
+			title:   "",
+			wantErr: true,
 		},
 	}
 
@@ -41,9 +41,9 @@ func TestRenderTitle(t *testing.T) {
 
 func TestRenderErrorMessage(t *testing.T) {
 	tests := []struct {
-		name    string
-		err     error
-		want    string
+		name string
+		err  error
+		want string
 	}{
 		{
 			name: "Nil error",

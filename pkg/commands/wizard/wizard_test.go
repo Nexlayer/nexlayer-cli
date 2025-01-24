@@ -8,10 +8,10 @@ import (
 
 type testModel struct {
 	components []struct {
-		name        string
-		desc        string
-		podType     string
-		tag         string
+		name       string
+		desc       string
+		podType    string
+		tag        string
 		exposeHttp bool
 	}
 }
@@ -40,17 +40,17 @@ func TestGenerateYAML(t *testing.T) {
 			name: "Valid model",
 			model: &testModel{
 				components: []struct {
-					name        string
-					desc        string
-					podType     string
-					tag         string
+					name       string
+					desc       string
+					podType    string
+					tag        string
 					exposeHttp bool
 				}{
 					{
-						name:        "frontend",
-						desc:        "React Frontend",
-						podType:     "react",
-						tag:         "latest",
+						name:       "frontend",
+						desc:       "React Frontend",
+						podType:    "react",
+						tag:        "latest",
 						exposeHttp: true,
 					},
 				},

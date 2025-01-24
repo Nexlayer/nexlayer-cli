@@ -33,11 +33,11 @@ func init() {
 	setupCmd.AddCommand(githubActionsSetupCmd)
 
 	// Add flags for registry configuration
-	githubActionsSetupCmd.Flags().StringVar(&vars.RegistryType, "registry-type", "ghcr", 
+	githubActionsSetupCmd.Flags().StringVar(&vars.RegistryType, "registry-type", "ghcr",
 		"Container registry type (ghcr, dockerhub)")
-	githubActionsSetupCmd.Flags().StringVar(&vars.Registry, "registry", "", 
+	githubActionsSetupCmd.Flags().StringVar(&vars.Registry, "registry", "",
 		"Container registry URL (optional, defaults based on type)")
-	githubActionsSetupCmd.Flags().StringVar(&vars.RegistryUsername, "registry-username", "", 
+	githubActionsSetupCmd.Flags().StringVar(&vars.RegistryUsername, "registry-username", "",
 		"Registry username (optional, defaults to github.actor for GHCR)")
 }
 

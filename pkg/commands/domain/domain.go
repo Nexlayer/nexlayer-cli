@@ -4,9 +4,9 @@ package domain
 import (
 	"context"
 	"fmt"
-	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
+	"github.com/spf13/cobra"
 )
 
 // NewCommand creates a new domain command
@@ -65,7 +65,7 @@ func newListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			
+
 			cmd.Printf("%-30s %-15s\n", "DOMAIN", "STATUS")
 			for _, domain := range domains {
 				cmd.Printf("%-30s %-15s\n", domain.Domain, domain.Status)

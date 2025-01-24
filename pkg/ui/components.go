@@ -10,15 +10,15 @@ import (
 
 const (
 	// UI Constants - used for consistent sizing across components
-	defaultWidth    = 50  // Default width for UI components
-	defaultBoxWidth = 19  // Default width for boxes and containers
-	
+	defaultWidth    = 50 // Default width for UI components
+	defaultBoxWidth = 19 // Default width for boxes and containers
+
 	// Colors - using standard ANSI color codes for consistent appearance
-	colorSuccess = "#00FF00"  // Green for success messages
-	colorInfo    = "#87CEEB"  // Light blue for informational messages
-	colorError   = "196"      // Red for error messages
-	colorHeading = "205"      // Pink for headings
-	
+	colorSuccess = "#00FF00" // Green for success messages
+	colorInfo    = "#87CEEB" // Light blue for informational messages
+	colorError   = "196"     // Red for error messages
+	colorHeading = "205"     // Pink for headings
+
 	// Error messages
 	errNilError     = "an error occurred but no details were provided"
 	errEmptyTitle   = "title cannot be empty"
@@ -28,34 +28,34 @@ const (
 var (
 	// Styles - predefined styles for consistent UI appearance
 	titleStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(colorSuccess)).
-		Border(lipgloss.RoundedBorder()).
-		Padding(1).
-		Align(lipgloss.Center)
+			Bold(true).
+			Foreground(lipgloss.Color(colorSuccess)).
+			Border(lipgloss.RoundedBorder()).
+			Padding(1).
+			Align(lipgloss.Center)
 
 	subtitleStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colorInfo)).
-		Italic(true)
+			Foreground(lipgloss.Color(colorInfo)).
+			Italic(true)
 
 	progressStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colorSuccess))
+			Foreground(lipgloss.Color(colorSuccess))
 
 	successStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colorSuccess)).
-		Bold(true)
+			Foreground(lipgloss.Color(colorSuccess)).
+			Bold(true)
 
 	infoStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colorInfo))
+			Foreground(lipgloss.Color(colorInfo))
 
 	headingStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colorHeading)).
-		Bold(true).
-		Margin(1, 0, 1, 0)
+			Foreground(lipgloss.Color(colorHeading)).
+			Bold(true).
+			Margin(1, 0, 1, 0)
 
 	errorStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(colorError)).
-		Bold(true)
+			Foreground(lipgloss.Color(colorError)).
+			Bold(true)
 )
 
 // RenderTitle renders a styled title box with consistent width.
@@ -73,7 +73,7 @@ func RenderProgressBar(current, total int) string {
 	if current > total {
 		return RenderErrorMessage(fmt.Errorf(errInvalidRange))
 	}
-	
+
 	prog := progress.New(
 		progress.WithDefaultGradient(),
 		progress.WithWidth(40),
@@ -93,7 +93,7 @@ func RenderArchitectureDiagram(database, backend, frontend string) string {
 	// Helper to center text in box
 	centerText := func(text string) string {
 		padding := (defaultBoxWidth - len(text)) / 2
-		return fmt.Sprintf("|%s%s%s|", 
+		return fmt.Sprintf("|%s%s%s|",
 			strings.Repeat(" ", padding),
 			text,
 			strings.Repeat(" ", defaultBoxWidth-len(text)-padding))
@@ -152,14 +152,14 @@ func RenderYAMLPreview(database, backend, frontend string) string {
 func RenderSuccessMessage(text string, nextSteps ...string) string {
 	var sb strings.Builder
 	sb.WriteString(successStyle.Render(fmt.Sprintf("✅ %s\n", text)))
-	
+
 	if len(nextSteps) > 0 {
 		sb.WriteString("\nNext steps:\n")
 		for i, step := range nextSteps {
 			sb.WriteString(fmt.Sprintf("%d️⃣ %s\n", i+1, step))
 		}
 	}
-	
+
 	return sb.String()
 }
 
@@ -183,14 +183,14 @@ func RenderArchitecturePreview(components []string) string {
 	if len(components) == 0 {
 		return RenderInfoMessage("No components selected")
 	}
-	
+
 	var sb strings.Builder
 	sb.WriteString(RenderHeading("Stack Architecture"))
-	
+
 	for _, component := range components {
 		sb.WriteString(infoStyle.Render(fmt.Sprintf("• %s\n", component)))
 	}
-	
+
 	return sb.String()
 }
 

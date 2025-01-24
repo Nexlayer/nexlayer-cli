@@ -270,11 +270,11 @@ func TestClient_GetAppInfo(t *testing.T) {
 
 		// Return response
 		app := types.App{
-			ID:          "test-app",
-			Name:        "Test App",
-			CreatedAt:   time.Now(),
+			ID:           "test-app",
+			Name:         "Test App",
+			CreatedAt:    time.Now(),
 			LastDeployAt: time.Now(),
-			Status:      "active",
+			Status:       "active",
 		}
 		json.NewEncoder(w).Encode(app)
 	}))

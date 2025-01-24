@@ -25,35 +25,35 @@ func (c *Client) Login() error {
 	cmd := exec.Command("docker", "login", c.config.Registry,
 		"-u", c.config.Username,
 		"--password-stdin")
-	
+
 	cmd.Stdin = strings.NewReader(c.config.Token)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	return cmd.Run()
 }
 
 // BuildImage builds a Docker image for a service
 func (c *Client) BuildImage(cfg ImageConfig) error {
 	for _, tag := range cfg.Tags {
-		imageTag := fmt.Sprintf("%s/%s/%s:%s", 
+		imageTag := fmt.Sprintf("%s/%s/%s:%s",
 			cfg.Namespace,
 			filepath.Base(cfg.Namespace), // organization name
 			cfg.ServiceName,
 			tag)
-		
+
 		cmd := exec.Command("docker", "build",
 			"-t", imageTag,
 			cfg.Path)
-		
+
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		
+
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to build image %s: %w", imageTag, err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -65,16 +65,16 @@ func (c *Client) PushImage(cfg ImageConfig) error {
 			filepath.Base(cfg.Namespace), // organization name
 			cfg.ServiceName,
 			tag)
-		
+
 		cmd := exec.Command("docker", "push", imageTag)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		
+
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to push image %s: %w", imageTag, err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -88,15 +88,15 @@ func (c *Client) BuildAndPushImages(cfg BuildConfig) error {
 		if len(img.Tags) == 0 {
 			img.Tags = cfg.Tags
 		}
-		
+
 		if err := c.BuildImage(img); err != nil {
 			return err
 		}
-		
+
 		if err := c.PushImage(img); err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }

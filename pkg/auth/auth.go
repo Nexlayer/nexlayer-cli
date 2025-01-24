@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	configDir  = ".nexlayer"
-	tokenFile  = "token.json"
-	sessionID  = "R99BLvxPgvaXW" // Test session ID
+	configDir = ".nexlayer"
+	tokenFile = "token.json"
+	sessionID = "R99BLvxPgvaXW" // Test session ID
 )
 
 type TokenConfig struct {

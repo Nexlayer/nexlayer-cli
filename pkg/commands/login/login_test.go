@@ -14,12 +14,12 @@ func TestLoginCommand(t *testing.T) {
 	// Set test mode
 	oldTestMode := os.Getenv("NEXLAYER_TEST_MODE")
 	oldConfigDir := os.Getenv("NEXLAYER_CONFIG_DIR")
-	
+
 	// Create temp config dir
 	tmpDir := t.TempDir()
 	os.Setenv("NEXLAYER_CONFIG_DIR", tmpDir)
 	os.Setenv("NEXLAYER_TEST_MODE", "true")
-	
+
 	defer func() {
 		os.Setenv("NEXLAYER_TEST_MODE", oldTestMode)
 		os.Setenv("NEXLAYER_CONFIG_DIR", oldConfigDir)
@@ -70,10 +70,10 @@ func TestLoginCommand(t *testing.T) {
 				// Create a subdirectory in the temp dir
 				readOnlyDir := tmpDir + "/readonly"
 				require.NoError(t, os.MkdirAll(readOnlyDir, 0755))
-				
+
 				// Make it read-only
 				require.NoError(t, os.Chmod(readOnlyDir, 0500))
-				
+
 				// Set it as the config dir
 				os.Setenv("NEXLAYER_CONFIG_DIR", readOnlyDir)
 			},

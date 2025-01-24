@@ -39,12 +39,12 @@ func TestInfoCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := NewInfoCmd()
 			cmd.SetArgs(tt.args)
-			
+
 			output := new(bytes.Buffer)
 			cmd.SetOut(output)
-			
+
 			err := cmd.Execute()
-			
+
 			if tt.wantErr {
 				assert.Error(t, err)
 				if tt.errContains != "" {

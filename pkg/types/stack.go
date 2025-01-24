@@ -2,12 +2,12 @@ package types
 
 // Stack represents a project stack configuration
 type Stack struct {
-	Language   string           `json:"language"`
-	Framework  string           `json:"framework"`
-	Database   string           `json:"database"`
-	Resources  *ResourceConfig  `json:"resources,omitempty"`
-	Network    *NetworkConfig   `json:"network,omitempty"`
-	Security   *SecurityConfig  `json:"security,omitempty"`
+	Language  string          `json:"language"`
+	Framework string          `json:"framework"`
+	Database  string          `json:"database"`
+	Resources *ResourceConfig `json:"resources,omitempty"`
+	Network   *NetworkConfig  `json:"network,omitempty"`
+	Security  *SecurityConfig `json:"security,omitempty"`
 }
 
 // ResourceConfig defines resource requirements

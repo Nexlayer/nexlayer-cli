@@ -15,9 +15,9 @@ import (
 // NewDeployCmd creates a new deploy command
 func NewDeployCmd() *cobra.Command {
 	var (
-		yamlFile   string
-		appID      string
-		useAI      bool
+		yamlFile string
+		appID    string
+		useAI    bool
 	)
 
 	cmd := &cobra.Command{

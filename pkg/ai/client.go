@@ -36,7 +36,7 @@ func (c *Client) HandleAIFlag(ctx context.Context, command string, args []string
 
 func (c *Client) getSuggestions(ctx context.Context, command string, args []string) (string, error) {
 	prompt := c.buildPrompt(command, args)
-	
+
 	resp, err := c.openaiClient.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{

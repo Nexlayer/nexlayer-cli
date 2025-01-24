@@ -11,7 +11,7 @@ import (
 )
 
 type MockServer struct {
-	server      *httptest.Server
+	server       *httptest.Server
 	applications []types.App
 	mu           sync.RWMutex
 }

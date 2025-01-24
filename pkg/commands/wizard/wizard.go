@@ -30,23 +30,23 @@ var (
 	frontendOptions = []ComponentOption{
 		{
 			Name:       "react",
-			Desc:      "React.js",
-			PodType:   "nginx",
-			Tag:       "katieharris/mern-react-todo:latest",
+			Desc:       "React.js",
+			PodType:    "nginx",
+			Tag:        "katieharris/mern-react-todo:latest",
 			ExposeHttp: true,
 		},
 		{
 			Name:       "angular",
-			Desc:      "Angular",
-			PodType:   "nginx",
-			Tag:       "katieharris/mean-angular-todo:latest",
+			Desc:       "Angular",
+			PodType:    "nginx",
+			Tag:        "katieharris/mean-angular-todo:latest",
 			ExposeHttp: true,
 		},
 		{
 			Name:       "vue",
-			Desc:      "Vue.js",
-			PodType:   "nginx",
-			Tag:       "katieharris/vue-todo:latest",
+			Desc:       "Vue.js",
+			PodType:    "nginx",
+			Tag:        "katieharris/vue-todo:latest",
 			ExposeHttp: true,
 		},
 	}
@@ -54,16 +54,16 @@ var (
 	backendOptions = []ComponentOption{
 		{
 			Name:       "express",
-			Desc:      "Express.js",
-			PodType:   "node",
-			Tag:       "katieharris/mern-express-todo:latest",
+			Desc:       "Express.js",
+			PodType:    "node",
+			Tag:        "katieharris/mern-express-todo:latest",
 			ExposeHttp: true,
 		},
 		{
 			Name:       "flask",
-			Desc:      "Flask",
-			PodType:   "python",
-			Tag:       "katieharris/flask-todo:latest",
+			Desc:       "Flask",
+			PodType:    "python",
+			Tag:        "katieharris/flask-todo:latest",
 			ExposeHttp: true,
 		},
 	}
@@ -71,30 +71,30 @@ var (
 	databaseOptions = []ComponentOption{
 		{
 			Name:       "mongodb",
-			Desc:      "MongoDB",
-			PodType:   "mongodb",
-			Tag:       "mongo:6.0",
+			Desc:       "MongoDB",
+			PodType:    "mongodb",
+			Tag:        "mongo:6.0",
 			ExposeHttp: false,
 		},
 		{
 			Name:       "mysql",
-			Desc:      "MySQL",
-			PodType:   "mysql",
-			Tag:       "mysql:8.0",
+			Desc:       "MySQL",
+			PodType:    "mysql",
+			Tag:        "mysql:8.0",
 			ExposeHttp: false,
 		},
 	}
 
 	registryOptions = []ComponentOption{
 		{
-			Name:  "ghcr",
-			Desc:  "GitHub Container Registry (recommended)",
-			Tag:   "ghcr.io",
+			Name: "ghcr",
+			Desc: "GitHub Container Registry (recommended)",
+			Tag:  "ghcr.io",
 		},
 		{
-			Name:  "dockerhub",
-			Desc:  "Docker Hub",
-			Tag:   "docker.io",
+			Name: "dockerhub",
+			Desc: "Docker Hub",
+			Tag:  "docker.io",
 		},
 	}
 )
@@ -132,18 +132,18 @@ type stackSelection struct {
 
 type wizardModel struct {
 	currentState wizardState
-	ready       bool
-	stack       stackSelection
-	err         error
-	quitting    bool
-	list        list.Model
+	ready        bool
+	stack        stackSelection
+	err          error
+	quitting     bool
+	list         list.Model
 }
 
 func newWizardModel() wizardModel {
 	m := wizardModel{
 		currentState: wizardStateInit,
-		ready:       true,
-		stack:       stackSelection{},
+		ready:        true,
+		stack:        stackSelection{},
 	}
 	return m
 }
@@ -234,7 +234,7 @@ func (m wizardModel) generateStackYAML() string {
 	var yaml strings.Builder
 	yaml.WriteString(fmt.Sprintf("name: %s\n", m.stack.appName))
 	yaml.WriteString("\n")
-	
+
 	// Add registry configuration
 	if m.stack.registry != "" {
 		if opt := findComponentOption(registryOptions, m.stack.registry); opt != nil {

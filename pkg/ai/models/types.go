@@ -15,12 +15,12 @@ func DefaultConfig() *Config {
 
 // StackAnalysis represents the analysis of a project stack
 type StackAnalysis struct {
-	ContainerImage string   `json:"container_image,omitempty"`
-	Dependencies  []string `json:"dependencies,omitempty"`
-	Ports         []int    `json:"ports,omitempty"`
-	Resources     *ResourceRequests `json:"resources,omitempty"`
-	EnvVars       []string `json:"env_vars,omitempty"`
-	Suggestions   []string `json:"suggestions,omitempty"`
+	ContainerImage string            `json:"container_image,omitempty"`
+	Dependencies   []string          `json:"dependencies,omitempty"`
+	Ports          []int             `json:"ports,omitempty"`
+	Resources      *ResourceRequests `json:"resources,omitempty"`
+	EnvVars        []string          `json:"env_vars,omitempty"`
+	Suggestions    []string          `json:"suggestions,omitempty"`
 }
 
 // ResourceRequests represents the resource requirements for a service

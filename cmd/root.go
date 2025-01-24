@@ -15,9 +15,9 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "nexlayer",
-	Short: "A modern cloud application deployment tool",
-	Long:  help.RootLongDesc,
+	Use:     "nexlayer",
+	Short:   "A modern cloud application deployment tool",
+	Long:    help.RootLongDesc,
 	Example: help.RootExample,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:

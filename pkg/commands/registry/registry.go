@@ -88,9 +88,9 @@ func newBuildCmd() *cobra.Command {
 			for _, svc := range services {
 				images = append(images, registry.ImageConfig{
 					ServiceName: filepath.Base(svc),
-					Path:       svc,
-					Tags:      tags,
-					Namespace: namespace,
+					Path:        svc,
+					Tags:        tags,
+					Namespace:   namespace,
 				})
 			}
 
@@ -101,7 +101,7 @@ func newBuildCmd() *cobra.Command {
 			buildCfg := registry.BuildConfig{
 				Images:    images,
 				Namespace: namespace,
-				Tags:     tags,
+				Tags:      tags,
 			}
 
 			if err := client.BuildAndPushImages(buildCfg); err != nil {
@@ -142,9 +142,9 @@ func newPushCmd() *cobra.Command {
 			for _, svc := range services {
 				images = append(images, registry.ImageConfig{
 					ServiceName: filepath.Base(svc),
-					Path:       svc,
-					Tags:      tags,
-					Namespace: namespace,
+					Path:        svc,
+					Tags:        tags,
+					Namespace:   namespace,
 				})
 			}
 

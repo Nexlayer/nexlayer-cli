@@ -17,8 +17,8 @@ func TestPluginCmd(t *testing.T) {
 	}{
 		{
 			name:       "No args",
-			args:      []string{},
-			wantErr:   false,
+			args:       []string{},
+			wantErr:    false,
 			wantOutput: "Usage:",
 		},
 		{
@@ -35,8 +35,8 @@ func TestPluginCmd(t *testing.T) {
 		},
 		{
 			name:       "List plugins",
-			args:      []string{"list"},
-			wantErr:   false,
+			args:       []string{"list"},
+			wantErr:    false,
 			wantOutput: "No plugins installed",
 		},
 	}
@@ -45,12 +45,12 @@ func TestPluginCmd(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := NewCommand()
 			cmd.SetArgs(tt.args)
-			
+
 			output := new(bytes.Buffer)
 			cmd.SetOut(output)
-			
+
 			err := cmd.Execute()
-			
+
 			if tt.wantErr {
 				assert.Error(t, err)
 				if tt.errContains != "" {

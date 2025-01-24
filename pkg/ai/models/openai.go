@@ -101,10 +101,10 @@ func (p *OpenAIProvider) AnalyzeStack(ctx context.Context, projectPath string) (
 	// Create basic analysis
 	analysis := &StackAnalysis{
 		ContainerImage: "default/image:latest",
-		Dependencies:  []string{"node", "npm"},
-		Ports:        []int{3000},
-		EnvVars:      []string{"NODE_ENV=production"},
-		Suggestions:  []string{resp.Choices[0].Message.Content},
+		Dependencies:   []string{"node", "npm"},
+		Ports:          []int{3000},
+		EnvVars:        []string{"NODE_ENV=production"},
+		Suggestions:    []string{resp.Choices[0].Message.Content},
 	}
 
 	return analysis, nil

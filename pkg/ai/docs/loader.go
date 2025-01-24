@@ -181,7 +181,7 @@ func (s *Store) GetByTag(tag string) []*Content {
 func extractTags(content string) []string {
 	var tags []string
 	lines := strings.Split(content, "\n")
-	
+
 	// Look for tags section
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -189,7 +189,7 @@ func extractTags(content string) []string {
 			// Extract tags from the line
 			tagPart := strings.TrimPrefix(strings.TrimPrefix(line, "Tags:"), "tags:")
 			tagPart = strings.TrimSpace(tagPart)
-			
+
 			// Split tags by comma
 			for _, tag := range strings.Split(tagPart, ",") {
 				tag = strings.TrimSpace(tag)
@@ -200,6 +200,6 @@ func extractTags(content string) []string {
 			break
 		}
 	}
-	
+
 	return tags
 }

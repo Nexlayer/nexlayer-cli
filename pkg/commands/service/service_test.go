@@ -23,8 +23,8 @@ func TestServiceCommand(t *testing.T) {
 			errMsg:  "accepts 1 arg(s), received 0",
 		},
 		{
-			name: "No app flag",
-			args: []string{"frontend"},
+			name:    "No app flag",
+			args:    []string{"frontend"},
 			wantErr: true,
 			errMsg:  "required flag(s) \"app\" not set",
 		},

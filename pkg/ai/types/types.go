@@ -20,29 +20,29 @@ type AIConfig struct {
 
 // NexlayerTemplate represents a Nexlayer application template
 type NexlayerTemplate struct {
-	Name     string                 `json:"name" yaml:"name"`
-	Version  string                 `json:"version" yaml:"version"`
-	Stack    ProjectStack           `json:"stack" yaml:"stack"`
-	Services []Service             `json:"services,omitempty" yaml:"services,omitempty"`
-	Config   map[string]string     `json:"config,omitempty" yaml:"config,omitempty"`
-	Resources []Resource           `json:"resources,omitempty" yaml:"resources,omitempty"`
+	Name      string            `json:"name" yaml:"name"`
+	Version   string            `json:"version" yaml:"version"`
+	Stack     ProjectStack      `json:"stack" yaml:"stack"`
+	Services  []Service         `json:"services,omitempty" yaml:"services,omitempty"`
+	Config    map[string]string `json:"config,omitempty" yaml:"config,omitempty"`
+	Resources []Resource        `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
 // ProjectStack represents the detected project stack
 type ProjectStack struct {
-	Language    string   `json:"language" yaml:"language"`
-	Framework   string   `json:"framework,omitempty" yaml:"framework,omitempty"`
-	Database    string   `json:"database,omitempty" yaml:"database,omitempty"`
+	Language     string   `json:"language" yaml:"language"`
+	Framework    string   `json:"framework,omitempty" yaml:"framework,omitempty"`
+	Database     string   `json:"database,omitempty" yaml:"database,omitempty"`
 	Dependencies []string `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
 }
 
 // Service represents a service in the application
 type Service struct {
-	Name        string            `json:"name" yaml:"name"`
-	Image       string            `json:"image" yaml:"image"`
-	Ports       []PortConfig      `json:"ports,omitempty" yaml:"ports,omitempty"`
-	Environment map[string]string `json:"environment,omitempty" yaml:"environment,omitempty"`
-	Resources   ResourceRequests  `json:"resources,omitempty" yaml:"resources,omitempty"`
+	Name        string             `json:"name" yaml:"name"`
+	Image       string             `json:"image" yaml:"image"`
+	Ports       []PortConfig       `json:"ports,omitempty" yaml:"ports,omitempty"`
+	Environment map[string]string  `json:"environment,omitempty" yaml:"environment,omitempty"`
+	Resources   ResourceRequests   `json:"resources,omitempty" yaml:"resources,omitempty"`
 	Healthcheck *HealthcheckConfig `json:"healthcheck,omitempty" yaml:"healthcheck,omitempty"`
 }
 
@@ -88,27 +88,27 @@ type SecurityIssue struct {
 
 // CostEstimate represents estimated resource costs
 type CostEstimate struct {
-	Monthly     float64        `json:"monthly" yaml:"monthly"`
-	Hourly      float64        `json:"hourly" yaml:"hourly"`
-	Currency    string         `json:"currency" yaml:"currency"`
-	Components  []ResourceCost `json:"components" yaml:"components"`
+	Monthly    float64        `json:"monthly" yaml:"monthly"`
+	Hourly     float64        `json:"hourly" yaml:"hourly"`
+	Currency   string         `json:"currency" yaml:"currency"`
+	Components []ResourceCost `json:"components" yaml:"components"`
 }
 
 // ResourceCost represents the cost for a specific resource
 type ResourceCost struct {
-	Name     string  `json:"name" yaml:"name"`
-	Type     string  `json:"type" yaml:"type"`
-	Monthly  float64 `json:"monthly" yaml:"monthly"`
-	Hourly   float64 `json:"hourly" yaml:"hourly"`
+	Name    string  `json:"name" yaml:"name"`
+	Type    string  `json:"type" yaml:"type"`
+	Monthly float64 `json:"monthly" yaml:"monthly"`
+	Hourly  float64 `json:"hourly" yaml:"hourly"`
 }
 
 // StackAnalysis represents AI analysis of a project stack
 type StackAnalysis struct {
-	ContainerImage string            `json:"container_image"`
-	EnvVars       []EnvVar          `json:"env_vars"`
-	Ports         []Port            `json:"ports"`
-	Resources     ResourceRequests  `json:"resources"`
-	Dependencies  []string          `json:"dependencies"`
+	ContainerImage string           `json:"container_image"`
+	EnvVars        []EnvVar         `json:"env_vars"`
+	Ports          []Port           `json:"ports"`
+	Resources      ResourceRequests `json:"resources"`
+	Dependencies   []string         `json:"dependencies"`
 }
 
 // EnvVar represents an environment variable

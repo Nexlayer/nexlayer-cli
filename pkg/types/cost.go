@@ -2,9 +2,9 @@ package types
 
 // CostEstimate represents cost estimation for resources
 type CostEstimate struct {
-	TotalCost     float64       `json:"total_cost"`
+	TotalCost     float64        `json:"total_cost"`
 	ResourceCosts []ResourceCost `json:"resource_costs"`
-	Currency      string        `json:"currency"`
+	Currency      string         `json:"currency"`
 }
 
 // ResourceCost represents cost for a specific resource
