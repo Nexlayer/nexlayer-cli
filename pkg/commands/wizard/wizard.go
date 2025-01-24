@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -42,9 +41,6 @@ type wizardModel struct {
 	dbSelected     int
 	backSelected   int
 	frontSelected  int
-	progress       int
-	targetProgress int
-	lastTick       time.Time
 	aiEnabled      bool
 	aiSuggestions  []string
 	aiClient       *ai.Client
@@ -55,59 +51,54 @@ var (
 
 	databaseOptions = []string{
 		"MongoDB",
-		"MySQL",
 		"PostgreSQL",
+		"MySQL",
+		"Redis",
 		"Skip (no database)",
 	}
 
 	backendOptions = []string{
 		"Express.js",
-		"Flask",
+		"FastAPI",
+		"Spring Boot",
 		"Django",
 		"Skip (no backend)",
 	}
 
 	frontendOptions = []string{
 		"React",
-		"Angular",
 		"Vue.js",
+		"Angular",
+		"Svelte",
 		"Skip (no frontend)",
 	}
 )
 
-// tickMsg represents a progress bar tick
-type tickMsg time.Time
-
-func tickCmd() tea.Cmd {
-	return tea.Tick(time.Millisecond*16, func(t time.Time) tea.Msg {
-		return tickMsg(t)
-	})
-}
-
 // NewWizardCmd creates a new wizard command
 func NewWizardCmd() *cobra.Command {
 	var useAI bool
-
 	cmd := &cobra.Command{
 		Use:   "wizard",
-		Short: "Interactive wizard to set up your application",
-		Long: `Interactive wizard to help you set up your application.
-Use --ai flag to enable AI-powered recommendations (requires OPENAI_API_KEY).`,
+		Short: "Interactive wizard to create a new deployment",
+		Long:  "Start an interactive wizard that helps you create a new deployment by selecting components and configuring settings.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if useAI {
-				openAIKey := os.Getenv("OPENAI_API_KEY")
-				if openAIKey == "" {
-					return fmt.Errorf("OPENAI_API_KEY environment variable is required when using --ai flag")
-				}
-			}
-			
 			p := tea.NewProgram(newWizardModel(useAI))
-			_, err := p.Run()
-			return err
+			model, err := p.Run()
+			if err != nil {
+				return fmt.Errorf("failed to run wizard: %w", err)
+			}
+
+			m := model.(wizardModel)
+			if m.quitting {
+				fmt.Println("Goodbye!")
+				os.Exit(0)
+			}
+
+			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&useAI, "ai", false, "Enable AI-powered recommendations (requires OPENAI_API_KEY)")
+	cmd.Flags().BoolVar(&useAI, "ai", false, "Enable AI-powered suggestions")
 	return cmd
 }
 
@@ -115,6 +106,8 @@ func newWizardModel(useAI bool) wizardModel {
 	ti := textinput.New()
 	ti.Placeholder = "my-awesome-app"
 	ti.Focus()
+	ti.CharLimit = 50
+	ti.Width = 30
 
 	m := wizardModel{
 		state:     wizardStateWelcome,
@@ -135,88 +128,88 @@ func newWizardModel(useAI bool) wizardModel {
 }
 
 func (m wizardModel) Init() tea.Cmd {
-	return tea.Batch(textinput.Blink, tickCmd())
+	return textinput.Blink
 }
 
 func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
+		switch msg.Type {
+		case tea.KeyCtrlC:
 			m.quitting = true
 			return m, tea.Quit
-		case "up":
+		case tea.KeyUp:
 			switch m.state {
 			case wizardStateDatabase:
-				m.dbSelected = (m.dbSelected - 1 + len(databaseOptions)) % len(databaseOptions)
+				if m.dbSelected > 0 {
+					m.dbSelected--
+				}
 			case wizardStateBackend:
-				m.backSelected = (m.backSelected - 1 + len(backendOptions)) % len(backendOptions)
+				if m.backSelected > 0 {
+					m.backSelected--
+				}
 			case wizardStateFrontend:
-				m.frontSelected = (m.frontSelected - 1 + len(frontendOptions)) % len(frontendOptions)
+				if m.frontSelected > 0 {
+					m.frontSelected--
+				}
 			}
-		case "down":
+		case tea.KeyDown:
 			switch m.state {
 			case wizardStateDatabase:
-				m.dbSelected = (m.dbSelected + 1) % len(databaseOptions)
+				if m.dbSelected < len(databaseOptions)-1 {
+					m.dbSelected++
+				}
 			case wizardStateBackend:
-				m.backSelected = (m.backSelected + 1) % len(backendOptions)
+				if m.backSelected < len(backendOptions)-1 {
+					m.backSelected++
+				}
 			case wizardStateFrontend:
-				m.frontSelected = (m.frontSelected + 1) % len(frontendOptions)
+				if m.frontSelected < len(frontendOptions)-1 {
+					m.frontSelected++
+				}
 			}
-		case "enter":
+		case tea.KeyEnter:
 			switch m.state {
 			case wizardStateWelcome:
 				m.state = wizardStateAppName
+				m.nameInput.Focus()
 			case wizardStateAppName:
 				if validNameRegex.MatchString(m.nameInput.Value()) {
 					m.stack.appName = m.nameInput.Value()
 					m.state = wizardStateDatabase
-					m.targetProgress = 25
 				}
 			case wizardStateDatabase:
 				m.stack.database = databaseOptions[m.dbSelected]
 				m.state = wizardStateBackend
-				m.targetProgress = 50
 			case wizardStateBackend:
 				m.stack.backend = backendOptions[m.backSelected]
 				m.state = wizardStateFrontend
-				m.targetProgress = 75
 			case wizardStateFrontend:
 				m.stack.frontend = frontendOptions[m.frontSelected]
 				m.state = wizardStateReview
-				m.targetProgress = 100
 			case wizardStateReview:
 				return m, tea.Quit
 			}
 		}
-	case tickMsg:
-		if m.progress < m.targetProgress {
-			m.progress++
-			cmds = append(cmds, tickCmd())
-		} else if m.progress > m.targetProgress {
-			m.progress--
-			cmds = append(cmds, tickCmd())
-		}
 	}
 
-	switch m.state {
-	case wizardStateAppName:
-		m.nameInput, cmd = m.nameInput.Update(msg)
-		cmds = append(cmds, cmd)
+	// Handle text input
+	if m.state == wizardStateAppName {
+		var inputCmd tea.Cmd
+		m.nameInput, inputCmd = m.nameInput.Update(msg)
+		cmd = tea.Batch(cmd, inputCmd)
 	}
 
-	// Always keep ticking for smooth animation
-	if len(cmds) == 0 {
-		cmds = append(cmds, tickCmd())
-	}
-
-	return m, tea.Batch(cmds...)
+	return m, cmd
 }
 
 func (m wizardModel) View() string {
+	if m.err != nil {
+		return fmt.Sprintf("Error: %v\n", m.err)
+	}
+
 	switch m.state {
 	case wizardStateWelcome:
 		return ui.RenderWelcome()
@@ -230,7 +223,6 @@ func (m wizardModel) View() string {
 			"Step 2: Choose Your Database",
 			databaseOptions,
 			m.dbSelected,
-			m.progress,
 			map[string]string{
 				"database": m.stack.database,
 				"backend":  m.stack.backend,
@@ -242,7 +234,6 @@ func (m wizardModel) View() string {
 			"Step 3: Choose Your Backend",
 			backendOptions,
 			m.backSelected,
-			m.progress,
 			map[string]string{
 				"database": m.stack.database,
 				"backend":  m.stack.backend,
@@ -254,7 +245,6 @@ func (m wizardModel) View() string {
 			"Step 4: Choose Your Frontend",
 			frontendOptions,
 			m.frontSelected,
-			m.progress,
 			map[string]string{
 				"database": m.stack.database,
 				"backend":  m.stack.backend,
@@ -262,28 +252,17 @@ func (m wizardModel) View() string {
 			},
 		)
 	case wizardStateReview:
-		stack := map[string]string{
-			"database": m.stack.database,
-			"backend":  m.stack.backend,
-			"frontend": m.stack.frontend,
-		}
-		view := ui.RenderHeader("Review Your Stack") + "\n" +
-			"\n"
-		
-		// Display the selected components
-		if stack["database"] != "" && stack["database"] != "Skip (no database)" {
-			view += ui.SelectedStyle.Render("✅ Database: ") + stack["database"] + "\n"
-		}
-		if stack["backend"] != "" && stack["backend"] != "Skip (no backend)" {
-			view += ui.SelectedStyle.Render("✅ Backend: ") + stack["backend"] + "\n"
-		}
-		if stack["frontend"] != "" && stack["frontend"] != "Skip (no frontend)" {
-			view += ui.SelectedStyle.Render("✅ Frontend: ") + stack["frontend"] + "\n"
-		}
-		view += "\n" +
-			" Ready to deploy? Press Enter to confirm."
-		return view
+		return ui.RenderComponentSelection(
+			"Step 5: Review Your Stack",
+			[]string{"Your stack is ready to deploy!"},
+			0,
+			map[string]string{
+				"database": m.stack.database,
+				"backend":  m.stack.backend,
+				"frontend": m.stack.frontend,
+			},
+		)
 	default:
-		return ""
+		return "Unknown state"
 	}
 }
