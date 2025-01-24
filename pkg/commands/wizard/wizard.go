@@ -2,306 +2,288 @@ package wizard
 
 import (
 	"fmt"
-	"strings"
+	"os"
+	"regexp"
+	"time"
 
-	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
+	"github.com/Nexlayer/nexlayer-cli/pkg/wizard/ai"
+	"github.com/Nexlayer/nexlayer-cli/pkg/wizard/ui"
 )
-
-// ComponentOption represents a stack component option
-type ComponentOption struct {
-	Name       string
-	Desc       string
-	PodType    string
-	Tag        string
-	ExposeHttp bool
-}
-
-// Component configurations
-var (
-	frontendOptions = []ComponentOption{
-		{
-			Name:       "react",
-			Desc:       "React.js",
-			PodType:    "nginx",
-			Tag:        "katieharris/mern-react-todo:latest",
-			ExposeHttp: true,
-		},
-		{
-			Name:       "angular",
-			Desc:       "Angular",
-			PodType:    "nginx",
-			Tag:        "katieharris/mean-angular-todo:latest",
-			ExposeHttp: true,
-		},
-		{
-			Name:       "vue",
-			Desc:       "Vue.js",
-			PodType:    "nginx",
-			Tag:        "katieharris/vue-todo:latest",
-			ExposeHttp: true,
-		},
-	}
-
-	backendOptions = []ComponentOption{
-		{
-			Name:       "express",
-			Desc:       "Express.js",
-			PodType:    "node",
-			Tag:        "katieharris/mern-express-todo:latest",
-			ExposeHttp: true,
-		},
-		{
-			Name:       "flask",
-			Desc:       "Flask",
-			PodType:    "python",
-			Tag:        "katieharris/flask-todo:latest",
-			ExposeHttp: true,
-		},
-	}
-
-	databaseOptions = []ComponentOption{
-		{
-			Name:       "mongodb",
-			Desc:       "MongoDB",
-			PodType:    "mongodb",
-			Tag:        "mongo:6.0",
-			ExposeHttp: false,
-		},
-		{
-			Name:       "mysql",
-			Desc:       "MySQL",
-			PodType:    "mysql",
-			Tag:        "mysql:8.0",
-			ExposeHttp: false,
-		},
-	}
-
-	registryOptions = []ComponentOption{
-		{
-			Name: "ghcr",
-			Desc: "GitHub Container Registry (recommended)",
-			Tag:  "ghcr.io",
-		},
-		{
-			Name: "dockerhub",
-			Desc: "Docker Hub",
-			Tag:  "docker.io",
-		},
-	}
-)
-
-// NewWizardCmd creates a new wizard command
-func NewWizardCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "wizard",
-		Short: "Interactive deployment wizard",
-		Long: `An enhanced interactive wizard to help you deploy your application.
-Features a beautiful UI with real-time architecture visualization and YAML preview.`,
-		RunE: runWizard,
-	}
-
-	return cmd
-}
 
 type wizardState int
 
 const (
-	wizardStateInit wizardState = iota
+	wizardStateWelcome wizardState = iota
 	wizardStateAppName
-	wizardStateRegistry
-	wizardStateStack
-	wizardStateConfirm
+	wizardStateDatabase
+	wizardStateBackend
+	wizardStateFrontend
+	wizardStateReview
 )
 
 type stackSelection struct {
 	appName  string
-	registry string
-	frontend string
-	backend  string
 	database string
+	backend  string
+	frontend string
 }
 
+// wizardModel represents the wizard's model
 type wizardModel struct {
-	currentState wizardState
-	ready        bool
-	stack        stackSelection
-	err          error
-	quitting     bool
-	list         list.Model
+	state          wizardState
+	stack          stackSelection
+	err            error
+	quitting       bool
+	nameInput      textinput.Model
+	dbSelected     int
+	backSelected   int
+	frontSelected  int
+	progress       int
+	targetProgress int
+	lastTick       time.Time
+	aiEnabled      bool
+	aiSuggestions  []string
+	aiClient       *ai.Client
 }
 
-func newWizardModel() wizardModel {
-	m := wizardModel{
-		currentState: wizardStateInit,
-		ready:        true,
-		stack:        stackSelection{},
+var (
+	validNameRegex = regexp.MustCompile("^[a-zA-Z0-9_-]+$")
+
+	databaseOptions = []string{
+		"MongoDB",
+		"MySQL",
+		"PostgreSQL",
+		"Skip (no database)",
 	}
+
+	backendOptions = []string{
+		"Express.js",
+		"Flask",
+		"Django",
+		"Skip (no backend)",
+	}
+
+	frontendOptions = []string{
+		"React",
+		"Angular",
+		"Vue.js",
+		"Skip (no frontend)",
+	}
+)
+
+// tickMsg represents a progress bar tick
+type tickMsg time.Time
+
+func tickCmd() tea.Cmd {
+	return tea.Tick(time.Millisecond*16, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
+// NewWizardCmd creates a new wizard command
+func NewWizardCmd() *cobra.Command {
+	var useAI bool
+
+	cmd := &cobra.Command{
+		Use:   "wizard",
+		Short: "Interactive wizard to set up your application",
+		Long: `Interactive wizard to help you set up your application.
+Use --ai flag to enable AI-powered recommendations (requires OPENAI_API_KEY).`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if useAI {
+				openAIKey := os.Getenv("OPENAI_API_KEY")
+				if openAIKey == "" {
+					return fmt.Errorf("OPENAI_API_KEY environment variable is required when using --ai flag")
+				}
+			}
+			
+			p := tea.NewProgram(newWizardModel(useAI))
+			_, err := p.Run()
+			return err
+		},
+	}
+
+	cmd.Flags().BoolVar(&useAI, "ai", false, "Enable AI-powered recommendations (requires OPENAI_API_KEY)")
+	return cmd
+}
+
+func newWizardModel(useAI bool) wizardModel {
+	ti := textinput.New()
+	ti.Placeholder = "my-awesome-app"
+	ti.Focus()
+
+	m := wizardModel{
+		state:     wizardStateWelcome,
+		aiEnabled: useAI,
+		nameInput: ti,
+	}
+
+	if useAI {
+		client, err := ai.NewClient()
+		if err != nil {
+			m.err = fmt.Errorf("failed to initialize AI client: %w", err)
+			return m
+		}
+		m.aiClient = client
+	}
+
 	return m
 }
 
 func (m wizardModel) Init() tea.Cmd {
-	return nil
+	return tea.Batch(textinput.Blink, tickCmd())
 }
 
 func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
 			m.quitting = true
 			return m, tea.Quit
+		case "up":
+			switch m.state {
+			case wizardStateDatabase:
+				m.dbSelected = (m.dbSelected - 1 + len(databaseOptions)) % len(databaseOptions)
+			case wizardStateBackend:
+				m.backSelected = (m.backSelected - 1 + len(backendOptions)) % len(backendOptions)
+			case wizardStateFrontend:
+				m.frontSelected = (m.frontSelected - 1 + len(frontendOptions)) % len(frontendOptions)
+			}
+		case "down":
+			switch m.state {
+			case wizardStateDatabase:
+				m.dbSelected = (m.dbSelected + 1) % len(databaseOptions)
+			case wizardStateBackend:
+				m.backSelected = (m.backSelected + 1) % len(backendOptions)
+			case wizardStateFrontend:
+				m.frontSelected = (m.frontSelected + 1) % len(frontendOptions)
+			}
+		case "enter":
+			switch m.state {
+			case wizardStateWelcome:
+				m.state = wizardStateAppName
+			case wizardStateAppName:
+				if validNameRegex.MatchString(m.nameInput.Value()) {
+					m.stack.appName = m.nameInput.Value()
+					m.state = wizardStateDatabase
+					m.targetProgress = 25
+				}
+			case wizardStateDatabase:
+				m.stack.database = databaseOptions[m.dbSelected]
+				m.state = wizardStateBackend
+				m.targetProgress = 50
+			case wizardStateBackend:
+				m.stack.backend = backendOptions[m.backSelected]
+				m.state = wizardStateFrontend
+				m.targetProgress = 75
+			case wizardStateFrontend:
+				m.stack.frontend = frontendOptions[m.frontSelected]
+				m.state = wizardStateReview
+				m.targetProgress = 100
+			case wizardStateReview:
+				return m, tea.Quit
+			}
+		}
+	case tickMsg:
+		if m.progress < m.targetProgress {
+			m.progress++
+			cmds = append(cmds, tickCmd())
+		} else if m.progress > m.targetProgress {
+			m.progress--
+			cmds = append(cmds, tickCmd())
 		}
 	}
 
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+	switch m.state {
+	case wizardStateAppName:
+		m.nameInput, cmd = m.nameInput.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+
+	// Always keep ticking for smooth animation
+	if len(cmds) == 0 {
+		cmds = append(cmds, tickCmd())
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m wizardModel) View() string {
-	if m.quitting {
-		return "Thanks for using Nexlayer!\n"
-	}
-
-	var s strings.Builder
-
-	s.WriteString(ui.RenderHeading("🚀 Welcome to Nexlayer!\n"))
-	s.WriteString("Let's deploy your application.\n\n")
-
-	switch m.currentState {
-	case wizardStateInit:
-		s.WriteString("Press any key to start...\n")
+	switch m.state {
+	case wizardStateWelcome:
+		return ui.RenderWelcome()
 	case wizardStateAppName:
-		s.WriteString("What's your application name?\n")
-	case wizardStateRegistry:
-		s.WriteString("Choose your container registry:\n")
-		s.WriteString(m.renderRegistryOptions())
-	case wizardStateStack:
-		s.WriteString("Choose your stack components:\n")
-		s.WriteString(m.renderStackOptions())
-	case wizardStateConfirm:
-		s.WriteString("Review your configuration:\n")
-		s.WriteString(m.generateStackYAML())
-	}
-
-	if m.err != nil {
-		s.WriteString("\n" + ui.RenderErrorMessage(m.err))
-	}
-
-	return s.String()
-}
-
-func (m wizardModel) renderRegistryOptions() string {
-	var s strings.Builder
-	s.WriteString("Available registries:\n")
-	for _, opt := range registryOptions {
-		s.WriteString(fmt.Sprintf("  %s (%s)\n", opt.Name, opt.Desc))
-	}
-	return s.String()
-}
-
-func (m wizardModel) renderStackOptions() string {
-	var s strings.Builder
-	s.WriteString("Frontend:\n")
-	for _, opt := range frontendOptions {
-		s.WriteString(fmt.Sprintf("  %s (%s)\n", opt.Name, opt.Desc))
-	}
-	s.WriteString("\nBackend:\n")
-	for _, opt := range backendOptions {
-		s.WriteString(fmt.Sprintf("  %s (%s)\n", opt.Name, opt.Desc))
-	}
-	s.WriteString("\nDatabase:\n")
-	for _, opt := range databaseOptions {
-		s.WriteString(fmt.Sprintf("  %s (%s)\n", opt.Name, opt.Desc))
-	}
-	return s.String()
-}
-
-func (m wizardModel) generateStackYAML() string {
-	if m.stack.appName == "" {
+		return ui.RenderNamePrompt(
+			m.nameInput.Value(),
+			validNameRegex.MatchString(m.nameInput.Value()),
+		)
+	case wizardStateDatabase:
+		return ui.RenderComponentSelection(
+			"Step 2: Choose Your Database",
+			databaseOptions,
+			m.dbSelected,
+			m.progress,
+			map[string]string{
+				"database": m.stack.database,
+				"backend":  m.stack.backend,
+				"frontend": m.stack.frontend,
+			},
+		)
+	case wizardStateBackend:
+		return ui.RenderComponentSelection(
+			"Step 3: Choose Your Backend",
+			backendOptions,
+			m.backSelected,
+			m.progress,
+			map[string]string{
+				"database": m.stack.database,
+				"backend":  m.stack.backend,
+				"frontend": m.stack.frontend,
+			},
+		)
+	case wizardStateFrontend:
+		return ui.RenderComponentSelection(
+			"Step 4: Choose Your Frontend",
+			frontendOptions,
+			m.frontSelected,
+			m.progress,
+			map[string]string{
+				"database": m.stack.database,
+				"backend":  m.stack.backend,
+				"frontend": m.stack.frontend,
+			},
+		)
+	case wizardStateReview:
+		stack := map[string]string{
+			"database": m.stack.database,
+			"backend":  m.stack.backend,
+			"frontend": m.stack.frontend,
+		}
+		view := ui.RenderHeader("Review Your Stack") + "\n" +
+			"\n"
+		
+		// Display the selected components
+		if stack["database"] != "" && stack["database"] != "Skip (no database)" {
+			view += ui.SelectedStyle.Render("✅ Database: ") + stack["database"] + "\n"
+		}
+		if stack["backend"] != "" && stack["backend"] != "Skip (no backend)" {
+			view += ui.SelectedStyle.Render("✅ Backend: ") + stack["backend"] + "\n"
+		}
+		if stack["frontend"] != "" && stack["frontend"] != "Skip (no frontend)" {
+			view += ui.SelectedStyle.Render("✅ Frontend: ") + stack["frontend"] + "\n"
+		}
+		view += "\n" +
+			" Ready to deploy? Press Enter to confirm."
+		return view
+	default:
 		return ""
 	}
-
-	var yaml strings.Builder
-	yaml.WriteString(fmt.Sprintf("name: %s\n", m.stack.appName))
-	yaml.WriteString("\n")
-
-	// Add registry configuration
-	if m.stack.registry != "" {
-		if opt := findComponentOption(registryOptions, m.stack.registry); opt != nil {
-			yaml.WriteString("registry:\n")
-			yaml.WriteString(fmt.Sprintf("  type: %s\n", opt.Name))
-			yaml.WriteString(fmt.Sprintf("  url: %s\n", opt.Tag))
-			yaml.WriteString("\n")
-		}
-	}
-
-	yaml.WriteString("pods:\n")
-
-	if m.stack.database != "" {
-		if opt := findComponentOption(databaseOptions, m.stack.database); opt != nil {
-			yaml.WriteString(fmt.Sprintf("  - type: %s\n", opt.PodType))
-			yaml.WriteString(fmt.Sprintf("    name: %s\n", m.stack.database))
-			yaml.WriteString(fmt.Sprintf("    tag: %s\n", opt.Tag))
-			yaml.WriteString("    vars:\n")
-			yaml.WriteString("      - key: MONGO_INITDB_ROOT_USERNAME\n")
-			yaml.WriteString("        value: mongo\n")
-			yaml.WriteString("      - key: MONGO_INITDB_ROOT_PASSWORD\n")
-			yaml.WriteString("        value: passw0rd\n")
-		}
-	}
-
-	if m.stack.backend != "" {
-		if opt := findComponentOption(backendOptions, m.stack.backend); opt != nil {
-			yaml.WriteString(fmt.Sprintf("  - type: %s\n", opt.PodType))
-			yaml.WriteString(fmt.Sprintf("    name: %s\n", m.stack.backend))
-			yaml.WriteString(fmt.Sprintf("    tag: %s\n", opt.Tag))
-			yaml.WriteString("    vars:\n")
-			yaml.WriteString("      - key: DATABASE_URL\n")
-			yaml.WriteString("        value: mongo://mongodb-service\n")
-		}
-	}
-
-	if m.stack.frontend != "" {
-		if opt := findComponentOption(frontendOptions, m.stack.frontend); opt != nil {
-			yaml.WriteString(fmt.Sprintf("  - type: %s\n", opt.PodType))
-			yaml.WriteString(fmt.Sprintf("    name: %s\n", m.stack.frontend))
-			yaml.WriteString(fmt.Sprintf("    tag: %s\n", opt.Tag))
-			yaml.WriteString("    vars:\n")
-			yaml.WriteString("      - key: BACKEND_URL\n")
-			yaml.WriteString("        value: backend-service\n")
-		}
-	}
-
-	return yaml.String()
-}
-
-// findComponentOption finds a component option by name
-func findComponentOption(options []ComponentOption, name string) *ComponentOption {
-	for _, opt := range options {
-		if opt.Name == name {
-			return &opt
-		}
-	}
-	return nil
-}
-
-// runWizard is the main entry point for the wizard
-func runWizard(cmd *cobra.Command, args []string) error {
-	p := tea.NewProgram(newWizardModel())
-	model, err := p.Run()
-	if err != nil {
-		return fmt.Errorf("error running wizard: %w", err)
-	}
-
-	finalModel := model.(wizardModel)
-	if finalModel.quitting {
-		return fmt.Errorf("wizard cancelled")
-	}
-
-	return nil
 }
