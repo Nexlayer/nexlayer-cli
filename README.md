@@ -35,11 +35,11 @@ nexlayer wizard  # AI-powered deployment setup
 - 🎯 One-command deploys with automatic infrastructure provisioning
 - 🔄 Real-time logs and metrics with built-in monitoring
 - 🛡️ Enterprise-grade security with automatic SSL and secrets management
-- 🌐 Global edge network with automatic CDN and caching
+- 🌐 Kubernetes-powered compute with auto-scaling   
+- 🏁 production-ready full-stack templates 
 - 🤖 AI-powered suggestions and optimizations
 
 ## Requirements
-
 - Go 1.21+
 - Git
 - Docker
