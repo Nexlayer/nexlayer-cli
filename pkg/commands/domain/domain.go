@@ -1,15 +1,37 @@
-// Package domain contains the CLI commands for the Nexlayer CLI.
 package domain
 
 import (
 	"context"
 	"fmt"
+	"net"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 )
+
+// validateDomain checks if a domain name is valid
+func validateDomain(domain string) error {
+	if domain == "" {
+		return fmt.Errorf("domain name cannot be empty")
+	}
+
+	if strings.HasPrefix(domain, ".") || strings.HasSuffix(domain, ".") {
+		return fmt.Errorf("domain name cannot start or end with a dot")
+	}
+
+	if strings.Contains(domain, "..") {
+		return fmt.Errorf("domain name cannot contain consecutive dots")
+	}
+
+	if _, err := net.LookupHost(domain); err != nil {
+		return fmt.Errorf("invalid domain name or domain does not exist: %w", err)
+	}
+
+	return nil
+}
 
 // NewCommand creates a new domain command
 func NewCommand() *cobra.Command {
@@ -27,7 +49,7 @@ func NewCommand() *cobra.Command {
 }
 
 func newAddCmd() *cobra.Command {
-	var appName string
+	var applicationID string
 
 	cmd := &cobra.Command{
 		Use:   "add [domain]",
@@ -36,59 +58,93 @@ func newAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			domain := args[0]
 
+			if err := validateDomain(domain); err != nil {
+				return fmt.Errorf("domain validation failed: %w", err)
+			}
+
 			client := api.NewClient(vars.APIEndpoint)
 			client.SetToken(vars.Token)
 
-			err := client.SaveCustomDomain(context.Background(), appName, domain)
+			err := client.SaveCustomDomain(context.Background(), applicationID, domain)
 			if err != nil {
 				return fmt.Errorf("failed to add custom domain: %w", err)
 			}
 
-			fmt.Printf("Added custom domain %s to application %s\n", domain, appName)
+			fmt.Printf("Added custom domain %s to application %s\n", domain, applicationID)
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&appName, "app", "", "Application name")
-	if err := cmd.MarkFlagRequired("app"); err != nil {
-		panic(fmt.Sprintf("failed to mark app flag as required: %v", err))
+	cmd.Flags().StringVar(&applicationID, "app-id", "", "Application ID")
+	if err := cmd.MarkFlagRequired("app-id"); err != nil {
+		panic(fmt.Sprintf("failed to mark app-id flag as required: %v", err))
 	}
 
 	return cmd
 }
 
 func newListCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "list [app]",
+	var applicationID string
+
+	cmd := &cobra.Command{
+		Use:   "list",
 		Short: "List custom domains",
-		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			appName := args[0]
-			client := api.NewClient(vars.APIURL)
-			domains, err := client.GetDomains(appName)
+			client := api.NewClient(vars.APIEndpoint)
+			client.SetToken(vars.Token)
+
+			domains, err := client.GetDomains(applicationID)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to list domains: %w", err)
 			}
 
-			cmd.Printf("%-30s %-15s\n", "DOMAIN", "STATUS")
+			if len(domains) == 0 {
+				fmt.Printf("No custom domains found for application %s\n", applicationID)
+				return nil
+			}
+
+			fmt.Printf("Custom domains for application %s:\n", applicationID)
+			fmt.Printf("%-30s %-15s\n", "DOMAIN", "STATUS")
 			for _, domain := range domains {
-				cmd.Printf("%-30s %-15s\n", domain.Domain, domain.Status)
+				fmt.Printf("%-30s %-15s\n", domain.Domain, domain.Status)
 			}
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&applicationID, "app-id", "", "Application ID")
+	if err := cmd.MarkFlagRequired("app-id"); err != nil {
+		panic(fmt.Sprintf("failed to mark app-id flag as required: %v", err))
+	}
+
+	return cmd
 }
 
 func newRemoveCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "remove [app] [domain]",
+	var applicationID string
+
+	cmd := &cobra.Command{
+		Use:   "remove [domain]",
 		Short: "Remove a custom domain",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			appName := args[0]
-			domain := args[1]
-			client := api.NewClient(vars.APIURL)
-			return client.RemoveDomain(appName, domain)
+			domain := args[0]
+			client := api.NewClient(vars.APIEndpoint)
+			client.SetToken(vars.Token)
+
+			if err := client.RemoveDomain(applicationID, domain); err != nil {
+				return fmt.Errorf("failed to remove domain: %w", err)
+			}
+
+			fmt.Printf("Removed custom domain %s from application %s\n", domain, applicationID)
+			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&applicationID, "app-id", "", "Application ID")
+	if err := cmd.MarkFlagRequired("app-id"); err != nil {
+		panic(fmt.Sprintf("failed to mark app-id flag as required: %v", err))
+	}
+
+	return cmd
 }

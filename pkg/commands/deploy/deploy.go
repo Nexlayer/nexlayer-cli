@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -13,11 +14,34 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 )
 
+const (
+	maxRetries = 3
+	retryDelay = 2 * time.Second
+)
+
+// retryWithBackoff executes the given function with exponential backoff
+func retryWithBackoff(ctx context.Context, operation func() error) error {
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		if err := operation(); err != nil {
+			lastErr = err
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(retryDelay * time.Duration(i+1)):
+				continue
+			}
+		}
+		return nil
+	}
+	return fmt.Errorf("operation failed after %d retries: %w", maxRetries, lastErr)
+}
+
 // NewDeployCmd creates a new deploy command
 func NewDeployCmd() *cobra.Command {
 	var (
 		yamlFile string
-		appID    string
+		applicationID string
 		useAI    bool
 	)
 
@@ -27,6 +51,8 @@ func NewDeployCmd() *cobra.Command {
 		Long: `Deploy an application using a YAML configuration file.
 Use the --ai flag to get AI-powered suggestions for optimizing your deployment.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
 			// Handle AI suggestions if enabled
 			if useAI {
 				aiClient, err := ai.NewClient()
@@ -34,7 +60,7 @@ Use the --ai flag to get AI-powered suggestions for optimizing your deployment.`
 					return fmt.Errorf("failed to initialize AI client: %w", err)
 				}
 
-				if err := aiClient.HandleAIFlag(cmd.Context(), "deploy", args); err != nil {
+				if err := aiClient.HandleAIFlag(ctx, "deploy", args); err != nil {
 					return fmt.Errorf("failed to handle AI suggestions: %w", err)
 				}
 			}
@@ -49,13 +75,22 @@ Use the --ai flag to get AI-powered suggestions for optimizing your deployment.`
 			client := api.NewClient(vars.APIEndpoint)
 			client.SetToken(vars.Token)
 
-			// Start deployment
-			req := &types.DeployRequest{
-				YAML:          string(yamlContent),
-				ApplicationID: appID,
-			}
+			// Start deployment with retry logic
+			var deployment *types.Deployment
+			err = retryWithBackoff(ctx, func() error {
+				req := &types.DeployRequest{
+					YAML:          string(yamlContent),
+					ApplicationID: applicationID,
+				}
 
-			deployment, err := client.StartUserDeployment(context.Background(), appID, req)
+				var err error
+				deployment, err = client.StartUserDeployment(ctx, applicationID, req)
+				if err != nil {
+					return fmt.Errorf("deployment attempt failed: %w", err)
+				}
+				return nil
+			})
+
 			if err != nil {
 				return fmt.Errorf("failed to start deployment: %w", err)
 			}
@@ -68,15 +103,15 @@ Use the --ai flag to get AI-powered suggestions for optimizing your deployment.`
 
 	// Add flags
 	cmd.Flags().StringVarP(&yamlFile, "file", "f", "", "YAML file containing deployment configuration")
-	cmd.Flags().StringVar(&appID, "app", "", "Application ID")
+	cmd.Flags().StringVar(&applicationID, "app-id", "", "Application ID")
 	cmd.Flags().BoolVar(&useAI, "ai", false, "Enable AI-powered suggestions")
 
 	// Mark required flags
 	if err := cmd.MarkFlagRequired("file"); err != nil {
 		panic(fmt.Sprintf("failed to mark file flag as required: %v", err))
 	}
-	if err := cmd.MarkFlagRequired("app"); err != nil {
-		panic(fmt.Sprintf("failed to mark app flag as required: %v", err))
+	if err := cmd.MarkFlagRequired("app-id"); err != nil {
+		panic(fmt.Sprintf("failed to mark app-id flag as required: %v", err))
 	}
 
 	return cmd
