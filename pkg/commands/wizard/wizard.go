@@ -84,6 +84,19 @@ var (
 			ExposeHttp: false,
 		},
 	}
+
+	registryOptions = []ComponentOption{
+		{
+			Name:  "ghcr",
+			Desc:  "GitHub Container Registry (recommended)",
+			Tag:   "ghcr.io",
+		},
+		{
+			Name:  "dockerhub",
+			Desc:  "Docker Hub",
+			Tag:   "docker.io",
+		},
+	}
 )
 
 // NewWizardCmd creates a new wizard command
@@ -104,12 +117,14 @@ type wizardState int
 const (
 	wizardStateInit wizardState = iota
 	wizardStateAppName
+	wizardStateRegistry
 	wizardStateStack
 	wizardStateConfirm
 )
 
 type stackSelection struct {
 	appName  string
+	registry string
 	frontend string
 	backend  string
 	database string
@@ -167,6 +182,9 @@ func (m wizardModel) View() string {
 		s.WriteString("Press any key to start...\n")
 	case wizardStateAppName:
 		s.WriteString("What's your application name?\n")
+	case wizardStateRegistry:
+		s.WriteString("Choose your container registry:\n")
+		s.WriteString(m.renderRegistryOptions())
 	case wizardStateStack:
 		s.WriteString("Choose your stack components:\n")
 		s.WriteString(m.renderStackOptions())
@@ -182,12 +200,51 @@ func (m wizardModel) View() string {
 	return s.String()
 }
 
+func (m wizardModel) renderRegistryOptions() string {
+	var s strings.Builder
+	s.WriteString("Available registries:\n")
+	for _, opt := range registryOptions {
+		s.WriteString(fmt.Sprintf("  %s (%s)\n", opt.Name, opt.Desc))
+	}
+	return s.String()
+}
+
+func (m wizardModel) renderStackOptions() string {
+	var s strings.Builder
+	s.WriteString("Frontend:\n")
+	for _, opt := range frontendOptions {
+		s.WriteString(fmt.Sprintf("  %s (%s)\n", opt.Name, opt.Desc))
+	}
+	s.WriteString("\nBackend:\n")
+	for _, opt := range backendOptions {
+		s.WriteString(fmt.Sprintf("  %s (%s)\n", opt.Name, opt.Desc))
+	}
+	s.WriteString("\nDatabase:\n")
+	for _, opt := range databaseOptions {
+		s.WriteString(fmt.Sprintf("  %s (%s)\n", opt.Name, opt.Desc))
+	}
+	return s.String()
+}
+
 func (m wizardModel) generateStackYAML() string {
 	if m.stack.appName == "" {
 		return ""
 	}
 
 	var yaml strings.Builder
+	yaml.WriteString(fmt.Sprintf("name: %s\n", m.stack.appName))
+	yaml.WriteString("\n")
+	
+	// Add registry configuration
+	if m.stack.registry != "" {
+		if opt := findComponentOption(registryOptions, m.stack.registry); opt != nil {
+			yaml.WriteString("registry:\n")
+			yaml.WriteString(fmt.Sprintf("  type: %s\n", opt.Name))
+			yaml.WriteString(fmt.Sprintf("  url: %s\n", opt.Tag))
+			yaml.WriteString("\n")
+		}
+	}
+
 	yaml.WriteString("pods:\n")
 
 	if m.stack.database != "" {
@@ -226,23 +283,6 @@ func (m wizardModel) generateStackYAML() string {
 	}
 
 	return yaml.String()
-}
-
-func (m wizardModel) renderStackOptions() string {
-	var s strings.Builder
-	s.WriteString("Frontend:\n")
-	for _, opt := range frontendOptions {
-		s.WriteString(fmt.Sprintf("  %s (%s)\n", opt.Name, opt.Desc))
-	}
-	s.WriteString("\nBackend:\n")
-	for _, opt := range backendOptions {
-		s.WriteString(fmt.Sprintf("  %s (%s)\n", opt.Name, opt.Desc))
-	}
-	s.WriteString("\nDatabase:\n")
-	for _, opt := range databaseOptions {
-		s.WriteString(fmt.Sprintf("  %s (%s)\n", opt.Name, opt.Desc))
-	}
-	return s.String()
 }
 
 // findComponentOption finds a component option by name
