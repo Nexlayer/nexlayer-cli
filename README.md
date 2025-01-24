@@ -92,7 +92,33 @@ nexlayer status my-app
 # View live logs to debug or monitor
 nexlayer logs my-app --follow
 
+## AI Features
+
+Nexlayer CLI comes with built-in AI capabilities to help you optimize your deployments:
+
+1. **AI-Powered Setup Wizard**
+   ```bash
+   nexlayer wizard  # Automatically detects your stack and configures deployment
+   ```
+
+2. **AI Deployment Optimization**
+   ```bash
+   nexlayer deploy my-app --template my-app.yaml --ai  # Get AI-powered deployment suggestions
+   ```
+
+3. **AI Infrastructure Recommendations**
+   The AI assistant can help you:
+   - Optimize resource allocation
+   - Suggest scaling strategies
+   - Identify potential bottlenecks
+   - Recommend security improvements
+
+To use AI features, make sure you have configured your AI provider:
+```bash
+nexlayer config set ai.provider openai  # or other supported providers
+nexlayer config set ai.api_key your_api_key
 ```
+
 ### Container Registry Setup
 
 The CLI supports the following container registries for your CI workflows:
