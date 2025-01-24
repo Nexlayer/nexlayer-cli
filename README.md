@@ -11,15 +11,15 @@
 
 </div>
 
-⚡️ Lightning-fast Kubernetes-powered CLI for instant compute scaling. Deploy full-stack apps in seconds with enterprise-grade infrastructure.
+⚡️ Blazing-fast Kubernetes-powered CLI by Nexlayer for seamless deployment and scaling. Launch full-stack applications in seconds with enterprise-grade infrastructure.
 
 ## 🚀 Instant Value in 30 Seconds
 
 ```bash
 # Install & deploy your first app
-go install github.com/Nexlayer/nexlayer-cli@latest
-nexlayer login
-nexlayer wizard  # AI-powered deployment setup
+1. go install github.com/Nexlayer/nexlayer-cli@latest
+2. nexlayer login
+3. nexlayer wizard  # AI-powered deployment setup
 ```
 
 ## ✨ Why Developers Love It
