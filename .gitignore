@@ -5,25 +5,24 @@
 *.key
 *.cert
 
-# IDE and system files
-.idea/
-.vscode/
-.DS_Store
-
-# Build artifacts
-bin/
-dist/
+# Binary files
 nexlayer
 **/nexlayer
 *.exe
 *.dll
 *.so
 *.dylib
-*.test
+
+# Local development files
+nexlayer.yaml
+.nexlayer/
+cli_test.go
+scripts/
+testing-cli-*/
+*-testing-*/
+sal-testing-*/
 
 # Test files
-*.test
-coverage.out
 testdata/
 testing/
 tetsing/
@@ -31,32 +30,26 @@ tetsing/
 test.yaml
 testing-cli-wizard.yaml
 testing-cli-*.yaml
-*-testing-*/
-sal-testing-*/
+*.test
+coverage.out
 
-# Debug files
-debug
-*.debug
-__debug_bin
+# Build artifacts
+dist/
+bin/
 
-# Local development
-local/
-*.local
-*.local.*
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
 
-# Dependency directories
-vendor/
+# OS files
+Thumbs.db
 
 # Go specific
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
 *.out
+vendor/
 go.work
 go.work.sum
-
-# Log files
-*.log
-logs/
+**/go.sum
