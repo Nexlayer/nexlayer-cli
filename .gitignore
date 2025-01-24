@@ -13,10 +13,26 @@
 # Build artifacts
 bin/
 dist/
+nexlayer
+**/nexlayer
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
 
 # Test files
 *.test
 coverage.out
+testdata/
+testing/
+tetsing/
+*_test/
+test.yaml
+testing-cli-wizard.yaml
+testing-cli-*.yaml
+*-testing-*/
+sal-testing-*/
 
 # Debug files
 debug
@@ -37,6 +53,9 @@ vendor/
 *.dll
 *.so
 *.dylib
+*.out
+go.work
+go.work.sum
 
 # Log files
 *.log
