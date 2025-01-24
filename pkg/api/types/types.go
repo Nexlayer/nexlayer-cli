@@ -2,58 +2,59 @@ package types
 
 import "time"
 
-// DeploymentResponse represents the response from the deployment API
-type DeploymentResponse struct {
-	Message   string `json:"message"`
-	Namespace string `json:"namespace"`
-	URL       string `json:"url"`
+// App represents a Nexlayer application
+type App struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"createdAt"`
+	LastDeployAt time.Time `json:"lastDeployAt,omitempty"`
 }
 
-// GetDeploymentsResponse represents the response from the get deployments API
-type GetDeploymentsResponse struct {
-	Deployments []DeploymentInfo `json:"deployments"`
-}
-
-// DeploymentInfo represents information about a deployment
-type DeploymentInfo struct {
-	Namespace        string `json:"namespace"`
-	TemplateID       string `json:"templateID"`
-	TemplateName     string `json:"templateName"`
-	DeploymentStatus string `json:"deploymentStatus"`
-}
-
-// SaveCustomDomainRequest represents the request to save a custom domain
-type SaveCustomDomainRequest struct {
-	Domain string `json:"domain"`
-}
-
-// SaveCustomDomainResponse represents the response from saving a custom domain
-type SaveCustomDomainResponse struct {
-	Message string `json:"message"`
-}
-
-// Application represents a Nexlayer application
-type Application struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-// CreateApplicationResponse represents the response from creating an application
-type CreateApplicationResponse struct {
-	ID   string `json:"id"`
+// CreateAppRequest represents a request to create a new application
+type CreateAppRequest struct {
 	Name string `json:"name"`
+}
+
+// DeployRequest represents a deployment request
+type DeployRequest struct {
+	YAML          string `json:"yaml"`
+	ApplicationID string `json:"application_id"`
+}
+
+// Deployment represents a deployment
+type Deployment struct {
+	ID            string    `json:"id"`
+	ApplicationID string    `json:"applicationId"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
+// DeploymentInfo represents detailed deployment information
+type DeploymentInfo struct {
+	ID            string    `json:"id"`
+	ApplicationID string    `json:"applicationId"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+	Namespace     string    `json:"namespace"`
+	Config        string    `json:"config"`
+}
+
+// Domain represents a custom domain
+type Domain struct {
+	Domain        string    `json:"domain"`
+	ApplicationID string    `json:"applicationId"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"createdAt"`
+	SSLEnabled    bool      `json:"sslEnabled"`
 }
 
 // ErrorResponse represents an API error response
 type ErrorResponse struct {
 	Message string `json:"message"`
 	Code    string `json:"code"`
-}
-
-// StartDeploymentRequest represents the request to start a deployment
-type StartDeploymentRequest struct {
-	YAML string `json:"yaml"`
 }
 
 // Config represents the client configuration

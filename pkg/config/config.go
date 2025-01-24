@@ -14,8 +14,9 @@ type Config struct {
 func GetConfig() *Config {
 	return &Config{
 		APIEndpoints: map[string]string{
-			"staging":    "https://app.staging.nexlayer.io",
 			"production": "https://app.nexlayer.io",
+			"staging":    "https://app.staging.nexlayer.io",
+			"default":    "https://app.staging.nexlayer.io",
 		},
 	}
 }
@@ -25,7 +26,7 @@ func (c *Config) GetAPIEndpoint(env string) string {
 	if endpoint, ok := c.APIEndpoints[env]; ok {
 		return endpoint
 	}
-	return c.APIEndpoints["staging"] // default to staging
+	return c.APIEndpoints["default"] // default to staging
 }
 
 // GetConfigDir returns the configuration directory

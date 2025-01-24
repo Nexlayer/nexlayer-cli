@@ -1,50 +1,37 @@
 package info
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 	"github.com/spf13/cobra"
 )
 
+// NewInfoCmd creates a new info command
 func NewInfoCmd() *cobra.Command {
-	var namespace string
-	var applicationID string
-
 	cmd := &cobra.Command{
-		Use:   "info",
-		Short: "Get detailed information about a deployment",
-		Long:  `Get detailed information about a deployment, including its status and logs.`,
+		Use:   "info [app]",
+		Short: "Get information about an application",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Create API client
-			client, err := api.NewClient("https://api.nexlayer.dev")
+			client := api.NewClient(vars.APIEndpoint)
+			client.SetToken(vars.Token)
+
+			app, err := client.GetAppInfo(context.Background(), args[0])
 			if err != nil {
-				return fmt.Errorf("failed to create API client: %w", err)
+				return fmt.Errorf("failed to get application info: %w", err)
 			}
 
-			// Get deployment info
-			resp, err := client.GetDeploymentInfo(namespace, applicationID)
-			if err != nil {
-				return fmt.Errorf("failed to get deployment info: %w", err)
-			}
-
-			// Print deployment info
-			fmt.Printf("Deployment Information:\n")
-			fmt.Printf("  Namespace: %s\n", resp.Namespace)
-			fmt.Printf("  Template: %s (%s)\n", resp.TemplateName, resp.TemplateID)
-			fmt.Printf("  Status: %s\n", resp.DeploymentStatus)
+			fmt.Printf("Application: %s\n", app.Name)
+			fmt.Printf("ID: %s\n", app.ID)
+			fmt.Printf("Status: %s\n", app.Status)
+			fmt.Printf("Created: %s\n", app.CreatedAt.Format("2006-01-02 15:04:05"))
 
 			return nil
 		},
 	}
-
-	// Add flags
-	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace of the deployment")
-	cmd.Flags().StringVarP(&applicationID, "app", "a", "", "Application ID")
-
-	// Mark flags as required
-	cmd.MarkFlagRequired("namespace")
-	cmd.MarkFlagRequired("app")
 
 	return cmd
 }

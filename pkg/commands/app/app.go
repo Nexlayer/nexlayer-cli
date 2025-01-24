@@ -1,10 +1,13 @@
 package app
 
 import (
+	"context"
 	"fmt"
-	"github.com/spf13/cobra"
+
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/api/types"
 	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -13,74 +16,85 @@ var (
 )
 
 func init() {
-	createCmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new application",
-		Long:  `Create a new application in Nexlayer.`,
-		RunE:  runCreate,
-	}
-	createCmd.Flags().StringVarP(&appName, "name", "n", "", "Name of the application (required)")
-	createCmd.MarkFlagRequired("name")
+	Cmd = NewCommand()
+}
 
-	listCmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all applications",
-		Long:  `List all applications in your Nexlayer account.`,
-		RunE:  runList,
-	}
-
-	Cmd = &cobra.Command{
+func NewCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "app",
-		Short: "Manage applications",
+		Short: "Manage your applications",
 		Long:  `Create, list, and manage your Nexlayer applications.`,
 	}
 
-	Cmd.AddCommand(createCmd)
-	Cmd.AddCommand(listCmd)
+	// Add subcommands
+	cmd.AddCommand(CreateCmd())
+	cmd.AddCommand(ListCmd())
+
+	return cmd
 }
 
-func runCreate(cmd *cobra.Command, args []string) error {
-	client, err := api.NewClient(vars.APIURL)
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
+// CreateCmd creates a new application
+func CreateCmd() *cobra.Command {
+	var name string
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new application",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if name == "" {
+				return fmt.Errorf("name is required")
+			}
+
+			client := api.NewClient(vars.APIEndpoint)
+			client.SetToken(vars.Token)
+
+			req := &types.CreateAppRequest{
+				Name: name,
+			}
+
+			app, err := client.CreateApplication(context.Background(), req)
+			if err != nil {
+				return fmt.Errorf("failed to create application: %w", err)
+			}
+
+			fmt.Printf("Created application %s\n", app.Name)
+			return nil
+		},
 	}
 
-	fmt.Printf("Creating application '%s'...\n", appName)
-	resp, err := client.CreateApplication(appName)
-	if err != nil {
-		return fmt.Errorf("failed to create application: %w", err)
-	}
+	cmd.Flags().StringVarP(&name, "name", "n", "", "Name of the application")
+	cmd.MarkFlagRequired("name")
 
-	fmt.Printf("\nApplication created successfully!\n")
-	fmt.Printf("Application ID: %s\n", resp.ID)
-	fmt.Printf("Name: %s\n", resp.Name)
-	return nil
+	return cmd
 }
 
-func runList(cmd *cobra.Command, args []string) error {
-	client, err := api.NewClient(vars.APIURL)
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
+// ListCmd lists all applications
+func ListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List all applications",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client := api.NewClient(vars.APIEndpoint)
+			client.SetToken(vars.Token)
+
+			apps, err := client.ListApplications(context.Background())
+			if err != nil {
+				return fmt.Errorf("failed to list applications: %w", err)
+			}
+
+			if len(apps) == 0 {
+				fmt.Println("No applications found")
+				return nil
+			}
+
+			fmt.Println("Applications:")
+			for _, app := range apps {
+				fmt.Printf("- %s (created: %s)\n", app.Name, app.CreatedAt.Format("2006-01-02 15:04:05"))
+			}
+
+			return nil
+		},
 	}
 
-	fmt.Println("Fetching applications...")
-	apps, err := client.ListApplications()
-	if err != nil {
-		return fmt.Errorf("failed to list applications: %w", err)
-	}
-
-	if len(apps) == 0 {
-		fmt.Println("\nNo applications found.")
-		return nil
-	}
-
-	fmt.Println("\nApplications:")
-	for _, app := range apps {
-		fmt.Printf("\nID: %s\n", app.ID)
-		fmt.Printf("Name: %s\n", app.Name)
-		fmt.Printf("Created: %s\n", app.CreatedAt)
-		fmt.Println("---")
-	}
-
-	return nil
+	return cmd
 }

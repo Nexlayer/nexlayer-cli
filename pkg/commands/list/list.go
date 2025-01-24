@@ -1,86 +1,61 @@
 package list
 
 import (
+	"context"
 	"fmt"
+
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 	"github.com/spf13/cobra"
 )
 
-var (
-	Command = &cobra.Command{
+// NewListCmd creates a new list command
+func NewListCmd() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List deployments",
-		Long:  `List all deployments for an application.`,
-		RunE:  runList,
+		Short: "List resources",
 	}
-)
 
-func init() {
-	Command.Flags().StringVar(&vars.AppID, "app", "", "Application ID (optional)")
+	cmd.AddCommand(listDeploymentsCmd())
+	return cmd
 }
 
-func runList(cmd *cobra.Command, args []string) error {
-	client, err := api.NewClient(vars.APIURL)
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
+// listDeploymentsCmd creates a command to list deployments
+func listDeploymentsCmd() *cobra.Command {
+	var appName string
 
-	if vars.AppID == "" {
-		// List all applications first
-		apps, err := client.ListApplications()
-		if err != nil {
-			return fmt.Errorf("failed to list applications: %w", err)
-		}
+	cmd := &cobra.Command{
+		Use:   "deployments",
+		Short: "List deployments for an application",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client := api.NewClient(vars.APIEndpoint)
+			client.SetToken(vars.Token)
 
-		if len(apps) == 0 {
-			fmt.Println("No applications found. Create one using 'nexlayer app create'")
-			return nil
-		}
-
-		fmt.Println("Deployments across all applications:")
-		for _, app := range apps {
-			fmt.Printf("\nApplication: %s (%s)\n", app.Name, app.ID)
-			fmt.Println("---")
-			
-			deployments, err := client.GetDeployments(app.ID)
+			deployments, err := client.GetDeployments(context.Background(), appName)
 			if err != nil {
-				fmt.Printf("Error fetching deployments: %v\n", err)
-				continue
+				return fmt.Errorf("failed to list deployments: %w", err)
 			}
 
-			if len(deployments.Deployments) == 0 {
-				fmt.Println("No deployments found.")
-				continue
+			if len(deployments) == 0 {
+				fmt.Println("No deployments found")
+				return nil
 			}
 
-			for _, d := range deployments.Deployments {
-				fmt.Printf("Namespace: %s\n", d.Namespace)
-				fmt.Printf("Status: %s\n", d.DeploymentStatus)
-				fmt.Println("---")
+			fmt.Printf("Deployments for application %s:\n", appName)
+			for _, d := range deployments {
+				fmt.Printf("- ID: %s\n", d.ID)
+				fmt.Printf("  Status: %s\n", d.Status)
+				fmt.Printf("  Created: %s\n", d.CreatedAt.Format("2006-01-02 15:04:05"))
+				fmt.Printf("  Updated: %s\n", d.UpdatedAt.Format("2006-01-02 15:04:05"))
+				fmt.Println()
 			}
-		}
-		return nil
+
+			return nil
+		},
 	}
 
-	// List deployments for specific app
-	fmt.Printf("Fetching deployments for application %s...\n", vars.AppID)
-	resp, err := client.GetDeployments(vars.AppID)
-	if err != nil {
-		return fmt.Errorf("failed to get deployments: %w", err)
-	}
+	cmd.Flags().StringVarP(&appName, "app", "a", "", "Application name")
+	cmd.MarkFlagRequired("app")
 
-	if len(resp.Deployments) == 0 {
-		fmt.Println("\nNo deployments found.")
-		return nil
-	}
-
-	fmt.Printf("\nDeployments:\n")
-	for _, d := range resp.Deployments {
-		fmt.Printf("\nNamespace: %s\n", d.Namespace)
-		fmt.Printf("Status: %s\n", d.DeploymentStatus)
-		fmt.Println("---")
-	}
-
-	return nil
+	return cmd
 }
