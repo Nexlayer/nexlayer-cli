@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -28,15 +29,13 @@ const (
 var (
 	// Styles - predefined styles for consistent UI appearance
 	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color(colorSuccess)).
-			Border(lipgloss.RoundedBorder()).
-			Padding(1).
-			Align(lipgloss.Center)
+			Foreground(lipgloss.Color("#FAFAFA")).
+			Background(lipgloss.Color("#7D56F4")).
+			Padding(0, 1)
 
-	subtitleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(colorInfo)).
-			Italic(true)
+	infoStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#666666")).
+			Padding(0, 1)
 
 	progressStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(colorSuccess))
@@ -44,9 +43,6 @@ var (
 	successStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(colorSuccess)).
 			Bold(true)
-
-	infoStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(colorInfo))
 
 	headingStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(colorHeading)).
@@ -62,7 +58,7 @@ var (
 // Returns an error message if title is empty.
 func RenderTitle(title string) string {
 	if title == "" {
-		return RenderErrorMessage(fmt.Errorf(errEmptyTitle))
+		return RenderErrorMessage(errors.New(errEmptyTitle))
 	}
 	return titleStyle.Width(defaultWidth).Render(title)
 }
@@ -71,7 +67,7 @@ func RenderTitle(title string) string {
 // Returns an error message if current is greater than total.
 func RenderProgressBar(current, total int) string {
 	if current > total {
-		return RenderErrorMessage(fmt.Errorf(errInvalidRange))
+		return RenderErrorMessage(errors.New(errInvalidRange))
 	}
 
 	prog := progress.New(

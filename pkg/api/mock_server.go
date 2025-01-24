@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -57,12 +58,19 @@ func (s *MockServer) handleCreateApplication(w http.ResponseWriter, r *http.Requ
 	s.applications = append(s.applications, app)
 	s.mu.Unlock()
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(app)
+	if err := json.NewEncoder(w).Encode(app); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (s *MockServer) handleListApplications(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
-	json.NewEncoder(w).Encode(s.applications)
+	if err := json.NewEncoder(w).Encode(s.applications); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		s.mu.RUnlock()
+		return
+	}
 	s.mu.RUnlock()
 }
 
@@ -71,7 +79,11 @@ func (s *MockServer) handleGetApplication(w http.ResponseWriter, r *http.Request
 	s.mu.RLock()
 	for _, app := range s.applications {
 		if app.Name == appName {
-			json.NewEncoder(w).Encode(app)
+			if err := json.NewEncoder(w).Encode(app); err != nil {
+				http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+				s.mu.RUnlock()
+				return
+			}
 			s.mu.RUnlock()
 			return
 		}

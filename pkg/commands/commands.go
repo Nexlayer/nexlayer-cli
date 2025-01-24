@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/app"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/deploy"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/domain"
@@ -11,7 +13,6 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/registry"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/service"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/wizard"
-	"github.com/spf13/cobra"
 )
 
 // RegisterCommands registers all commands with the root command

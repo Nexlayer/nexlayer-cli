@@ -25,7 +25,9 @@ This command is currently not implemented.`,
 func init() {
 	Command.Flags().StringVar(&applicationID, "app", "", "Application ID")
 	Command.Flags().IntVar(&replicas, "replicas", 1, "Number of replicas")
-	Command.MarkFlagRequired("app")
+	if err := Command.MarkFlagRequired("app"); err != nil {
+		panic(fmt.Sprintf("failed to mark app flag as required: %v", err))
+	}
 }
 
 func runScale(cmd *cobra.Command, args []string) error {

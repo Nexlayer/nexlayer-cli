@@ -54,7 +54,7 @@ func (c *Cache) Clear() {
 // SaveToFile saves the cache to a file
 func (c *Cache) SaveToFile(filename string) error {
 	dir := filepath.Dir(filename)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 

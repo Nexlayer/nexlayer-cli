@@ -61,7 +61,7 @@ func SaveToken(token string) error {
 		configPath = filepath.Join(homeDir, configDir)
 	}
 
-	if err := os.MkdirAll(configPath, 0755); err != nil {
+	if err := os.MkdirAll(configPath, 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -75,7 +75,7 @@ func SaveToken(token string) error {
 	}
 
 	tokenPath := filepath.Join(configPath, tokenFile)
-	if err := os.WriteFile(tokenPath, data, 0600); err != nil {
+	if err := os.WriteFile(tokenPath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write token file: %w", err)
 	}
 

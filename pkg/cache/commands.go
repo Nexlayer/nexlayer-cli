@@ -5,8 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/config"
 	"github.com/spf13/cobra"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/config"
 )
 
 // CacheCmd represents the cache command

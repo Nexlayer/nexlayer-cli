@@ -5,40 +5,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/api/types"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/api/types"
 )
-
-func setupTestConfig(t *testing.T, token string) (string, func()) {
-	// Create temp directory
-	configDir, err := os.MkdirTemp("", "nexlayer-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-
-	// Create config file
-	configPath := filepath.Join(configDir, "config")
-	config := types.Config{
-		Token: token,
-	}
-	data, err := json.Marshal(config)
-	if err != nil {
-		t.Fatalf("Failed to marshal config: %v", err)
-	}
-	if err := os.WriteFile(configPath, data, 0600); err != nil {
-		t.Fatalf("Failed to write config: %v", err)
-	}
-
-	// Return cleanup function
-	return configDir, func() {
-		os.RemoveAll(configDir)
-	}
-}
 
 func TestClient_CreateApplication(t *testing.T) {
 	// Setup test server

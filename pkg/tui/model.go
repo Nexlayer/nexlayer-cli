@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -37,8 +36,6 @@ type Model struct {
 	steps       []Step
 	currentStep int
 	inputs      []textinput.Model
-	viewport    viewport.Model
-	err         error
 	quitting    bool
 }
 

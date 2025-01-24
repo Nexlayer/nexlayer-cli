@@ -4,16 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/api/types"
 	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
-	"github.com/spf13/cobra"
 )
 
-var (
-	appName string
-	Cmd     *cobra.Command
-)
+var Cmd *cobra.Command
 
 func init() {
 	Cmd = NewCommand()
@@ -62,8 +60,10 @@ func CreateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&name, "name", "n", "", "Name of the application")
-	cmd.MarkFlagRequired("name")
+	cmd.Flags().StringVar(&name, "name", "", "Name of the application")
+	if err := cmd.MarkFlagRequired("name"); err != nil {
+		panic(fmt.Sprintf("failed to mark name flag as required: %v", err))
+	}
 
 	return cmd
 }

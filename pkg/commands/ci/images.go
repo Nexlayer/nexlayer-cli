@@ -5,8 +5,9 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 	"github.com/spf13/cobra"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 )
 
 // imagesCmd represents the images command

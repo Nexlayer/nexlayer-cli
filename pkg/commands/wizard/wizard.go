@@ -2,18 +2,13 @@ package wizard
 
 import (
 	"fmt"
-	"os/exec"
-	"runtime"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
-)
 
-const (
-	githubAuthURL = "https://app.staging.nexlayer.io/auth/github"
+	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 )
 
 // ComponentOption represents a stack component option
@@ -295,32 +290,6 @@ func findComponentOption(options []ComponentOption, name string) *ComponentOptio
 	return nil
 }
 
-func setupAccount() error {
-	fmt.Println("Opening GitHub authentication in your browser...")
-	fmt.Printf("Please visit: %s\n", githubAuthURL)
-
-	var err error
-	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", githubAuthURL).Start()
-	case "windows":
-		err = exec.Command("cmd", "/c", "start", githubAuthURL).Start()
-	case "darwin":
-		err = exec.Command("open", githubAuthURL).Start()
-	default:
-		err = fmt.Errorf("unsupported platform")
-	}
-
-	if err != nil {
-		fmt.Printf("Failed to open browser automatically. Please visit %s manually.\n", githubAuthURL)
-	}
-
-	fmt.Println("\nPress Enter once you've completed the GitHub authentication...")
-	fmt.Scanln() // Wait for user to press enter
-
-	return nil
-}
-
 // runWizard is the main entry point for the wizard
 func runWizard(cmd *cobra.Command, args []string) error {
 	p := tea.NewProgram(newWizardModel())
@@ -336,13 +305,3 @@ func runWizard(cmd *cobra.Command, args []string) error {
 
 	return nil
 }
-
-// item implements list.Item interface
-type item struct {
-	title string
-	desc  string
-}
-
-func (i item) Title() string       { return i.title }
-func (i item) Description() string { return i.desc }
-func (i item) FilterValue() string { return i.title }

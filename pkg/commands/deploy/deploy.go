@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Nexlayer/nexlayer-cli/pkg/ai"
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/api/types"
 	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
-	"github.com/spf13/cobra"
 )
 
 // NewDeployCmd creates a new deploy command
@@ -71,8 +72,12 @@ Use the --ai flag to get AI-powered suggestions for optimizing your deployment.`
 	cmd.Flags().BoolVar(&useAI, "ai", false, "Enable AI-powered suggestions")
 
 	// Mark required flags
-	cmd.MarkFlagRequired("file")
-	cmd.MarkFlagRequired("app")
+	if err := cmd.MarkFlagRequired("file"); err != nil {
+		panic(fmt.Sprintf("failed to mark file flag as required: %v", err))
+	}
+	if err := cmd.MarkFlagRequired("app"); err != nil {
+		panic(fmt.Sprintf("failed to mark app flag as required: %v", err))
+	}
 
 	return cmd
 }

@@ -4,9 +4,11 @@ package domain
 import (
 	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
+
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
-	"github.com/spf13/cobra"
 )
 
 // NewCommand creates a new domain command
@@ -47,8 +49,10 @@ func newAddCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&appName, "app", "a", "", "Application name")
-	cmd.MarkFlagRequired("app")
+	cmd.Flags().StringVar(&appName, "app", "", "Application name")
+	if err := cmd.MarkFlagRequired("app"); err != nil {
+		panic(fmt.Sprintf("failed to mark app flag as required: %v", err))
+	}
 
 	return cmd
 }

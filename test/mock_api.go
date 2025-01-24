@@ -51,7 +51,10 @@ func handleStartUserDeployment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func handleSaveCustomDomain(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +68,10 @@ func handleSaveCustomDomain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func handleGetDeployments(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +85,10 @@ func handleGetDeployments(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func handleGetDeploymentInfo(w http.ResponseWriter, r *http.Request) {
@@ -93,7 +102,10 @@ func handleGetDeploymentInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func handleDeploy(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +115,10 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "success"}); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func handleConfigure(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +128,10 @@ func handleConfigure(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "success"}); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func handleServiceConnections(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +154,10 @@ func handleServiceConnections(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(connections)
+	if err := json.NewEncoder(w).Encode(connections); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func handleScaleDeployment(w http.ResponseWriter, r *http.Request) {
@@ -146,7 +167,10 @@ func handleScaleDeployment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "success"}); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func handleAISuggestions(w http.ResponseWriter, r *http.Request) {
@@ -164,10 +188,16 @@ func handleAISuggestions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(suggestions)
+	if err := json.NewEncoder(w).Encode(suggestions); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func handleRoot(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	io.WriteString(w, "Welcome to the mock API server!")
+	if _, err := io.WriteString(w, "Welcome to the mock API server!"); err != nil {
+		http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }

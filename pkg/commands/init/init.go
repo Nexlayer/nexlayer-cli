@@ -23,13 +23,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 	projectName := args[0]
 
 	// Create project directory
-	if err := os.MkdirAll(projectName, 0755); err != nil {
+	if err := os.MkdirAll(projectName, 0o755); err != nil {
 		return fmt.Errorf("failed to create project directory: %w", err)
 	}
 
 	// Create templates directory
 	templatesDir := filepath.Join(projectName, "templates")
-	if err := os.MkdirAll(templatesDir, 0755); err != nil {
+	if err := os.MkdirAll(templatesDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create templates directory: %w", err)
 	}
 
@@ -45,7 +45,7 @@ components:
     ports:
       - 80:80
 `)
-	if err := os.WriteFile(templatePath, defaultTemplate, 0644); err != nil {
+	if err := os.WriteFile(templatePath, defaultTemplate, 0o644); err != nil {
 		return fmt.Errorf("failed to create default template: %w", err)
 	}
 

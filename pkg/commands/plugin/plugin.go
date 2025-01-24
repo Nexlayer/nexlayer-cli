@@ -33,7 +33,7 @@ func newInstallCommand() *cobra.Command {
 				return fmt.Errorf("requires plugin name")
 			}
 			pluginDir := filepath.Join(os.Getenv("HOME"), ".nexlayer", "plugins")
-			if err := os.MkdirAll(pluginDir, 0755); err != nil {
+			if err := os.MkdirAll(pluginDir, 0o755); err != nil {
 				return fmt.Errorf("failed to create plugin directory: %w", err)
 			}
 

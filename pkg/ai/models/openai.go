@@ -52,7 +52,6 @@ func (p *OpenAIProvider) GetSuggestions(ctx context.Context, query string) ([]st
 			Temperature: 0.7,
 		},
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to get OpenAI response: %v", err)
 	}
@@ -93,7 +92,6 @@ func (p *OpenAIProvider) AnalyzeStack(ctx context.Context, projectPath string) (
 			},
 		},
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze stack: %v", err)
 	}
@@ -155,7 +153,6 @@ func readProjectFiles(projectPath string) (string, error) {
 		}
 		return nil
 	})
-
 	if err != nil {
 		return "", fmt.Errorf("failed to read project files: %v", err)
 	}

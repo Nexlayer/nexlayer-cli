@@ -2,13 +2,13 @@ package ci
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 	"github.com/spf13/cobra"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 )
 
 // setupCmd represents the setup command
@@ -64,7 +64,7 @@ func runGithubActionsSetup(cmd *cobra.Command, args []string) error {
 
 	// Create .github/workflows directory if it doesn't exist
 	workflowDir := ".github/workflows"
-	if err := os.MkdirAll(workflowDir, 0755); err != nil {
+	if err := os.MkdirAll(workflowDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create workflow directory: %w", err)
 	}
 
@@ -86,7 +86,7 @@ func runGithubActionsSetup(cmd *cobra.Command, args []string) error {
 	}
 
 	// Write workflow file
-	err := ioutil.WriteFile(workflowPath, []byte(workflow), 0644)
+	err := os.WriteFile(workflowPath, []byte(workflow), 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to write workflow file: %w", err)
 	}

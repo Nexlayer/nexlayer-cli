@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/auth"
 	"github.com/spf13/cobra"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/auth"
 )
 
 var token string

@@ -2,10 +2,11 @@ package ui
 
 import (
 	"fmt"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRenderTitle(t *testing.T) {

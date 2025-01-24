@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/help"
 	"github.com/spf13/cobra"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/help"
 )
 
 var (
@@ -23,8 +24,10 @@ var rootCmd = &cobra.Command{
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			cmd.Help()
-			os.Exit(0)
+			if err := cmd.Help(); err != nil {
+				fmt.Printf("Error displaying help: %v\n", err)
+			}
+			return
 		}
 	},
 }

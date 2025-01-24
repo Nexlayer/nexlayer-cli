@@ -7,9 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	applicationID string
-)
+var applicationID string
 
 // Command represents the status command
 var Command = &cobra.Command{
@@ -22,7 +20,9 @@ This command is currently not implemented.`,
 
 func init() {
 	Command.Flags().StringVar(&applicationID, "app", "", "Application ID")
-	Command.MarkFlagRequired("app")
+	if err := Command.MarkFlagRequired("app"); err != nil {
+		panic(fmt.Sprintf("failed to mark app flag as required: %v", err))
+	}
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {

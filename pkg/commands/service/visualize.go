@@ -16,8 +16,11 @@ This command is currently not implemented.`,
 }
 
 func init() {
-	VisualizeCmd.Flags().StringVar(&AppName, "app", "", "Application name")
-	VisualizeCmd.MarkFlagRequired("app")
+	var app string
+	VisualizeCmd.Flags().StringVar(&app, "app", "", "Application name")
+	if err := VisualizeCmd.MarkFlagRequired("app"); err != nil {
+		panic(fmt.Sprintf("failed to mark app flag as required: %v", err))
+	}
 }
 
 func runVisualize(cmd *cobra.Command, args []string) error {

@@ -6,9 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	appName string
-)
+var appName string
 
 // Command represents the service command
 var Command = &cobra.Command{
@@ -22,7 +20,9 @@ This command is currently not implemented.`,
 
 func init() {
 	Command.Flags().StringVar(&appName, "app", "", "Application name")
-	Command.MarkFlagRequired("app")
+	if err := Command.MarkFlagRequired("app"); err != nil {
+		panic(fmt.Sprintf("failed to mark app flag as required: %v", err))
+	}
 }
 
 func runService(cmd *cobra.Command, args []string) error {

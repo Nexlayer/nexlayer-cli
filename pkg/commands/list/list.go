@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
-	"github.com/spf13/cobra"
 )
 
 // NewListCmd creates a new list command
@@ -55,7 +56,9 @@ func listDeploymentsCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&appName, "app", "a", "", "Application name")
-	cmd.MarkFlagRequired("app")
+	if err := cmd.MarkFlagRequired("app"); err != nil {
+		panic(fmt.Sprintf("failed to mark app flag as required: %v", err))
+	}
 
 	return cmd
 }

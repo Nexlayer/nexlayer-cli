@@ -163,8 +163,8 @@ func (c *Client) GetDeploymentInfo(ctx context.Context, namespace, appID string)
 	return &info, nil
 }
 
-// SaveCustomDomain saves a custom domain for an application
-func (c *Client) SaveCustomDomain(ctx context.Context, appID string, domain string) error {
+// SaveCustomDomain saves a custom domain for an app
+func (c *Client) SaveCustomDomain(ctx context.Context, appID, domain string) error {
 	data, err := json.Marshal(map[string]string{"domain": domain})
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)

@@ -17,7 +17,9 @@ This command is currently not implemented.`,
 
 func init() {
 	ConfigureCmd.Flags().StringVar(&applicationID, "app", "", "Application ID")
-	ConfigureCmd.MarkFlagRequired("app")
+	if err := ConfigureCmd.MarkFlagRequired("app"); err != nil {
+		panic(fmt.Sprintf("failed to mark app flag as required: %v", err))
+	}
 }
 
 func runConfigure(cmd *cobra.Command, args []string) error {

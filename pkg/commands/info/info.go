@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
-	"github.com/spf13/cobra"
 )
 
 // NewInfoCmd creates a new info command

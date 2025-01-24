@@ -5,9 +5,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/auth"
 )
 
 func TestLoginCommand(t *testing.T) {
@@ -69,10 +70,10 @@ func TestLoginCommand(t *testing.T) {
 			setup: func(t *testing.T) {
 				// Create a subdirectory in the temp dir
 				readOnlyDir := tmpDir + "/readonly"
-				require.NoError(t, os.MkdirAll(readOnlyDir, 0755))
+				require.NoError(t, os.MkdirAll(readOnlyDir, 0o755))
 
 				// Make it read-only
-				require.NoError(t, os.Chmod(readOnlyDir, 0500))
+				require.NoError(t, os.Chmod(readOnlyDir, 0o500))
 
 				// Set it as the config dir
 				os.Setenv("NEXLAYER_CONFIG_DIR", readOnlyDir)
@@ -80,7 +81,7 @@ func TestLoginCommand(t *testing.T) {
 			cleanup: func(t *testing.T) {
 				// Restore write permissions for cleanup
 				readOnlyDir := tmpDir + "/readonly"
-				_ = os.Chmod(readOnlyDir, 0755)
+				_ = os.Chmod(readOnlyDir, 0o755)
 				os.Setenv("NEXLAYER_CONFIG_DIR", tmpDir)
 			},
 			wantErr:     true,

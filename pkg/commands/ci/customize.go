@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 )
 
 // customizeCmd represents the customize command
@@ -110,7 +111,7 @@ func runGithubActionsCustomize(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to marshal workflow file: %w", err)
 	}
 
-	if err := os.WriteFile(workflowPath, data, 0644); err != nil {
+	if err := os.WriteFile(workflowPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write workflow file: %w", err)
 	}
 

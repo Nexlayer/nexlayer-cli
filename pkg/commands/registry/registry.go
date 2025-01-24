@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/registry"
 	"github.com/spf13/cobra"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/registry"
 )
 
 // NewRegistryCmd creates a new registry command group
@@ -63,7 +64,9 @@ func newLoginCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&username, "username", "", "GitHub username")
 	cmd.Flags().StringVar(&token, "token", "", "GitHub Personal Access Token (PAT)")
-	cmd.MarkFlagRequired("username")
+	if err := cmd.MarkFlagRequired("username"); err != nil {
+		panic(fmt.Sprintf("failed to mark username flag as required: %v", err))
+	}
 
 	return cmd
 }
@@ -116,8 +119,12 @@ func newBuildCmd() *cobra.Command {
 	cmd.Flags().StringVar(&namespace, "namespace", "", "Registry namespace (e.g., my-org)")
 	cmd.Flags().StringSliceVar(&tags, "tags", []string{"latest"}, "Image tags (comma-separated)")
 	cmd.Flags().StringSliceVar(&services, "services", []string{}, "Paths to service directories (comma-separated)")
-	cmd.MarkFlagRequired("namespace")
-	cmd.MarkFlagRequired("services")
+	if err := cmd.MarkFlagRequired("namespace"); err != nil {
+		panic(fmt.Sprintf("failed to mark namespace flag as required: %v", err))
+	}
+	if err := cmd.MarkFlagRequired("services"); err != nil {
+		panic(fmt.Sprintf("failed to mark services flag as required: %v", err))
+	}
 
 	return cmd
 }
@@ -166,8 +173,12 @@ func newPushCmd() *cobra.Command {
 	cmd.Flags().StringVar(&namespace, "namespace", "", "Registry namespace (e.g., my-org)")
 	cmd.Flags().StringSliceVar(&tags, "tags", []string{"latest"}, "Image tags (comma-separated)")
 	cmd.Flags().StringSliceVar(&services, "services", []string{}, "Service names to push (comma-separated)")
-	cmd.MarkFlagRequired("namespace")
-	cmd.MarkFlagRequired("services")
+	if err := cmd.MarkFlagRequired("namespace"); err != nil {
+		panic(fmt.Sprintf("failed to mark namespace flag as required: %v", err))
+	}
+	if err := cmd.MarkFlagRequired("services"); err != nil {
+		panic(fmt.Sprintf("failed to mark services flag as required: %v", err))
+	}
 
 	return cmd
 }
