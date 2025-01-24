@@ -2,6 +2,12 @@ package vars
 
 // Global variables used across different commands
 var (
+	// APIEndpoint is the base URL for the Nexlayer API
+	APIEndpoint = "https://app.staging.nexlayer.io"
+
+	// Token is the authentication token
+	Token string
+
 	// APIURL is the base URL for the Nexlayer API
 	APIURL = "https://app.staging.nexlayer.io"
 

@@ -2,174 +2,302 @@ package wizard
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
-	"time"
+	"runtime"
+	"strings"
 
-	"github.com/briandowns/spinner"
+	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
 
-// WizardCmd represents the wizard command
-var WizardCmd = &cobra.Command{
-	Use:   "wizard",
-	Short: "Interactive setup wizard",
-	Long: `Interactive setup wizard for Nexlayer.
-This will guide you through:
-1. Setting up your Nexlayer account
-2. Creating your first application
-3. Deploying your first service`,
-	RunE: runWizard,
+const (
+	githubAuthURL = "https://app.staging.nexlayer.io/auth/github"
+)
+
+// ComponentOption represents a stack component option
+type ComponentOption struct {
+	Name       string
+	Desc       string
+	PodType    string
+	Tag        string
+	ExposeHttp bool
 }
 
-type step struct {
-	title       string
-	description string
-	action      func() error
-}
-
-func runWizard(cmd *cobra.Command, args []string) error {
-	// Create spinner
-	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
-	s.Suffix = " Running setup wizard..."
-	s.Start()
-	defer s.Stop()
-
-	steps := []step{
+// Component configurations
+var (
+	frontendOptions = []ComponentOption{
 		{
-			title:       "Account Setup",
-			description: "Set up your Nexlayer account",
-			action: func() error {
-				s.Stop()
-				fmt.Println("🔑 Setting up your Nexlayer account...")
-				if err := setupAccount(); err != nil {
-					return err
-				}
-				s.Start()
-				return nil
-			},
+			Name:       "react",
+			Desc:      "React.js",
+			PodType:   "nginx",
+			Tag:       "katieharris/mern-react-todo:latest",
+			ExposeHttp: true,
 		},
 		{
-			title:       "Application Creation",
-			description: "Create your first application",
-			action: func() error {
-				s.Stop()
-				fmt.Println("📦 Creating your first application...")
-				if err := createApplication(); err != nil {
-					return err
-				}
-				s.Start()
-				return nil
-			},
+			Name:       "angular",
+			Desc:      "Angular",
+			PodType:   "nginx",
+			Tag:       "katieharris/mean-angular-todo:latest",
+			ExposeHttp: true,
 		},
 		{
-			title:       "Service Deployment",
-			description: "Deploy your first service",
-			action: func() error {
-				s.Stop()
-				fmt.Println("🚀 Deploying your first service...")
-				if err := deployService(); err != nil {
-					return err
-				}
-				s.Start()
-				return nil
-			},
+			Name:       "vue",
+			Desc:      "Vue.js",
+			PodType:   "nginx",
+			Tag:       "katieharris/vue-todo:latest",
+			ExposeHttp: true,
 		},
 	}
 
-	// Run each step
-	for _, step := range steps {
-		if err := step.action(); err != nil {
-			return err
+	backendOptions = []ComponentOption{
+		{
+			Name:       "express",
+			Desc:      "Express.js",
+			PodType:   "node",
+			Tag:       "katieharris/mern-express-todo:latest",
+			ExposeHttp: true,
+		},
+		{
+			Name:       "flask",
+			Desc:      "Flask",
+			PodType:   "python",
+			Tag:       "katieharris/flask-todo:latest",
+			ExposeHttp: true,
+		},
+	}
+
+	databaseOptions = []ComponentOption{
+		{
+			Name:       "mongodb",
+			Desc:      "MongoDB",
+			PodType:   "mongodb",
+			Tag:       "mongo:6.0",
+			ExposeHttp: false,
+		},
+		{
+			Name:       "mysql",
+			Desc:      "MySQL",
+			PodType:   "mysql",
+			Tag:       "mysql:8.0",
+			ExposeHttp: false,
+		},
+	}
+)
+
+// NewWizardCmd creates a new wizard command
+func NewWizardCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "wizard",
+		Short: "Interactive deployment wizard",
+		Long: `An enhanced interactive wizard to help you deploy your application.
+Features a beautiful UI with real-time architecture visualization and YAML preview.`,
+		RunE: runWizard,
+	}
+
+	return cmd
+}
+
+type wizardState int
+
+const (
+	wizardStateInit wizardState = iota
+	wizardStateAppName
+	wizardStateStack
+	wizardStateConfirm
+)
+
+type stackSelection struct {
+	appName  string
+	frontend string
+	backend  string
+	database string
+}
+
+type wizardModel struct {
+	currentState wizardState
+	ready       bool
+	stack       stackSelection
+	err         error
+	quitting    bool
+	list        list.Model
+}
+
+func newWizardModel() wizardModel {
+	m := wizardModel{
+		currentState: wizardStateInit,
+		ready:       true,
+		stack:       stackSelection{},
+	}
+	return m
+}
+
+func (m wizardModel) Init() tea.Cmd {
+	return nil
+}
+
+func (m wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			m.quitting = true
+			return m, tea.Quit
 		}
 	}
 
-	s.Stop()
-	fmt.Println("✨ Setup wizard completed successfully!")
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
+}
+
+func (m wizardModel) View() string {
+	if m.quitting {
+		return "Thanks for using Nexlayer!\n"
+	}
+
+	var s strings.Builder
+
+	s.WriteString(ui.RenderHeading("🚀 Welcome to Nexlayer!\n"))
+	s.WriteString("Let's deploy your application.\n\n")
+
+	switch m.currentState {
+	case wizardStateInit:
+		s.WriteString("Press any key to start...\n")
+	case wizardStateAppName:
+		s.WriteString("What's your application name?\n")
+	case wizardStateStack:
+		s.WriteString("Choose your stack components:\n")
+		s.WriteString(m.renderStackOptions())
+	case wizardStateConfirm:
+		s.WriteString("Review your configuration:\n")
+		s.WriteString(m.generateStackYAML())
+	}
+
+	if m.err != nil {
+		s.WriteString("\n" + ui.RenderErrorMessage(m.err))
+	}
+
+	return s.String()
+}
+
+func (m wizardModel) generateStackYAML() string {
+	if m.stack.appName == "" {
+		return ""
+	}
+
+	var yaml strings.Builder
+	yaml.WriteString("pods:\n")
+
+	if m.stack.database != "" {
+		if opt := findComponentOption(databaseOptions, m.stack.database); opt != nil {
+			yaml.WriteString(fmt.Sprintf("  - type: %s\n", opt.PodType))
+			yaml.WriteString(fmt.Sprintf("    name: %s\n", m.stack.database))
+			yaml.WriteString(fmt.Sprintf("    tag: %s\n", opt.Tag))
+			yaml.WriteString("    vars:\n")
+			yaml.WriteString("      - key: MONGO_INITDB_ROOT_USERNAME\n")
+			yaml.WriteString("        value: mongo\n")
+			yaml.WriteString("      - key: MONGO_INITDB_ROOT_PASSWORD\n")
+			yaml.WriteString("        value: passw0rd\n")
+		}
+	}
+
+	if m.stack.backend != "" {
+		if opt := findComponentOption(backendOptions, m.stack.backend); opt != nil {
+			yaml.WriteString(fmt.Sprintf("  - type: %s\n", opt.PodType))
+			yaml.WriteString(fmt.Sprintf("    name: %s\n", m.stack.backend))
+			yaml.WriteString(fmt.Sprintf("    tag: %s\n", opt.Tag))
+			yaml.WriteString("    vars:\n")
+			yaml.WriteString("      - key: DATABASE_URL\n")
+			yaml.WriteString("        value: mongo://mongodb-service\n")
+		}
+	}
+
+	if m.stack.frontend != "" {
+		if opt := findComponentOption(frontendOptions, m.stack.frontend); opt != nil {
+			yaml.WriteString(fmt.Sprintf("  - type: %s\n", opt.PodType))
+			yaml.WriteString(fmt.Sprintf("    name: %s\n", m.stack.frontend))
+			yaml.WriteString(fmt.Sprintf("    tag: %s\n", opt.Tag))
+			yaml.WriteString("    vars:\n")
+			yaml.WriteString("      - key: BACKEND_URL\n")
+			yaml.WriteString("        value: backend-service\n")
+		}
+	}
+
+	return yaml.String()
+}
+
+func (m wizardModel) renderStackOptions() string {
+	var s strings.Builder
+	s.WriteString("Frontend:\n")
+	for _, opt := range frontendOptions {
+		s.WriteString(fmt.Sprintf("  %s (%s)\n", opt.Name, opt.Desc))
+	}
+	s.WriteString("\nBackend:\n")
+	for _, opt := range backendOptions {
+		s.WriteString(fmt.Sprintf("  %s (%s)\n", opt.Name, opt.Desc))
+	}
+	s.WriteString("\nDatabase:\n")
+	for _, opt := range databaseOptions {
+		s.WriteString(fmt.Sprintf("  %s (%s)\n", opt.Name, opt.Desc))
+	}
+	return s.String()
+}
+
+// findComponentOption finds a component option by name
+func findComponentOption(options []ComponentOption, name string) *ComponentOption {
+	for _, opt := range options {
+		if opt.Name == name {
+			return &opt
+		}
+	}
 	return nil
 }
 
 func setupAccount() error {
-	// Create list model
-	items := []list.Item{
-		item{title: "GitHub", desc: "Sign in with GitHub"},
-		item{title: "GitLab", desc: "Sign in with GitLab"},
-		item{title: "Email", desc: "Sign in with Email"},
-	}
+	fmt.Println("Opening GitHub authentication in your browser...")
+	fmt.Printf("Please visit: %s\n", githubAuthURL)
 
-	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
-	l.Title = "Select Sign-in Method"
-
-	p := tea.NewProgram(model{list: l})
-	m, err := p.Run()
-	if err != nil {
-		return fmt.Errorf("failed to run TUI: %w", err)
-	}
-
-	selected := m.(model).list.SelectedItem().(item).title
-	switch selected {
-	case "GitHub", "GitLab":
-		return signInWithOAuth(selected)
-	case "Email":
-		return signInWithEmail()
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", githubAuthURL).Start()
+	case "windows":
+		err = exec.Command("cmd", "/c", "start", githubAuthURL).Start()
+	case "darwin":
+		err = exec.Command("open", githubAuthURL).Start()
 	default:
-		return fmt.Errorf("invalid sign-in method: %s", selected)
-	}
-}
-
-func createApplication() error {
-	var appName string
-	fmt.Print("Enter application name: ")
-	fmt.Scanln(&appName)
-
-	if appName == "" {
-		return fmt.Errorf("application name cannot be empty")
+		err = fmt.Errorf("unsupported platform")
 	}
 
-	// Create app directory
-	if err := os.MkdirAll(appName, 0755); err != nil {
-		return fmt.Errorf("failed to create app directory: %w", err)
-	}
-
-	// Initialize git repository
-	cmd := exec.Command("git", "init")
-	cmd.Dir = appName
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to initialize git repository: %w", err)
-	}
-
-	return nil
-}
-
-func deployService() error {
-	// Get list of services
-	services := []string{"frontend", "backend", "database"}
-
-	// Create list model
-	var items []list.Item
-	for _, service := range services {
-		items = append(items, item{title: service, desc: fmt.Sprintf("Deploy %s service", service)})
-	}
-
-	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
-	l.Title = "Select Service to Deploy"
-
-	p := tea.NewProgram(model{list: l})
-	m, err := p.Run()
 	if err != nil {
-		return fmt.Errorf("failed to run TUI: %w", err)
+		fmt.Printf("Failed to open browser automatically. Please visit %s manually.\n", githubAuthURL)
 	}
 
-	selected := m.(model).list.SelectedItem().(item).title
-	fmt.Printf("Selected service: %s\n", selected)
+	fmt.Println("\nPress Enter once you've completed the GitHub authentication...")
+	fmt.Scanln() // Wait for user to press enter
 
-	// Deploy selected service
 	return nil
 }
 
+// runWizard is the main entry point for the wizard
+func runWizard(cmd *cobra.Command, args []string) error {
+	p := tea.NewProgram(newWizardModel())
+	model, err := p.Run()
+	if err != nil {
+		return fmt.Errorf("error running wizard: %w", err)
+	}
+
+	finalModel := model.(wizardModel)
+	if finalModel.quitting {
+		return fmt.Errorf("wizard cancelled")
+	}
+
+	return nil
+}
+
+// item implements list.Item interface
 type item struct {
 	title string
 	desc  string
@@ -178,43 +306,3 @@ type item struct {
 func (i item) Title() string       { return i.title }
 func (i item) Description() string { return i.desc }
 func (i item) FilterValue() string { return i.title }
-
-type model struct {
-	list list.Model
-}
-
-func (m model) Init() tea.Cmd {
-	return nil
-}
-
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		if msg.String() == "q" {
-			return m, tea.Quit
-		}
-	case tea.WindowSizeMsg:
-		h, v := docStyle.GetFrameSize()
-		m.list.SetSize(msg.Width-h, msg.Height-v)
-	}
-
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	return m, cmd
-}
-
-func (m model) View() string {
-	return docStyle.Render(m.list.View())
-}
-
-var docStyle = lipgloss.NewStyle().Margin(1, 2)
-
-func signInWithOAuth(provider string) error {
-	// TO DO: implement OAuth sign-in
-	return fmt.Errorf("OAuth sign-in with %s provider not implemented yet", provider)
-}
-
-func signInWithEmail() error {
-	// TO DO: implement email sign-in
-	return nil
-}

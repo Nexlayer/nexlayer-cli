@@ -1,52 +1,78 @@
 package deploy
 
 import (
+	"context"
 	"fmt"
+	"os"
 
+	"github.com/Nexlayer/nexlayer-cli/pkg/ai"
 	"github.com/Nexlayer/nexlayer-cli/pkg/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/api/types"
+	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 	"github.com/spf13/cobra"
 )
 
-var (
-	applicationID string
-	configFile    string
-)
+// NewDeployCmd creates a new deploy command
+func NewDeployCmd() *cobra.Command {
+	var (
+		yamlFile   string
+		appID      string
+		useAI      bool
+	)
 
-// Command represents the deploy command
-var Command = &cobra.Command{
-	Use:   "deploy",
-	Short: "Deploy an application",
-	Long: `Deploy an application using a YAML configuration file.
-Example:
-  nexlayer-cli deploy --app my-app --config app.yaml`,
-	RunE: runDeploy,
-}
+	cmd := &cobra.Command{
+		Use:   "deploy",
+		Short: "Deploy an application",
+		Long: `Deploy an application using a YAML configuration file.
+Use the --ai flag to get AI-powered suggestions for optimizing your deployment.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Handle AI suggestions if enabled
+			if useAI {
+				aiClient, err := ai.NewClient()
+				if err != nil {
+					return fmt.Errorf("failed to initialize AI client: %w", err)
+				}
 
-func init() {
-	Command.Flags().StringVar(&applicationID, "app", "", "Application ID")
-	Command.Flags().StringVar(&configFile, "config", "", "Path to YAML configuration file")
-	Command.MarkFlagRequired("app")
-	Command.MarkFlagRequired("config")
-}
+				if err := aiClient.HandleAIFlag(cmd.Context(), "deploy", args); err != nil {
+					return fmt.Errorf("failed to handle AI suggestions: %w", err)
+				}
+			}
 
-func runDeploy(cmd *cobra.Command, args []string) error {
-	// Create API client
-	client, err := api.NewClient("https://app.nexlayer.io")
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
+			// Read YAML file
+			yamlContent, err := os.ReadFile(yamlFile)
+			if err != nil {
+				return fmt.Errorf("failed to read YAML file: %w", err)
+			}
+
+			// Create API client
+			client := api.NewClient(vars.APIEndpoint)
+			client.SetToken(vars.Token)
+
+			// Start deployment
+			req := &types.DeployRequest{
+				YAML:          string(yamlContent),
+				ApplicationID: appID,
+			}
+
+			deployment, err := client.StartUserDeployment(context.Background(), appID, req)
+			if err != nil {
+				return fmt.Errorf("failed to start deployment: %w", err)
+			}
+
+			fmt.Printf("Started deployment %s for application %s\n", deployment.ID, deployment.ApplicationID)
+			fmt.Printf("Status: %s\n", deployment.Status)
+			return nil
+		},
 	}
 
-	// Start deployment
-	fmt.Printf("Starting deployment for application %s...\n", applicationID)
-	resp, err := client.StartUserDeployment(applicationID, configFile)
-	if err != nil {
-		return fmt.Errorf("deployment failed: %w", err)
-	}
+	// Add flags
+	cmd.Flags().StringVarP(&yamlFile, "file", "f", "", "YAML file containing deployment configuration")
+	cmd.Flags().StringVar(&appID, "app", "", "Application ID")
+	cmd.Flags().BoolVar(&useAI, "ai", false, "Enable AI-powered suggestions")
 
-	fmt.Printf("\nDeployment started successfully!\n")
-	fmt.Printf("Namespace: %s\n", resp.Namespace)
-	fmt.Printf("URL: %s\n", resp.URL)
-	fmt.Printf("Message: %s\n", resp.Message)
+	// Mark required flags
+	cmd.MarkFlagRequired("file")
+	cmd.MarkFlagRequired("app")
 
-	return nil
+	return cmd
 }

@@ -3,57 +3,68 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/app"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/deploy"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/domain"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/info"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/login"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/help"
 	"github.com/spf13/cobra"
 )
 
 var (
-	configFile string
-	verbose    bool
+	cfgFile string
+	verbose bool
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "nexlayer-cli",
-	Short: "Nexlayer CLI tool",
-	Long: `Nexlayer CLI is a command-line tool for managing your Nexlayer applications.
-It provides commands for deploying applications, managing domains, and viewing deployment information.`,
+	Use:   "nexlayer",
+	Short: "A modern cloud application deployment tool",
+	Long:  help.RootLongDesc,
+	Example: help.RootExample,
+	// Uncomment the following line if your bare application
+	// has an action associated with it:
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) == 0 {
+			cmd.Help()
+			os.Exit(0)
+		}
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
 func init() {
-	// Initialize config file path
-	home, err := os.UserHomeDir()
-	if err != nil {
-		fmt.Printf("Error getting user home directory: %v\n", err)
-		os.Exit(1)
-	}
-	configFile = filepath.Join(home, ".nexlayer", "config")
+	cobra.OnInitialize(initConfig)
 
-	// Add commands
-	rootCmd.AddCommand(login.Command)
-	rootCmd.AddCommand(deploy.Command)
-	rootCmd.AddCommand(domain.Command)
-	rootCmd.AddCommand(info.NewInfoCmd())
-	rootCmd.AddCommand(list.Command)
-	rootCmd.AddCommand(app.Cmd)
-
-	// Add global flags
-	rootCmd.PersistentFlags().StringVar(&configFile, "config", configFile, "config file")
+	// Global flags
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.nexlayer.yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+
+	// Version flag
+	rootCmd.Flags().Bool("version", false, "display version information")
+}
+
+// initConfig reads in config file and ENV variables if set.
+func initConfig() {
+	if cfgFile != "" {
+		// Use config file from the flag.
+		// viper.SetConfigFile(cfgFile)
+	} else {
+		// Find home directory.
+		home, err := os.UserHomeDir()
+		cobra.CheckErr(err)
+
+		// Search config in home directory with name ".nexlayer" (without extension).
+		cfgFile = fmt.Sprintf("%s/.nexlayer.yaml", home)
+	}
+
+	// If a config file is found, read it in.
+	if _, err := os.Stat(cfgFile); err == nil {
+		fmt.Println("Using config file:", cfgFile)
+	}
 }
