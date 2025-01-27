@@ -2,118 +2,68 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/types"
 )
 
-func TestCreateCmd(t *testing.T) {
+type mockClient struct {
+	getDeploymentInfoFunc func(ctx context.Context, namespace string, appID string) (*types.DeploymentInfo, error)
+}
+
+func (m *mockClient) GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*types.DeploymentInfo, error) {
+	return m.getDeploymentInfoFunc(ctx, namespace, appID)
+}
+
+func TestAppCommand(t *testing.T) {
 	tests := []struct {
-		name     string
-		args     []string
-		flags    map[string]string
-		wantErr  bool
-		errMsg   string
-		wantText string
+		name      string
+		args      []string
+		mockSetup func(*mockClient)
+		wantErr   bool
+		wantText  string
 	}{
 		{
-			name:    "No name flag",
-			args:    []string{},
-			wantErr: true,
-			errMsg:  "required flag(s) \"name\" not set",
-		},
-		{
-			name: "Empty name",
-			args: []string{},
-			flags: map[string]string{
-				"name": "",
-			},
-			wantErr: true,
-			errMsg:  "name is required",
-		},
-		{
-			name: "Valid name",
-			args: []string{},
-			flags: map[string]string{
-				"name": "test-app",
+			name: "get app info",
+			args: []string{"info", "--app", "testapp", "--namespace", "test-ns"},
+			mockSetup: func(m *mockClient) {
+				m.getDeploymentInfoFunc = func(ctx context.Context, namespace string, appID string) (*types.DeploymentInfo, error) {
+					return &types.DeploymentInfo{
+						Namespace:        "test-ns",
+						TemplateName:     "python",
+						TemplateID:       "123",
+						DeploymentStatus: "running",
+					}, nil
+				}
 			},
 			wantErr:  false,
-			wantText: "Created application test-app",
+			wantText: "Application ID: testapp\nNamespace:      test-ns\nTemplate:       python\nStatus:         running",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := CreateCmd()
-			b := bytes.NewBufferString("")
-			cmd.SetOut(b)
-			cmd.SetArgs(tt.args)
-			cmd.SetErr(b)
-
-			for flag, value := range tt.flags {
-				err := cmd.Flags().Set(flag, value)
-				assert.NoError(t, err)
+			mock := &mockClient{}
+			if tt.mockSetup != nil {
+				tt.mockSetup(mock)
 			}
+
+			cmd := NewCommand(mock)
+			buf := new(bytes.Buffer)
+			cmd.SetOut(buf)
+			cmd.SetArgs(tt.args)
 
 			err := cmd.Execute()
 			if tt.wantErr {
 				assert.Error(t, err)
-				if tt.errMsg != "" {
-					assert.Contains(t, err.Error(), tt.errMsg)
-				}
-			} else {
-				assert.NoError(t, err)
-				if tt.wantText != "" {
-					assert.Contains(t, b.String(), tt.wantText)
-				}
+				return
 			}
+
+			assert.NoError(t, err)
+			assert.Contains(t, buf.String(), tt.wantText)
 		})
 	}
-}
-
-func TestListCmd(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		wantErr  bool
-		errMsg   string
-		wantText string
-	}{
-		{
-			name:     "List apps",
-			args:     []string{},
-			wantErr:  false,
-			wantText: "Applications:",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := ListCmd()
-			b := bytes.NewBufferString("")
-			cmd.SetOut(b)
-			cmd.SetArgs(tt.args)
-			cmd.SetErr(b)
-
-			err := cmd.Execute()
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.errMsg != "" {
-					assert.Contains(t, err.Error(), tt.errMsg)
-				}
-			} else {
-				assert.NoError(t, err)
-				if tt.wantText != "" {
-					assert.Contains(t, b.String(), tt.wantText)
-				}
-			}
-		})
-	}
-}
-
-func TestNewCommand(t *testing.T) {
-	cmd := NewCommand()
-	assert.Equal(t, "app", cmd.Use)
-	assert.Equal(t, "Manage your applications", cmd.Short)
-	assert.True(t, len(cmd.Commands()) > 0, "Should have subcommands")
 }

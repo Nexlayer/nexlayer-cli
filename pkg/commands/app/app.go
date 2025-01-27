@@ -1,100 +1,74 @@
 package app
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/api"
-	"github.com/Nexlayer/nexlayer-cli/pkg/api/types"
-	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 )
 
 var Cmd *cobra.Command
 
 func init() {
-	Cmd = NewCommand()
+	client := api.NewClient("https://api.nexlayer.com")
+	Cmd = NewCommand(client)
 }
 
-func NewCommand() *cobra.Command {
+// NewCommand creates a new app command
+func NewCommand(client *api.Client) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "app",
 		Short: "Manage your applications",
-		Long:  `Create, list, and manage your Nexlayer applications.`,
+		Long:  `View and manage your Nexlayer applications.`,
 	}
 
-	// Add subcommands
-	cmd.AddCommand(CreateCmd())
-	cmd.AddCommand(ListCmd())
+	cmd.AddCommand(
+		newInfoCommand(client),
+	)
 
 	return cmd
 }
 
-// CreateCmd creates a new application
-func CreateCmd() *cobra.Command {
-	var name string
+func newInfoCommand(client *api.Client) *cobra.Command {
+	var appID string
+	var namespace string
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new application",
+		Use:   "info",
+		Short: "Get application info",
+		Long: `Get detailed information about an application deployment.
+		
+Example:
+  nexlayer app info --app myapp --namespace ecstatic-frog`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if name == "" {
-				return fmt.Errorf("name is required")
-			}
-
-			client := api.NewClient(vars.APIEndpoint)
-			client.SetToken(vars.Token)
-
-			req := &types.CreateAppRequest{
-				Name: name,
-			}
-
-			app, err := client.CreateApplication(context.Background(), req)
-			if err != nil {
-				return fmt.Errorf("failed to create application: %w", err)
-			}
-
-			fmt.Printf("Created application %s\n", app.Name)
-			return nil
+			return runInfo(cmd, client, appID, namespace)
 		},
 	}
 
-	cmd.Flags().StringVar(&name, "name", "", "Name of the application")
-	if err := cmd.MarkFlagRequired("name"); err != nil {
-		panic(fmt.Sprintf("failed to mark name flag as required: %v", err))
-	}
+	cmd.Flags().StringVarP(&appID, "app", "a", "", "Application ID")
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Deployment namespace")
+	cmd.MarkFlagRequired("app")
+	cmd.MarkFlagRequired("namespace")
 
 	return cmd
 }
 
-// ListCmd lists all applications
-func ListCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all applications",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client := api.NewClient(vars.APIEndpoint)
-			client.SetToken(vars.Token)
+func runInfo(cmd *cobra.Command, client *api.Client, appID string, namespace string) error {
+	cmd.Println(ui.RenderTitleWithBorder("Application Info"))
 
-			apps, err := client.ListApplications(context.Background())
-			if err != nil {
-				return fmt.Errorf("failed to list applications: %w", err)
-			}
-
-			if len(apps) == 0 {
-				fmt.Println("No applications found")
-				return nil
-			}
-
-			fmt.Println("Applications:")
-			for _, app := range apps {
-				fmt.Printf("- %s (created: %s)\n", app.Name, app.CreatedAt.Format("2006-01-02 15:04:05"))
-			}
-
-			return nil
-		},
+	// Get deployment info
+	deployment, err := client.GetDeploymentInfo(cmd.Context(), namespace, appID)
+	if err != nil {
+		return fmt.Errorf("failed to get application info: %w", err)
 	}
 
-	return cmd
+	// Display info
+	cmd.Printf("Application ID: %s\n", appID)
+	cmd.Printf("Namespace:      %s\n", deployment.Namespace)
+	cmd.Printf("Template:       %s\n", deployment.TemplateName)
+	cmd.Printf("Status:         %s\n", deployment.DeploymentStatus)
+
+	return nil
 }

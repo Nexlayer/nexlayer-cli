@@ -53,3 +53,4 @@ vendor/
 go.work
 go.work.sum
 **/go.sum
+testing-app-cli.yaml

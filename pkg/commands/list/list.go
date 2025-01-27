@@ -1,64 +1,70 @@
 package list
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/api"
-	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 )
 
-// NewListCmd creates a new list command
-func NewListCmd() *cobra.Command {
+func NewCommand(client *api.Client) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List resources",
+		Short: "List deployments",
+		Long:  `List all deployments for an application.`,
 	}
 
-	cmd.AddCommand(listDeploymentsCmd())
+	cmd.AddCommand(newDeploymentsCommand(client))
 	return cmd
 }
 
-// listDeploymentsCmd creates a command to list deployments
-func listDeploymentsCmd() *cobra.Command {
-	var appName string
+func newDeploymentsCommand(client *api.Client) *cobra.Command {
+	var appID string
 
 	cmd := &cobra.Command{
 		Use:   "deployments",
-		Short: "List deployments for an application",
+		Short: "List deployments",
+		Long: `List all deployments for an application.
+		
+Example:
+  nexlayer list deployments --app myapp`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client := api.NewClient(vars.APIEndpoint)
-			client.SetToken(vars.Token)
-
-			deployments, err := client.GetDeployments(context.Background(), appName)
-			if err != nil {
-				return fmt.Errorf("failed to list deployments: %w", err)
-			}
-
-			if len(deployments) == 0 {
-				fmt.Println("No deployments found")
-				return nil
-			}
-
-			fmt.Printf("Deployments for application %s:\n", appName)
-			for _, d := range deployments {
-				fmt.Printf("- ID: %s\n", d.ID)
-				fmt.Printf("  Status: %s\n", d.Status)
-				fmt.Printf("  Created: %s\n", d.CreatedAt.Format("2006-01-02 15:04:05"))
-				fmt.Printf("  Updated: %s\n", d.UpdatedAt.Format("2006-01-02 15:04:05"))
-				fmt.Println()
-			}
-
-			return nil
+			return runListDeployments(cmd, client, appID)
 		},
 	}
 
-	cmd.Flags().StringVarP(&appName, "app", "a", "", "Application name")
-	if err := cmd.MarkFlagRequired("app"); err != nil {
-		panic(fmt.Sprintf("failed to mark app flag as required: %v", err))
-	}
+	cmd.Flags().StringVarP(&appID, "app", "a", "", "Application ID")
+	cmd.MarkFlagRequired("app")
 
 	return cmd
+}
+
+func runListDeployments(cmd *cobra.Command, client *api.Client, appID string) error {
+	cmd.Println(ui.RenderTitleWithBorder("Deployments"))
+
+	deployments, err := client.GetDeployments(cmd.Context(), appID)
+	if err != nil {
+		return fmt.Errorf("failed to list deployments: %w", err)
+	}
+
+	if len(deployments) == 0 {
+		cmd.Println("No deployments found")
+		return nil
+	}
+
+	// Prepare table data
+	headers := []string{"Namespace", "Template", "Status"}
+	rows := make([][]string, len(deployments))
+	for i, d := range deployments {
+		rows[i] = []string{
+			d.Namespace,
+			d.TemplateName,
+			d.DeploymentStatus,
+		}
+	}
+
+	cmd.Println(ui.RenderTable(headers, rows))
+	return nil
 }
