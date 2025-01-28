@@ -3,7 +3,6 @@ package wizard
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -29,14 +28,14 @@ The wizard will guide you through:
 2. Configuring environment variables
 3. Creating a deployment configuration file`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runWizard(cmd, client)
+			return runWizard(cmd)
 		},
 	}
 
 	return cmd
 }
 
-func runWizard(cmd *cobra.Command, client *api.Client) error {
+func runWizard(cmd *cobra.Command) error {
 	cmd.Println(ui.RenderTitleWithBorder("Deployment Wizard"))
 
 	// Get application ID
