@@ -138,11 +138,8 @@ func GenerateYAML(appName string, stackType string, components []string) (string
 		return "", fmt.Errorf("no AI provider configured. Set one of the following environment variables: %s", getSupportedEnvVars())
 	}
 
-	// Format prompt
-	prompt := fmt.Sprintf(yamlPrompt, appName, stackType, strings.Join(components, ", "))
-
-	// TODO: Make actual API call to the provider
 	// For now, return a mock response
+	// TODO: Make actual API call to the provider using the prompt
 	return mockGenerateYAML(appName, stackType, components), nil
 }
 
