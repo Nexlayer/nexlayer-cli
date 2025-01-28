@@ -55,25 +55,66 @@ nexlayer init myapp -t mean    # MongoDB + Express + Angular + Node
 ```yaml
 # nexlayer.yaml
 application:
-  template: langchain-nextjs
-  deploymentName: My Chat App
-  variables:
-    PORT: "8080"
-    OPENAI_API_KEY: your-key
-    LANGCHAIN_TRACING_V2: "true"
+  template:
+    name: langchain-nextjs
+    deploymentName: My Chat App
+  pods:
+    - type: nextjs
+      exposeHttp: true
+      name: app
+      vars:
+        - key: OPENAI_API_KEY
+          value: your-key
+        - key: LANGCHAIN_TRACING_V2
+          value: "true"
 ```
 
 ### LangChain RAG App
 ```yaml
 # nexlayer.yaml
 application:
-  template: langchain-fastapi
-  deploymentName: My RAG App
-  variables:
-    PORT: "8080"
-    OPENAI_API_KEY: your-key
-    PINECONE_API_KEY: your-key
-    PINECONE_ENVIRONMENT: gcp-starter
+  template:
+    name: langchain-fastapi
+    deploymentName: My RAG App
+  pods:
+    - type: fastapi
+      exposeHttp: true
+      name: backend
+      vars:
+        - key: OPENAI_API_KEY
+          value: your-key
+        - key: PINECONE_API_KEY
+          value: your-key
+        - key: PINECONE_ENVIRONMENT
+          value: gcp-starter
+```
+
+### MERN Stack App
+```yaml
+# nexlayer.yaml
+application:
+  template:
+    name: mern
+    deploymentName: My MERN App
+  pods:
+    - type: database
+      exposeHttp: false
+      name: mongodb
+      vars:
+        - key: MONGO_INITDB_DATABASE
+          value: myapp
+    - type: express
+      exposeHttp: false
+      name: backend
+      vars:
+        - key: MONGODB_URL
+          value: DATABASE_CONNECTION_STRING
+    - type: nginx
+      exposeHttp: true
+      name: frontend
+      vars:
+        - key: EXPRESS_URL
+          value: BACKEND_CONNECTION_URL
 ```
 
 ## Features

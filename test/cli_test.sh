@@ -53,6 +53,7 @@ run_test() {
 # Clean up previous test artifacts
 rm -rf test_projects
 rm -f nexlayer.yaml
+rm -f deployment.yaml
 
 # Create test directories
 mkdir -p test_projects/nodejs
@@ -80,6 +81,7 @@ EOF
 # 1. Basic Commands
 run_test "Help Command" "./nexlayer --help" 0
 run_test "Init Help" "./nexlayer init --help" 0
+run_test "Wizard Help" "./nexlayer wizard --help" 0
 
 # 2. Project Initialization
 run_test "Init LangChain Next.js" "cd test_projects/nodejs && ../../nexlayer init test-next -t langchain-nextjs" 0
@@ -94,12 +96,17 @@ run_test "Missing Template" "./nexlayer init test" 0
 run_test "Detect Node.js Project" "cd test_projects/nodejs && ../../nexlayer init auto-detect" 0
 run_test "Detect Python Project" "cd test_projects/python && ../../nexlayer init auto-detect" 0
 
-# 5. Performance Tests
+# 5. Wizard Tests
+run_test "Wizard Basic" "echo -e 'test-app\nlangchain-nextjs\n' | ./nexlayer wizard" 0
+run_test "Wizard Empty Input" "echo -e '\n\n' | ./nexlayer wizard" 1
+run_test "Wizard Invalid Template" "echo -e 'test-app\ninvalid-template\n' | ./nexlayer wizard" 1
+
+# 6. Performance Tests
 for i in {1..5}; do
     run_test "Performance Test $i" "./nexlayer init perf-test-$i -t langchain-nextjs" 0
 done
 
-# 6. Concurrent Tests
+# 7. Concurrent Tests
 for i in {1..3}; do
     ./nexlayer init concurrent-$i -t langchain-nextjs &
 done
@@ -114,3 +121,4 @@ echo "Success rate: $(( (PASSED_TESTS * 100) / TOTAL_TESTS ))%"
 
 # Clean up
 rm -rf test_projects
+rm -f deployment.yaml

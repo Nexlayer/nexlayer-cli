@@ -11,10 +11,28 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 )
 
+type Template struct {
+	Name           string `yaml:"name"`
+	DeploymentName string `yaml:"deploymentName"`
+}
+
+type Pod struct {
+	Type       string `yaml:"type"`
+	ExposeHttp bool   `yaml:"exposeHttp"`
+	Name       string `yaml:"name"`
+	Tag        string `yaml:"tag,omitempty"`
+	PrivateTag bool   `yaml:"privateTag,omitempty"`
+	Vars       []Var  `yaml:"vars,omitempty"`
+}
+
+type Var struct {
+	Key   string `yaml:"key"`
+	Value string `yaml:"value"`
+}
+
 type Application struct {
-	Template       string            `yaml:"template"`
-	DeploymentName string            `yaml:"deploymentName"`
-	Variables      map[string]string `yaml:"variables,omitempty"`
+	Template Template `yaml:"template"`
+	Pods     []Pod    `yaml:"pods,omitempty"`
 }
 
 type DeploymentConfig struct {
@@ -27,6 +45,58 @@ var validTemplates = map[string]bool{
 	"mern":             true,
 	"pern":             true,
 	"mean":             true,
+}
+
+var templateToPods = map[string][]Pod{
+	"langchain-nextjs": {
+		{
+			Type:       "nextjs",
+			ExposeHttp: true,
+			Name:      "app",
+			Vars: []Var{
+				{Key: "OPENAI_API_KEY", Value: "your-key"},
+				{Key: "LANGCHAIN_TRACING_V2", Value: "true"},
+			},
+		},
+	},
+	"langchain-fastapi": {
+		{
+			Type:       "fastapi",
+			ExposeHttp: true,
+			Name:      "backend",
+			Vars: []Var{
+				{Key: "OPENAI_API_KEY", Value: "your-key"},
+				{Key: "PINECONE_API_KEY", Value: "your-key"},
+				{Key: "PINECONE_ENVIRONMENT", Value: "gcp-starter"},
+			},
+		},
+	},
+	"mern": {
+		{
+			Type:       "database",
+			ExposeHttp: false,
+			Name:      "mongodb",
+			Vars: []Var{
+				{Key: "MONGO_INITDB_DATABASE", Value: "myapp"},
+			},
+		},
+		{
+			Type:       "express",
+			ExposeHttp: false,
+			Name:      "backend",
+			Vars: []Var{
+				{Key: "MONGODB_URL", Value: "DATABASE_CONNECTION_STRING"},
+			},
+		},
+		{
+			Type:       "nginx",
+			ExposeHttp: true,
+			Name:      "frontend",
+			Vars: []Var{
+				{Key: "EXPRESS_URL", Value: "BACKEND_CONNECTION_URL"},
+			},
+		},
+	},
 }
 
 func NewCommand(client *api.Client) *cobra.Command {
@@ -60,22 +130,22 @@ func runWizard(cmd *cobra.Command) error {
 	}
 
 	// Get template name
-	var template string
+	var templateName string
 	cmd.Print("Enter template name (e.g., langchain-nextjs, langchain-fastapi): ")
-	fmt.Scanln(&template)
+	fmt.Scanln(&templateName)
 
-	if !validTemplates[template] {
-		return fmt.Errorf("invalid template: %s", template)
+	if !validTemplates[templateName] {
+		return fmt.Errorf("invalid template: %s", templateName)
 	}
 
 	// Create config
 	config := DeploymentConfig{
 		Application: Application{
-			Template:       template,
-			DeploymentName: projectName,
-			Variables: map[string]string{
-				"PORT": "8080",
+			Template: Template{
+				Name:           templateName,
+				DeploymentName: projectName,
 			},
+			Pods: templateToPods[templateName],
 		},
 	}
 
