@@ -1,0 +1,9 @@
+name: default
+version: 1.0.0
+description: Default template
+components:
+  - name: app
+    type: container
+    image: nginx:latest
+    ports:
+      - 80:80

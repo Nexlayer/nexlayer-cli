@@ -19,7 +19,7 @@ Deploy AI applications in seconds
 go install github.com/Nexlayer/nexlayer-cli@latest
 
 # Initialize (auto-detects your stack)
-nexlayer init
+nexlayer init myapp
 
 # Deploy
 nexlayer deploy
@@ -34,16 +34,16 @@ Choose your stack and start building:
 ### AI & LLM
 ```bash
 # LangChain
-nexlayer init --template langchain-nextjs    # LangChain.js + Next.js
-nexlayer init --template langchain-fastapi   # LangChain Python + FastAPI
+nexlayer init myapp -t langchain-nextjs    # LangChain.js + Next.js
+nexlayer init myapp -t langchain-fastapi   # LangChain Python + FastAPI
 ```
 
 ### Traditional
 ```bash
 # Full-Stack
-nexlayer init --template mern    # MongoDB + Express + React + Node
-nexlayer init --template pern    # PostgreSQL + Express + React + Node
-nexlayer init --template mean    # MongoDB + Express + Angular + Node
+nexlayer init myapp -t mern    # MongoDB + Express + React + Node
+nexlayer init myapp -t pern    # PostgreSQL + Express + React + Node
+nexlayer init myapp -t mean    # MongoDB + Express + Angular + Node
 ```
 
 ## Examples
@@ -52,7 +52,7 @@ nexlayer init --template mean    # MongoDB + Express + Angular + Node
 ```yaml
 # nexlayer.yaml
 application:
-  template: langchain-nextjs-mongodb
+  template: langchain-nextjs
   deploymentName: My Chat App
   pods:
     - type: database
@@ -89,12 +89,14 @@ application:
 
 ## Features
 
-- ** Smart Detection**: Automatically detects your stack and configures everything
-- ** Simple Controls**: One command to initialize, one to deploy
-- ** Fast Cold Starts**: Sub-second startup times
-- ** Zero Config**: Sensible defaults for every stack
-- ** GPU Ready**: Built-in support for GPU acceleration
-- ** Cost Efficient**: Scale to zero when idle
+- **Smart Detection**: Automatically detects your stack and configures everything
+- **Simple Controls**: One command to initialize, one to deploy
+- **Fast Cold Starts**: Sub-second startup times
+- **Zero Config**: Sensible defaults for every stack
+- **GPU Ready**: Built-in support for GPU acceleration
+- **Cost Efficient**: Scale to zero when idle
+- **Progress Feedback**: Visual progress indicators during operations
+- **Error Handling**: Clear error messages and validation
 
 ## Common Tasks
 
@@ -114,6 +116,28 @@ nexlayer env set KEY=VALUE   # Set environment variable
 nexlayer domain add example.com   # Add custom domain
 nexlayer metrics              # View metrics
 ```
+
+## Testing
+
+Run the test suite:
+
+```bash
+# Run all tests
+./test/cli_test.sh
+
+# Test specific functionality
+nexlayer init myapp -t langchain-nextjs    # Test template initialization
+nexlayer init myapp                        # Test auto-detection
+```
+
+The test suite covers:
+- Command validation
+- Template handling
+- Project initialization
+- Auto-detection
+- Error scenarios
+- Performance
+- Concurrent operations
 
 ## GPU Support
 

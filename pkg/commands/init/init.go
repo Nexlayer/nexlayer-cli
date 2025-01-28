@@ -23,8 +23,8 @@ const (
 	StackPDN  = "pdn"   // PostgreSQL, Django, Node.js
 
 	// Stack types - AI/LLM
-	StackLangChainJS = "langchain-js"    // LangChain.js, Next.js, MongoDB
-	StackLangChainPy = "langchain-py"    // LangChain Python, FastAPI, PostgreSQL
+	StackLangChainJS = "langchain-nextjs"    // LangChain.js, Next.js, MongoDB
+	StackLangChainPy = "langchain-fastapi"    // LangChain Python, FastAPI, PostgreSQL
 	StackOpenAINode  = "openai-node"     // OpenAI Node.js SDK, Express, React
 	StackOpenAIPy    = "openai-py"       // OpenAI Python SDK, FastAPI, Vue
 	StackLlamaNode   = "llama-node"      // Llama.cpp Node.js, Next.js, PostgreSQL
@@ -537,54 +537,75 @@ func createHuggingFaceConfig(projectName string) Config {
 
 // NewCommand creates a new init command
 func NewCommand(client api.APIClient) *cobra.Command {
+	var templateFlag string
+
 	cmd := &cobra.Command{
-		Use:   "init",
+		Use:   "init [name]",
 		Short: "Initialize a new project",
 		Long:  "Initialize a new project with a template configuration",
+		Example: `  # Initialize with a specific template
+  nexlayer init myapp -t langchain-nextjs
+
+  # Initialize and auto-detect template
+  nexlayer init myapp`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			uiManager := ui.NewManager()
 			progress := uiManager.StartProgress("Initializing project")
 			defer progress.Complete()
 
-			projectName, err := cmd.Flags().GetString("name")
-			if err != nil {
-				return fmt.Errorf("failed to get project name: %w", err)
-			}
+			projectName := args[0]
 			progress.Update(20.0, "Got project name")
 
-			stackType, err := cmd.Flags().GetString("template")
-			if err != nil {
-				return fmt.Errorf("failed to get template type: %w", err)
+			// If no template specified, try to detect from current directory
+			if templateFlag == "" {
+				dir, err := os.Getwd()
+				if err != nil {
+					cmd.SilenceUsage = true
+					return fmt.Errorf("failed to get current directory: %w", err)
+				}
+				templateFlag = detectProjectType(dir)
+				progress.Update(40.0, fmt.Sprintf("Detected template: %s", templateFlag))
+			} else {
+				// Validate template
+				validTemplates := map[string]bool{
+					StackLangChainJS: true,
+					StackLangChainPy: true,
+					StackMERN:        true,
+					StackMEAN:        true,
+					StackPERN:        true,
+				}
+				if !validTemplates[templateFlag] {
+					cmd.SilenceUsage = true
+					return fmt.Errorf("invalid template type: %s", templateFlag)
+				}
+				progress.Update(40.0, fmt.Sprintf("Using template: %s", templateFlag))
 			}
-			progress.Update(40.0, fmt.Sprintf("Using template: %s", stackType))
 
-			config := createDefaultConfig(projectName, stackType)
+			config := createDefaultConfig(projectName, templateFlag)
 			progress.Update(60.0, "Created configuration")
 
 			yamlData, err := yaml.Marshal(&config)
 			if err != nil {
+				cmd.SilenceUsage = true
 				return fmt.Errorf("failed to marshal config: %w", err)
 			}
 			progress.Update(80.0, "Generated YAML configuration")
 
 			err = os.WriteFile("nexlayer.yaml", yamlData, 0644)
 			if err != nil {
+				cmd.SilenceUsage = true
 				return fmt.Errorf("failed to write config file: %w", err)
 			}
 			progress.Update(100.0, "Wrote configuration file")
 
-			fmt.Printf("\nSuccessfully created nexlayer.yaml with %s template!\n", stackType)
+			fmt.Printf("\nSuccessfully created nexlayer.yaml with %s template!\n", templateFlag)
 			fmt.Println("To deploy your application, run: nexlayer deploy")
 			return nil
 		},
 	}
 
-	cmd.Flags().StringP("name", "n", "", "Project name")
-	cmd.MarkFlagRequired("name")
-	
-	cmd.Flags().StringP("template", "t", "", "Template type (e.g., langchain-nextjs, llama-fastapi)")
-	cmd.MarkFlagRequired("template")
-	
+	cmd.Flags().StringVarP(&templateFlag, "template", "t", "", "Template type (e.g., langchain-nextjs, langchain-fastapi)")
 	return cmd
 }
 

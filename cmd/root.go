@@ -10,6 +10,7 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/debug"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/deploy"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/domain"
+	initCmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/init"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/status"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/wizard"
@@ -21,20 +22,16 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "nexlayer",
 	Short: "Nexlayer CLI - Deploy applications to Nexlayer",
-	Long: `Nexlayer CLI helps you deploy and manage your applications on Nexlayer.
+	Long: `Nexlayer CLI helps you deploy and manage your applications.
 	
-Key features:
-- Easy application deployment
-- Custom domain management
-- Deployment status monitoring
-- Deployment assistance
-
-Need help? Use 'nexlayer debug' for deployment assistance.`,
+Use the wizard command to get started with an interactive setup:
+  nexlayer wizard [--ai]  # Use --ai for AI-powered recommendations`,
+	SilenceErrors: true,
 }
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
@@ -43,6 +40,8 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.nexlayer.yaml)")
+	rootCmd.PersistentFlags().BoolP("ai", "", false, "Enable AI-powered recommendations (requires OPENAI_API_KEY)")
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 
 	client := api.NewClient("")
 
@@ -53,6 +52,7 @@ func init() {
 		status.NewCommand(client),
 		wizard.NewCommand(client),
 		debug.NewCommand(client),
+		initCmd.NewCommand(client),
 	)
 }
 
