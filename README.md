@@ -128,6 +128,80 @@ application:
 - **Progress Feedback**: Visual progress indicators during operations
 - **Error Handling**: Clear error messages and validation
 
+## Plugins
+
+Nexlayer supports plugins to extend its functionality. Plugins are Go shared libraries (.so files) that implement the Plugin interface.
+
+### Using Plugins
+
+```bash
+# List installed plugins
+nexlayer plugin list
+
+# Run a plugin
+nexlayer plugin run hello --name "John"
+
+# Install a plugin
+nexlayer plugin install ./my-plugin.so
+```
+
+### Creating Plugins
+
+1. Create a new Go file for your plugin:
+
+```go
+package main
+
+type MyPlugin struct{}
+
+func (p *MyPlugin) Name() string {
+    return "my-plugin"
+}
+
+func (p *MyPlugin) Description() string {
+    return "Description of what my plugin does"
+}
+
+func (p *MyPlugin) Run(opts map[string]interface{}) error {
+    // Plugin logic here
+    return nil
+}
+
+// Export the plugin
+var Plugin MyPlugin
+```
+
+2. Build your plugin as a shared library:
+
+```bash
+go build -buildmode=plugin -o my-plugin.so my-plugin.go
+```
+
+3. Install your plugin:
+
+```bash
+nexlayer plugin install my-plugin.so
+```
+
+### Plugin Directory
+
+Plugins are stored in `~/.nexlayer/plugins/`. Each plugin is a `.so` file that implements the Plugin interface.
+
+### Plugin Interface
+
+```go
+type Plugin interface {
+    // Name returns the name of the plugin
+    Name() string
+    
+    // Description returns a description of what the plugin does
+    Description() string
+    
+    // Run executes the plugin with the given options
+    Run(opts map[string]interface{}) error
+}
+```
+
 ## Common Tasks
 
 ```bash
