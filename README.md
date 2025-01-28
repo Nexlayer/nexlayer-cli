@@ -57,19 +57,10 @@ nexlayer init myapp -t mean    # MongoDB + Express + Angular + Node
 application:
   template: langchain-nextjs
   deploymentName: My Chat App
-  pods:
-    - type: database
-      name: mongodb
-      vars:
-        - key: MONGO_INITDB_DATABASE
-          value: langchain
-    - type: nextjs
-      name: app
-      vars:
-        - key: OPENAI_API_KEY
-          value: your-key
-        - key: LANGCHAIN_TRACING_V2
-          value: true
+  variables:
+    PORT: "8080"
+    OPENAI_API_KEY: your-key
+    LANGCHAIN_TRACING_V2: "true"
 ```
 
 ### LangChain RAG App
@@ -78,16 +69,11 @@ application:
 application:
   template: langchain-fastapi
   deploymentName: My RAG App
-  pods:
-    - type: fastapi
-      name: backend
-      vars:
-        - key: OPENAI_API_KEY
-          value: your-key
-        - key: PINECONE_API_KEY
-          value: your-key
-        - key: PINECONE_ENVIRONMENT
-          value: gcp-starter
+  variables:
+    PORT: "8080"
+    OPENAI_API_KEY: your-key
+    PINECONE_API_KEY: your-key
+    PINECONE_ENVIRONMENT: gcp-starter
 ```
 
 ## Features
