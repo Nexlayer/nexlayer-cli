@@ -21,9 +21,6 @@ go install github.com/Nexlayer/nexlayer-cli@latest
 # Initialize (auto-detects your stack)
 nexlayer init myapp
 
-# Or specify a template
-nexlayer init myapp -t langchain-nextjs
-
 # Deploy
 nexlayer deploy
 ```
@@ -117,6 +114,85 @@ application:
           value: BACKEND_CONNECTION_URL
 ```
 
+## Template Configuration
+
+Each Nexlayer deployment requires a YAML configuration file that defines your application structure. Here's how to configure it:
+
+### Basic Structure
+```yaml
+application:
+  template:
+    name: my-app-stack          # Identifier for your app stack
+    deploymentName: my-app      # Your deployment name
+    registryLogin:              # Optional: for private registries
+      username: user
+      password: pass
+
+  pods:                         # Define your app components
+    - type: react              # Pod type (database/frontend/backend/etc)
+      name: frontend           # Specific name for the pod
+      tag: node:14-alpine      # Docker image
+      privateTag: false        # Is it from a private registry?
+      vars:                    # Environment variables
+        - name: PORT
+          value: "3000"
+      exposeHttp: true        # Make pod accessible via HTTP
+```
+
+### Supported Pod Types
+- **Database**: `postgres`, `mysql`, `neo4j`, `redis`, `mongodb`
+- **Frontend**: `react`, `angular`, `vue`
+- **Backend**: `django`, `fastapi`, `express`
+- **Others**: `nginx`, `llm` (custom naming allowed)
+
+### Environment Variables
+Nexlayer automatically provides these environment variables to your pods:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `PROXY_URL` | Your Nexlayer site URL | `https://your-site.alpha.nexlayer.ai` |
+| `PROXY_DOMAIN` | Your Nexlayer site domain | `your-site.alpha.nexlayer.ai` |
+| `DATABASE_HOST` | Database hostname | - |
+| `DATABASE_CONNECTION_STRING` | Database connection string | `postgresql://user:pass@host:port/db` |
+| `FRONTEND_CONNECTION_URL` | Frontend URL (with http://) | - |
+| `BACKEND_CONNECTION_URL` | Backend URL (with http://) | - |
+| `LLM_CONNECTION_URL` | LLM URL (with http://) | - |
+| `FRONTEND_CONNECTION_DOMAIN` | Frontend domain (no prefix) | - |
+| `BACKEND_CONNECTION_DOMAIN` | Backend domain (no prefix) | - |
+| `LLM_CONNECTION_DOMAIN` | LLM domain (no prefix) | - |
+
+### GitHub Actions Integration
+Create `.github/workflows/docker-publish.yml`:
+
+```yaml
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - uses: actions/checkout@v2
+    - uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - run: echo "owner_lowercase=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+    - uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ghcr.io/${{ env.owner_lowercase }}/my-image-name:v0.0.1
+```
+
 ## Features
 
 - **Smart Detection**: Automatically detects your stack and configures everything
@@ -200,25 +276,87 @@ type Plugin interface {
     // Run executes the plugin with the given options
     Run(opts map[string]interface{}) error
 }
-```
 
-## Common Tasks
+## Usage
 
 ```bash
-# Development
-nexlayer dev              # Start local development
-nexlayer test            # Run tests
-nexlayer logs --follow   # Stream logs
-
 # Deployment
-nexlayer deploy          # Deploy to production
-nexlayer rollback        # Instant rollback
-nexlayer status         # Check status
+nexlayer deploy          # Deploy your application
+nexlayer status         # Check deployment status
 
 # Configuration
-nexlayer env set KEY=VALUE   # Set environment variable
-nexlayer domain add example.com   # Add custom domain
-nexlayer metrics              # View metrics
+nexlayer domain add     # Add custom domain
+
+# AI-Powered Features
+nexlayer init myapp     # Initialize a new app with AI-generated config
+nexlayer ai detect      # Detect available AI assistants
+nexlayer ai debug       # Get AI-powered deployment debugging
+nexlayer ai scale       # AI-driven scaling recommendations
+```
+
+## AI Integration
+
+Nexlayer CLI integrates with your IDE's AI capabilities to provide enhanced features:
+
+### Automatic AI Detection
+- Detects supported AI tools (GitHub Copilot, JetBrains AI, Cursor, Windsurf, Cline)
+- Caches detection results in `~/.nexlayer/config.yaml`
+- Runs automatically during installation or first `init`
+
+```bash
+$ nexlayer ai detect
+✅ Detected AI Models:
+   - GitHub Copilot (VS Code)
+   - Cursor AI
+```
+
+### Smart YAML Generation
+When using `nexlayer init`, the CLI:
+- Analyzes your project structure
+- Detects frameworks and dependencies
+- Generates optimized deployment configuration
+
+Example generated YAML:
+```yaml
+application:
+  template:
+    name: myapp
+    deploymentName: myapp
+    pods:
+      - type: backend
+        name: Node.js API
+        tag: node:14
+      - type: frontend
+        name: React
+        tag: nginx:latest
+```
+
+### AI-Powered Debugging
+Debug deployment issues with AI assistance:
+```bash
+$ nexlayer ai debug --app myapp
+❌ Deployment Error:
+   - Issue: Missing environment variable `DATABASE_URL`
+   - Suggested Fix: Add `DATABASE_URL` to your YAML under the `backend` pod
+
+Suggested YAML Fix:
+application:
+  template:
+    pods:
+      - type: backend
+        name: Node.js API
+        vars:
+          - key: DATABASE_URL
+            value: mongodb://mongo-service
+```
+
+### Intelligent Scaling
+Get AI-driven scaling recommendations:
+```bash
+$ nexlayer ai scale --app myapp
+✅ Scaling Recommendation:
+   - Current replicas: 2
+   - Recommended replicas: 5 (based on traffic patterns)
 ```
 
 ## Testing
@@ -243,28 +381,7 @@ The test suite covers:
 - Performance
 - Concurrent operations
 
-## GPU Support
-
-Enable GPU acceleration with one line:
-
-```bash
-nexlayer deploy --gpu
-```
-
-Nexlayer automatically:
-- Provisions GPU instances
-- Configures CUDA environments
-- Optimizes memory allocation
-- Sets up monitoring
-
-Available GPU types:
-- NVIDIA T4 (Default)
-- NVIDIA A100 (High-end)
-- NVIDIA A10G (Mid-range)
-
 ## Support
-
-- [Discord](https://discord.gg/nexlayer)
 - [Documentation](https://docs.nexlayer.com)
 - [GitHub Issues](https://github.com/Nexlayer/nexlayer-cli/issues)
 

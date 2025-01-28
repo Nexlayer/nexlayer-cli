@@ -1,0 +1,28 @@
+application:
+    template:
+        name: test-app
+        deploymentName: test-app
+        registryLogin:
+            registry: ghcr.io
+            username: <Github username>
+            personalAccessToken: <Github Packages Read-Only PAT>
+        pods:
+            - type: frontend
+              name: frontend
+              tag: node:18
+              vars:
+                - key: NODE_ENV
+                  value: development
+                - key: PORT
+                  value: "3000"
+              exposeHttp: true
+            - type: database
+              name: redis
+              tag: redis:7-alpine
+              vars:
+                - key: REDIS_MAX_MEMORY
+                  value: 256mb
+              exposeHttp: false
+        build:
+            command: npm install && npm run build
+            output: build

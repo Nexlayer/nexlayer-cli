@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - REDIS_URL=redis://redis:6379
+      - PINECONE_API_KEY=<your-pinecone-api-key>
+      - PINECONE_ENVIRONMENT=<your-pinecone-environment>
+      - PINECONE_INDEX=<your-pinecone-index>
+    depends_on:
+      - redis
+      - pinecone
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  pinecone:
+    image: pinecone/pinecone-client:latest
+    environment:
+      - PINECONE_API_KEY=<your-pinecone-api-key>
+      - PINECONE_ENVIRONMENT=<your-pinecone-environment>
+      - PINECONE_INDEX=<your-pinecone-index>

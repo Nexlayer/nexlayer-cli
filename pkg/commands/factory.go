@@ -65,7 +65,7 @@ Need help? Use 'nexlayer debug' for deployment assistance.`,
 
 	// Add subcommands
 	cmd.AddCommand(
-		f.createInitCommand(client),
+		initcmd.NewCommand(),
 		f.createDeployCommand(client),
 		f.createDomainCommand(client),
 		f.createListCommand(client),
@@ -116,13 +116,6 @@ func (f *Factory) createWizardCommand(client api.APIClient) *cobra.Command {
 func (f *Factory) createDebugCommand(client api.APIClient) *cobra.Command {
 	if apiClient, ok := client.(*api.Client); ok {
 		return debug.NewCommand(apiClient)
-	}
-	panic("invalid API client type")
-}
-
-func (f *Factory) createInitCommand(client api.APIClient) *cobra.Command {
-	if apiClient, ok := client.(*api.Client); ok {
-		return initcmd.NewCommand(apiClient)
 	}
 	panic("invalid API client type")
 }

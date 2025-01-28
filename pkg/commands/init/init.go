@@ -7,14 +7,38 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
-	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	// Stack types - Traditional
+	// Frontend pod types
+	PodTypeReact   = "react"
+	PodTypeAngular = "angular"
+	PodTypeVue     = "vue"
+
+	// Backend pod types
+	PodTypeExpress  = "express"
+	PodTypeDjango   = "django"
+	PodTypeFastAPI  = "fastapi"
+
+	// Database pod types
+	PodTypePostgres = "postgres"
+	PodTypeMySQL    = "mysql"
+	PodTypeNeo4j    = "neo4j"
+	PodTypeRedis    = "redis"
+	PodTypeMongoDB  = "mongodb"
+	PodTypePinecone = "pinecone"
+
+	// Other pod types
+	PodTypeNginx = "nginx"
+	PodTypeLLM   = "llm"
+)
+
+// Supported stack types
+const (
 	StackMERN = "mern"  // MongoDB, Express, React, Node.js
 	StackMEAN = "mean"  // MongoDB, Express, Angular, Node.js
 	StackMEVN = "mevn"  // MongoDB, Express, Vue.js, Node.js
@@ -36,65 +60,34 @@ const (
 )
 
 type Config struct {
-	Name        string            `yaml:"name"`
-	Type        string            `yaml:"type"`
-	Environment map[string]string `yaml:"environment,omitempty"`
-	Build       struct {
-		Command string   `yaml:"command,omitempty"`
-		Output  string   `yaml:"output,omitempty"`
-		Env     []string `yaml:"env,omitempty"`
-	} `yaml:"build,omitempty"`
-	Deploy struct {
-		Resources struct {
-			CPU    string `yaml:"cpu,omitempty"`
-			Memory string `yaml:"memory,omitempty"`
-		} `yaml:"resources,omitempty"`
-		Port int `yaml:"port,omitempty"`
-	} `yaml:"deploy,omitempty"`
 	Application struct {
 		Template struct {
-			Name            string `yaml:"name"`
-			DeploymentName  string `yaml:"deploymentName"`
-			RegistryLogin   struct {
-				Registry            string `yaml:"registry"`
-				Username           string `yaml:"username"`
-				PersonalAccessToken string `yaml:"personalAccessToken"`
-			} `yaml:"registryLogin"`
-			Pods []struct {
-				Type       string `yaml:"type"`
-				ExposeHttp bool   `yaml:"exposeHttp"`
-				Name       string `yaml:"name"`
-				Tag        string `yaml:"tag"`
-				PrivateTag bool   `yaml:"privateTag"`
-				Vars       []VarPair `yaml:"vars"`
-				GPU       bool `yaml:"gpu"`
-				Resources struct {
-					Limits   map[string]string `yaml:"limits"`
-					Requests map[string]string `yaml:"requests"`
-				} `yaml:"resources"`
-			} `yaml:"pods"`
+			Name           string       `yaml:"name"`
+			DeploymentName string       `yaml:"deploymentName"`
+			RegistryLogin  RegistryAuth `yaml:"registryLogin"`
+			Pods          []PodConfig   `yaml:"pods"`
+			Build         struct {
+				Command string `yaml:"command"`
+				Output  string `yaml:"output"`
+			} `yaml:"build"`
 		} `yaml:"template"`
 	} `yaml:"application"`
 }
 
-type PackageJSON struct {
-	Name string `json:"name"`
-}
-
-type PyProjectTOML struct {
-	Project struct {
-		Name string `toml:"name"`
-	} `toml:"project"`
+type RegistryAuth struct {
+	Registry            string `yaml:"registry"`
+	Username            string `yaml:"username"`
+	PersonalAccessToken string `yaml:"personalAccessToken"`
 }
 
 type PodConfig struct {
-	Type       string
-	Name       string
-	ExposeHttp bool
-	Vars       []VarPair
+	Type       string    `yaml:"type"`
+	Name       string    `yaml:"name"`
+	Tag        string    `yaml:"tag"`
+	Vars       []VarPair `yaml:"vars"`
+	ExposeHttp bool      `yaml:"exposeHttp"`
 }
 
-// VarPair represents a key-value pair for environment variables
 type VarPair struct {
 	Key   string `yaml:"key"`
 	Value string `yaml:"value"`
@@ -109,187 +102,285 @@ func addTemplateConfig(config *Config, templateName string, pods []PodConfig) {
 }
 
 func addPod(config *Config, podType string, name string, exposeHttp bool, vars []VarPair) {
-	pod := struct {
-		Type       string    `yaml:"type"`
-		ExposeHttp bool      `yaml:"exposeHttp"`
-		Name       string    `yaml:"name"`
-		Tag        string    `yaml:"tag"`
-		PrivateTag bool      `yaml:"privateTag"`
-		Vars       []VarPair `yaml:"vars"`
-		GPU        bool      `yaml:"gpu"`
-		Resources  struct {
-			Limits   map[string]string `yaml:"limits"`
-			Requests map[string]string `yaml:"requests"`
-		} `yaml:"resources"`
-	}{
+	pod := PodConfig{
 		Type:       podType,
-		ExposeHttp: exposeHttp,
 		Name:       name,
 		Tag:        fmt.Sprintf("ghcr.io/your-username/%s:latest", name),
-		PrivateTag: false,
+		ExposeHttp: exposeHttp,
 		Vars:       vars,
 	}
 
 	config.Application.Template.Pods = append(config.Application.Template.Pods, pod)
 }
 
-func addGPUResources(pod *struct {
-	Type       string    `yaml:"type"`
-	ExposeHttp bool      `yaml:"exposeHttp"`
-	Name       string    `yaml:"name"`
-	Tag        string    `yaml:"tag"`
-	PrivateTag bool      `yaml:"privateTag"`
-	Vars       []VarPair `yaml:"vars"`
-	GPU        bool      `yaml:"gpu"`
-	Resources  struct {
-		Limits   map[string]string `yaml:"limits"`
-		Requests map[string]string `yaml:"requests"`
-	} `yaml:"resources"`
-}) {
-	pod.GPU = true
-	pod.Resources = struct {
-		Limits   map[string]string `yaml:"limits"`
-		Requests map[string]string `yaml:"requests"`
-	}{
-		Limits: map[string]string{
-			"nvidia.com/gpu": "1",
-		},
-		Requests: map[string]string{
-			"nvidia.com/gpu": "1",
-		},
+func getPodTypeFromService(name string, image string) string {
+	// Database types
+	if strings.Contains(image, "postgres") || strings.Contains(name, "postgres") {
+		return PodTypePostgres
 	}
+	if strings.Contains(image, "mysql") || strings.Contains(name, "mysql") {
+		return PodTypeMySQL
+	}
+	if strings.Contains(image, "neo4j") || strings.Contains(name, "neo4j") {
+		return PodTypeNeo4j
+	}
+	if strings.Contains(image, "redis") || strings.Contains(name, "redis") {
+		return PodTypeRedis
+	}
+	if strings.Contains(image, "mongo") || strings.Contains(name, "mongo") {
+		return PodTypeMongoDB
+	}
+	if strings.Contains(image, "pinecone") || strings.Contains(name, "pinecone") {
+		return PodTypePinecone
+	}
+
+	// Frontend types
+	if strings.Contains(image, "react") || strings.Contains(name, "react") {
+		return PodTypeReact
+	}
+	if strings.Contains(image, "angular") || strings.Contains(name, "angular") {
+		return PodTypeAngular
+	}
+	if strings.Contains(image, "vue") || strings.Contains(name, "vue") {
+		return PodTypeVue
+	}
+
+	// Backend types
+	if strings.Contains(image, "django") || strings.Contains(name, "django") {
+		return PodTypeDjango
+	}
+	if strings.Contains(image, "fastapi") || strings.Contains(name, "fastapi") {
+		return PodTypeFastAPI
+	}
+	if strings.Contains(image, "express") || strings.Contains(name, "express") {
+		return PodTypeExpress
+	}
+
+	// Other types
+	if strings.Contains(image, "nginx") || strings.Contains(name, "nginx") {
+		return PodTypeNginx
+	}
+	if strings.Contains(image, "llm") || strings.Contains(name, "llm") {
+		return PodTypeLLM
+	}
+
+	return ""
 }
 
-func createDefaultConfig(projectName, stackType string) Config {
-	config := Config{}
-	config.Application.Template.Name = projectName
-	config.Application.Template.DeploymentName = fmt.Sprintf("My %s App", strings.ToUpper(stackType))
-	config.Application.Template.RegistryLogin.Registry = "ghcr.io"
+func getPodTypeFromDependency(name string) string {
+	switch name {
+	// Database dependencies
+	case "pg", "postgres", "postgresql":
+		return PodTypePostgres
+	case "mysql", "mysql2":
+		return PodTypeMySQL
+	case "neo4j-driver":
+		return PodTypeNeo4j
+	case "redis":
+		return PodTypeRedis
+	case "mongodb", "mongoose":
+		return PodTypeMongoDB
+	case "pinecone-client":
+		return PodTypePinecone
 
-	switch stackType {
-	case StackLangChainJS:
-		addTemplateConfig(&config, "langchain-nextjs-mongodb", []PodConfig{
-			{Type: "database", Name: "mongodb", ExposeHttp: false, Vars: []VarPair{
-				{"MONGO_INITDB_ROOT_USERNAME", "mongo"},
-				{"MONGO_INITDB_ROOT_PASSWORD", "passw0rd"},
-				{"MONGO_INITDB_DATABASE", "langchain"},
-			}},
-			{Type: "nextjs", Name: "app", ExposeHttp: true, Vars: []VarPair{
-				{"MONGODB_URL", "DATABASE_CONNECTION_STRING"},
-				{"OPENAI_API_KEY", "your-openai-api-key"},
-				{"LANGCHAIN_TRACING_V2", "true"},
-				{"LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com"},
-				{"LANGCHAIN_API_KEY", "your-langchain-api-key"},
-				{"LANGCHAIN_PROJECT", projectName},
-			}},
-		})
+	// Frontend dependencies
+	case "react", "react-dom":
+		return PodTypeReact
+	case "@angular/core":
+		return PodTypeAngular
+	case "vue":
+		return PodTypeVue
 
-	case StackLangChainPy:
-		addTemplateConfig(&config, "langchain-fastapi-postgres", []PodConfig{
-			{Type: "database", Name: "postgres", ExposeHttp: false, Vars: []VarPair{
-				{"POSTGRES_USER", "postgres"},
-				{"POSTGRES_PASSWORD", "passw0rd"},
-				{"POSTGRES_DB", "langchain"},
-			}},
-			{Type: "fastapi", Name: "app", ExposeHttp: true, Vars: []VarPair{
-				{"DATABASE_URL", "postgresql://postgres:passw0rd@postgres:5432/langchain"},
-				{"OPENAI_API_KEY", "your-openai-api-key"},
-				{"LANGCHAIN_TRACING_V2", "true"},
-				{"LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com"},
-				{"LANGCHAIN_API_KEY", "your-langchain-api-key"},
-				{"LANGCHAIN_PROJECT", projectName},
-			}},
-		})
+	// Backend dependencies
+	case "django":
+		return PodTypeDjango
+	case "fastapi":
+		return PodTypeFastAPI
+	case "express":
+		return PodTypeExpress
 
-	case StackOpenAINode:
-		addTemplateConfig(&config, "openai-express-react", []PodConfig{
-			{Type: "express", Name: "backend", ExposeHttp: false, Vars: []VarPair{
-				{"OPENAI_API_KEY", "your-openai-api-key"},
-				{"OPENAI_ORG_ID", "your-org-id"},
-				{"MODEL", "gpt-4-turbo-preview"},
-				{"MAX_TOKENS", "2048"},
-				{"TEMPERATURE", "0.7"},
-			}},
-			{Type: "nginx", Name: "frontend", ExposeHttp: true, Vars: []VarPair{
-				{"BACKEND_URL", "BACKEND_CONNECTION_URL"},
-				{"VITE_API_URL", "/api"},
-			}},
-		})
-
-	case StackOpenAIPy:
-		addTemplateConfig(&config, "openai-fastapi-vue", []PodConfig{
-			{Type: "fastapi", Name: "backend", ExposeHttp: false, Vars: []VarPair{
-				{"OPENAI_API_KEY", "your-openai-api-key"},
-				{"OPENAI_ORG_ID", "your-org-id"},
-				{"MODEL", "gpt-4-turbo-preview"},
-				{"MAX_TOKENS", "2048"},
-				{"TEMPERATURE", "0.7"},
-			}},
-			{Type: "nginx", Name: "frontend", ExposeHttp: true, Vars: []VarPair{
-				{"BACKEND_URL", "BACKEND_CONNECTION_URL"},
-				{"VITE_API_URL", "/api"},
-			}},
-		})
-
-	case StackLlamaNode:
-		config = createLlamaNodeConfig(projectName)
-	case StackLlamaPy:
-		config = createLlamaPyConfig(projectName)
-	case StackVertexAI:
-		addTemplateConfig(&config, "vertex-ai-flask-react", []PodConfig{
-			{Type: "flask", Name: "backend", ExposeHttp: false, Vars: []VarPair{
-				{"GOOGLE_CLOUD_PROJECT", "your-project-id"},
-				{"GOOGLE_APPLICATION_CREDENTIALS", "/secrets/credentials.json"},
-				{"VERTEX_LOCATION", "us-central1"},
-				{"MODEL_NAME", "text-bison@002"},
-				{"MAX_OUTPUT_TOKENS", "1024"},
-				{"TEMPERATURE", "0.7"},
-			}},
-			{Type: "nginx", Name: "frontend", ExposeHttp: true, Vars: []VarPair{
-				{"BACKEND_URL", "BACKEND_CONNECTION_URL"},
-				{"VITE_API_URL", "/api"},
-			}},
-		})
-
-	case StackHuggingface:
-		config = createHuggingFaceConfig(projectName)
-	case StackAnthropicPy:
-		addTemplateConfig(&config, "anthropic-fastapi-svelte", []PodConfig{
-			{Type: "fastapi", Name: "backend", ExposeHttp: false, Vars: []VarPair{
-				{"ANTHROPIC_API_KEY", "your-anthropic-api-key"},
-				{"MODEL", "claude-3-opus-20240229"},
-				{"MAX_TOKENS", "4096"},
-				{"TEMPERATURE", "0.7"},
-			}},
-			{Type: "nginx", Name: "frontend", ExposeHttp: true, Vars: []VarPair{
-				{"BACKEND_URL", "BACKEND_CONNECTION_URL"},
-				{"VITE_API_URL", "/api"},
-			}},
-		})
-
-	case StackAnthropicJS:
-		addTemplateConfig(&config, "anthropic-nextjs-mongodb", []PodConfig{
-			{Type: "database", Name: "mongodb", ExposeHttp: false, Vars: []VarPair{
-				{"MONGO_INITDB_ROOT_USERNAME", "mongo"},
-				{"MONGO_INITDB_ROOT_PASSWORD", "passw0rd"},
-				{"MONGO_INITDB_DATABASE", "anthropic"},
-			}},
-			{Type: "nextjs", Name: "app", ExposeHttp: true, Vars: []VarPair{
-				{"MONGODB_URL", "DATABASE_CONNECTION_STRING"},
-				{"ANTHROPIC_API_KEY", "your-anthropic-api-key"},
-				{"MODEL", "claude-3-opus-20240229"},
-				{"MAX_TOKENS", "4096"},
-				{"TEMPERATURE", "0.7"},
-			}},
-		})
+	// Other dependencies
+	case "nginx":
+		return PodTypeNginx
+	case "@langchain/core", "langchain":
+		return PodTypeLLM
 	}
 
-	// Set default resource limits
-	config.Deploy.Resources.CPU = "1000m"    // 1 CPU core
-	config.Deploy.Resources.Memory = "2048Mi" // 2GB RAM
-	config.Deploy.Port = detectPort(stackType)
+	return ""
+}
 
-	// Set build configuration
+func detectServiceDependencies(dockerComposePath string) []ServiceDependency {
+	deps := []ServiceDependency{}
+	seenServices := make(map[string]bool)
+
+	// Read docker-compose.yml if it exists
+	if data, err := os.ReadFile(dockerComposePath); err == nil {
+		var compose struct {
+			Services map[string]struct {
+				Image       string            `yaml:"image"`
+				Build      string            `yaml:"build"`
+				Environment []string          `yaml:"environment"`
+				Env        map[string]string `yaml:"env"`
+			} `yaml:"services"`
+		}
+		if err := yaml.Unmarshal(data, &compose); err == nil {
+			for name, service := range compose.Services {
+				if !seenServices[name] {
+					seenServices[name] = true
+
+					// Determine pod type and image
+					podType := ""
+					image := service.Image
+					switch {
+					case name == "frontend" || strings.Contains(name, "react"):
+						podType = "frontend"
+						if image == "" {
+							image = "node:18"
+						}
+					case strings.Contains(name, "redis") || strings.Contains(image, "redis"):
+						podType = "database"
+						if image == "" {
+							image = "redis:7"
+						}
+					case strings.Contains(name, "postgres") || strings.Contains(image, "postgres"):
+						podType = "database"
+						if image == "" {
+							image = "postgres:latest"
+						}
+					case strings.Contains(name, "mysql") || strings.Contains(image, "mysql"):
+						podType = "database"
+						if image == "" {
+							image = "mysql:latest"
+						}
+					case strings.Contains(name, "mongodb") || strings.Contains(image, "mongo"):
+						podType = "database"
+						if image == "" {
+							image = "mongo:latest"
+						}
+					case strings.Contains(name, "neo4j") || strings.Contains(image, "neo4j"):
+						podType = "database"
+						if image == "" {
+							image = "neo4j:latest"
+						}
+					case strings.Contains(name, "nginx") || strings.Contains(image, "nginx"):
+						podType = "nginx"
+						if image == "" {
+							image = "nginx:latest"
+						}
+					case strings.Contains(name, "llm") || strings.Contains(image, "llm"):
+						podType = "llm"
+					case strings.Contains(name, "pinecone") || strings.Contains(image, "pinecone"):
+						podType = "pinecone"
+					}
+
+					if podType != "" {
+						deps = append(deps, ServiceDependency{
+							Type:     podType,
+							Name:     name,
+							Image:    image,
+							Required: true,
+						})
+					}
+				}
+			}
+		}
+	}
+
+	return deps
+}
+
+func createDefaultConfig(projectName string, stackType string, deps []ServiceDependency) Config {
+	// Convert dependencies to components
+	var components []string
+	seenComponents := make(map[string]bool)
+	
+	for _, dep := range deps {
+		if seenComponents[dep.Type] {
+			continue
+		}
+		seenComponents[dep.Type] = true
+		components = append(components, dep.Type)
+	}
+
+	// Generate YAML using AI
+	yamlStr, err := ai.GenerateYAML(projectName, stackType, components)
+	if err != nil {
+		// Fallback to default template if AI fails
+		return createFallbackConfig(projectName, stackType, deps)
+	}
+
+	// Parse generated YAML
+	var config Config
+	err = yaml.Unmarshal([]byte(yamlStr), &config)
+	if err != nil {
+		// Fallback to default template if parsing fails
+		return createFallbackConfig(projectName, stackType, deps)
+	}
+
+	return config
+}
+
+func createFallbackConfig(projectName string, stackType string, deps []ServiceDependency) Config {
+	config := Config{}
+
+	// Set application template
+	config.Application.Template.Name = projectName
+	config.Application.Template.DeploymentName = projectName
+	config.Application.Template.RegistryLogin.Registry = "ghcr.io"
+	config.Application.Template.RegistryLogin.Username = "<Github username>"
+	config.Application.Template.RegistryLogin.PersonalAccessToken = "<Github Packages Read-Only PAT>"
+
+	// Initialize pods slice
+	config.Application.Template.Pods = []PodConfig{}
+
+	// Add detected service dependencies
+	seenServices := make(map[string]bool)
+	for _, dep := range deps {
+		if seenServices[dep.Name] {
+			continue
+		}
+		seenServices[dep.Name] = true
+
+		switch dep.Type {
+		case "frontend":
+			frontendPod := PodConfig{
+				Type: "frontend",
+				Name: "frontend",
+				Tag:  dep.Image,
+				Vars: []VarPair{
+					{Key: "NODE_ENV", Value: "development"},
+					{Key: "PORT", Value: "3000"},
+				},
+				ExposeHttp: true,
+			}
+			config.Application.Template.Pods = append(config.Application.Template.Pods, frontendPod)
+		case "database":
+			if strings.Contains(dep.Name, "redis") || strings.Contains(dep.Image, "redis") {
+				redisPod := PodConfig{
+					Type: "database",
+					Name: "redis",
+					Tag:  dep.Image,
+					Vars: []VarPair{
+						{Key: "REDIS_MAX_MEMORY", Value: "256mb"},
+					},
+				}
+				config.Application.Template.Pods = append(config.Application.Template.Pods, redisPod)
+			} else if strings.Contains(dep.Name, "pinecone") || strings.Contains(dep.Image, "pinecone") {
+				pineconePod := PodConfig{
+					Type: "database",
+					Name: "pinecone",
+					Tag:  dep.Image,
+					Vars: []VarPair{
+						{Key: "PINECONE_API_KEY", Value: "<your-pinecone-api-key>"},
+						{Key: "PINECONE_ENVIRONMENT", Value: "<your-pinecone-environment>"},
+						{Key: "PINECONE_INDEX", Value: "<your-pinecone-index>"},
+					},
+				}
+				config.Application.Template.Pods = append(config.Application.Template.Pods, pineconePod)
+			}
+		}
+	}
+
 	setBuildConfig(&config, stackType)
 
 	return config
@@ -301,76 +392,34 @@ func createLlamaNodeConfig(projectName string) Config {
 	config.Application.Template.DeploymentName = fmt.Sprintf("My %s App", strings.ToUpper("llama-node"))
 	config.Application.Template.RegistryLogin.Registry = "ghcr.io"
 
-	dbPod := struct {
-		Type       string    `yaml:"type"`
-		ExposeHttp bool      `yaml:"exposeHttp"`
-		Name       string    `yaml:"name"`
-		Tag        string    `yaml:"tag"`
-		PrivateTag bool      `yaml:"privateTag"`
-		Vars       []VarPair `yaml:"vars"`
-		GPU        bool      `yaml:"gpu"`
-		Resources  struct {
-			Limits   map[string]string `yaml:"limits"`
-			Requests map[string]string `yaml:"requests"`
-		} `yaml:"resources"`
-	}{
-		Type:       "database",
-		ExposeHttp: false,
+	dbPod := PodConfig{
+		Type:       PodTypePostgres,
 		Name:       "postgres",
 		Tag:        "postgres:latest",
-		PrivateTag: false,
+		ExposeHttp: false,
 		Vars: []VarPair{
-			{"POSTGRES_USER", "postgres"},
-			{"POSTGRES_PASSWORD", "passw0rd"},
-			{"POSTGRES_DB", "llama"},
+			{Key: "POSTGRES_USER", Value: "postgres"},
+			{Key: "POSTGRES_PASSWORD", Value: "passw0rd"},
+			{Key: "POSTGRES_DB", Value: "llama"},
 		},
 	}
 
-	appPod := struct {
-		Type       string    `yaml:"type"`
-		ExposeHttp bool      `yaml:"exposeHttp"`
-		Name       string    `yaml:"name"`
-		Tag        string    `yaml:"tag"`
-		PrivateTag bool      `yaml:"privateTag"`
-		Vars       []VarPair `yaml:"vars"`
-		GPU        bool      `yaml:"gpu"`
-		Resources  struct {
-			Limits   map[string]string `yaml:"limits"`
-			Requests map[string]string `yaml:"requests"`
-		} `yaml:"resources"`
-	}{
-		Type:       "nextjs",
-		ExposeHttp: true,
+	appPod := PodConfig{
+		Type:       PodTypeExpress,
 		Name:       "app",
 		Tag:        "ghcr.io/your-username/llama-app:latest",
-		PrivateTag: false,
+		ExposeHttp: true,
 		Vars: []VarPair{
-			{"DATABASE_URL", "postgresql://postgres:passw0rd@postgres:5432/llama"},
-			{"MODEL_PATH", "/models/llama-2-70b-chat.Q4_K_M.gguf"},
-			{"NUM_GPU_LAYERS", "35"},
-			{"CONTEXT_SIZE", "4096"},
-			{"NUM_THREADS", "4"},
-			{"GPU_LAYERS", "all"},
+			{Key: "DATABASE_URL", Value: "postgresql://postgres:passw0rd@postgres:5432/llama"},
+			{Key: "MODEL_PATH", Value: "/models/llama-2-70b-chat.Q4_K_M.gguf"},
+			{Key: "NUM_GPU_LAYERS", Value: "35"},
+			{Key: "CONTEXT_SIZE", Value: "4096"},
+			{Key: "NUM_THREADS", Value: "4"},
+			{Key: "GPU_LAYERS", Value: "all"},
 		},
 	}
-	addGPUResources(&appPod)
 
-	config.Application.Template.Pods = []struct {
-		Type       string    `yaml:"type"`
-		ExposeHttp bool      `yaml:"exposeHttp"`
-		Name       string    `yaml:"name"`
-		Tag        string    `yaml:"tag"`
-		PrivateTag bool      `yaml:"privateTag"`
-		Vars       []VarPair `yaml:"vars"`
-		GPU        bool      `yaml:"gpu"`
-		Resources  struct {
-			Limits   map[string]string `yaml:"limits"`
-			Requests map[string]string `yaml:"requests"`
-		} `yaml:"resources"`
-	}{dbPod, appPod}
-	config.Deploy.Resources.CPU = "2000m"
-	config.Deploy.Resources.Memory = "16384Mi"
-	config.Deploy.Port = 3000
+	config.Application.Template.Pods = []PodConfig{dbPod, appPod}
 
 	return config
 }
@@ -381,77 +430,35 @@ func createLlamaPyConfig(projectName string) Config {
 	config.Application.Template.DeploymentName = fmt.Sprintf("My %s App", strings.ToUpper("llama-py"))
 	config.Application.Template.RegistryLogin.Registry = "ghcr.io"
 
-	dbPod := struct {
-		Type       string    `yaml:"type"`
-		ExposeHttp bool      `yaml:"exposeHttp"`
-		Name       string    `yaml:"name"`
-		Tag        string    `yaml:"tag"`
-		PrivateTag bool      `yaml:"privateTag"`
-		Vars       []VarPair `yaml:"vars"`
-		GPU        bool      `yaml:"gpu"`
-		Resources  struct {
-			Limits   map[string]string `yaml:"limits"`
-			Requests map[string]string `yaml:"requests"`
-		} `yaml:"resources"`
-	}{
-		Type:       "database",
-		ExposeHttp: false,
+	dbPod := PodConfig{
+		Type:       PodTypeMongoDB,
 		Name:       "mongodb",
 		Tag:        "mongo:latest",
-		PrivateTag: false,
+		ExposeHttp: false,
 		Vars: []VarPair{
-			{"MONGO_INITDB_ROOT_USERNAME", "mongo"},
-			{"MONGO_INITDB_ROOT_PASSWORD", "passw0rd"},
-			{"MONGO_INITDB_DATABASE", "llama"},
+			{Key: "MONGO_INITDB_ROOT_USERNAME", Value: "mongo"},
+			{Key: "MONGO_INITDB_ROOT_PASSWORD", Value: "passw0rd"},
+			{Key: "MONGO_INITDB_DATABASE", Value: "llama"},
 		},
 	}
 
-	appPod := struct {
-		Type       string    `yaml:"type"`
-		ExposeHttp bool      `yaml:"exposeHttp"`
-		Name       string    `yaml:"name"`
-		Tag        string    `yaml:"tag"`
-		PrivateTag bool      `yaml:"privateTag"`
-		Vars       []VarPair `yaml:"vars"`
-		GPU        bool      `yaml:"gpu"`
-		Resources  struct {
-			Limits   map[string]string `yaml:"limits"`
-			Requests map[string]string `yaml:"requests"`
-		} `yaml:"resources"`
-	}{
-		Type:       "fastapi",
-		ExposeHttp: true,
+	appPod := PodConfig{
+		Type:       PodTypeFastAPI,
 		Name:       "app",
 		Tag:        "ghcr.io/your-username/llama-app:latest",
-		PrivateTag: false,
+		ExposeHttp: true,
 		Vars: []VarPair{
-			{"MONGODB_URL", "DATABASE_CONNECTION_STRING"},
-			{"MODEL_PATH", "/models/llama-2-70b-chat.Q4_K_M.gguf"},
-			{"NUM_GPU_LAYERS", "35"},
-			{"CONTEXT_SIZE", "4096"},
-			{"NUM_THREADS", "4"},
-			{"USE_MLOCK", "true"},
-			{"GPU_LAYERS", "all"},
+			{Key: "MONGODB_URL", Value: "DATABASE_CONNECTION_STRING"},
+			{Key: "MODEL_PATH", Value: "/models/llama-2-70b-chat.Q4_K_M.gguf"},
+			{Key: "NUM_GPU_LAYERS", Value: "35"},
+			{Key: "CONTEXT_SIZE", Value: "4096"},
+			{Key: "NUM_THREADS", Value: "4"},
+			{Key: "USE_MLOCK", Value: "true"},
+			{Key: "GPU_LAYERS", Value: "all"},
 		},
 	}
-	addGPUResources(&appPod)
 
-	config.Application.Template.Pods = []struct {
-		Type       string    `yaml:"type"`
-		ExposeHttp bool      `yaml:"exposeHttp"`
-		Name       string    `yaml:"name"`
-		Tag        string    `yaml:"tag"`
-		PrivateTag bool      `yaml:"privateTag"`
-		Vars       []VarPair `yaml:"vars"`
-		GPU        bool      `yaml:"gpu"`
-		Resources  struct {
-			Limits   map[string]string `yaml:"limits"`
-			Requests map[string]string `yaml:"requests"`
-		} `yaml:"resources"`
-	}{dbPod, appPod}
-	config.Deploy.Resources.CPU = "2000m"
-	config.Deploy.Resources.Memory = "16384Mi"
-	config.Deploy.Port = 8000
+	config.Application.Template.Pods = []PodConfig{dbPod, appPod}
 
 	return config
 }
@@ -462,150 +469,113 @@ func createHuggingFaceConfig(projectName string) Config {
 	config.Application.Template.DeploymentName = fmt.Sprintf("My %s App", strings.ToUpper("huggingface"))
 	config.Application.Template.RegistryLogin.Registry = "ghcr.io"
 
-	backendPod := struct {
-		Type       string    `yaml:"type"`
-		ExposeHttp bool      `yaml:"exposeHttp"`
-		Name       string    `yaml:"name"`
-		Tag        string    `yaml:"tag"`
-		PrivateTag bool      `yaml:"privateTag"`
-		Vars       []VarPair `yaml:"vars"`
-		GPU        bool      `yaml:"gpu"`
-		Resources  struct {
-			Limits   map[string]string `yaml:"limits"`
-			Requests map[string]string `yaml:"requests"`
-		} `yaml:"resources"`
-	}{
-		Type:       "fastapi",
-		ExposeHttp: false,
+	backendPod := PodConfig{
+		Type:       PodTypeFastAPI,
 		Name:       "backend",
 		Tag:        "ghcr.io/your-username/hf-app:latest",
-		PrivateTag: false,
+		ExposeHttp: false,
 		Vars: []VarPair{
-			{"HF_API_KEY", "your-huggingface-api-key"},
-			{"MODEL_ID", "mistralai/Mixtral-8x7B-Instruct-v0.1"},
-			{"CUDA_VISIBLE_DEVICES", "0"},
-			{"MAX_LENGTH", "2048"},
-			{"TOP_K", "50"},
-			{"TOP_P", "0.9"},
+			{Key: "HF_API_KEY", Value: "your-huggingface-api-key"},
+			{Key: "MODEL_ID", Value: "mistralai/Mixtral-8x7B-Instruct-v0.1"},
+			{Key: "CUDA_VISIBLE_DEVICES", Value: "0"},
+			{Key: "MAX_LENGTH", Value: "2048"},
+			{Key: "TOP_K", Value: "50"},
+			{Key: "TOP_P", Value: "0.9"},
 		},
 	}
-	addGPUResources(&backendPod)
 
-	frontendPod := struct {
-		Type       string    `yaml:"type"`
-		ExposeHttp bool      `yaml:"exposeHttp"`
-		Name       string    `yaml:"name"`
-		Tag        string    `yaml:"tag"`
-		PrivateTag bool      `yaml:"privateTag"`
-		Vars       []VarPair `yaml:"vars"`
-		GPU        bool      `yaml:"gpu"`
-		Resources  struct {
-			Limits   map[string]string `yaml:"limits"`
-			Requests map[string]string `yaml:"requests"`
-		} `yaml:"resources"`
-	}{
-		Type:       "nginx",
-		ExposeHttp: true,
+	frontendPod := PodConfig{
+		Type:       PodTypeNginx,
 		Name:       "frontend",
 		Tag:        "ghcr.io/your-username/hf-frontend:latest",
-		PrivateTag: false,
+		ExposeHttp: true,
 		Vars: []VarPair{
-			{"BACKEND_URL", "BACKEND_CONNECTION_URL"},
-			{"VITE_API_URL", "/api"},
+			{Key: "BACKEND_URL", Value: "BACKEND_CONNECTION_URL"},
+			{Key: "VITE_API_URL", Value: "/api"},
 		},
 	}
 
-	config.Application.Template.Pods = []struct {
-		Type       string    `yaml:"type"`
-		ExposeHttp bool      `yaml:"exposeHttp"`
-		Name       string    `yaml:"name"`
-		Tag        string    `yaml:"tag"`
-		PrivateTag bool      `yaml:"privateTag"`
-		Vars       []VarPair `yaml:"vars"`
-		GPU        bool      `yaml:"gpu"`
-		Resources  struct {
-			Limits   map[string]string `yaml:"limits"`
-			Requests map[string]string `yaml:"requests"`
-		} `yaml:"resources"`
-	}{backendPod, frontendPod}
-	config.Deploy.Resources.CPU = "2000m"
-	config.Deploy.Resources.Memory = "8192Mi"
-	config.Deploy.Port = 8000
+	config.Application.Template.Pods = []PodConfig{backendPod, frontendPod}
 
 	return config
 }
 
+func setBuildConfig(config *Config, stackType string) {
+	// Set build configuration based on stack type
+	switch {
+	case strings.Contains(stackType, "node"):
+		config.Application.Template.Build.Command = "npm install && npm run build"
+		config.Application.Template.Build.Output = "build"
+	case strings.Contains(stackType, "py"):
+		config.Application.Template.Build.Command = "pip install -r requirements.txt"
+		config.Application.Template.Build.Output = "dist"
+	default:
+		config.Application.Template.Build.Command = "npm install && npm run build"
+		config.Application.Template.Build.Output = "build"
+	}
+}
+
 // NewCommand creates a new init command
-func NewCommand(client api.APIClient) *cobra.Command {
+func NewCommand() *cobra.Command {
 	var templateFlag string
 
 	cmd := &cobra.Command{
-		Use:   "init [name]",
-		Short: "Initialize a new project",
-		Long:  "Initialize a new project with a template configuration",
-		Example: `  # Initialize with a specific template
-  nexlayer init myapp -t langchain-nextjs
-
-  # Initialize and auto-detect template
-  nexlayer init myapp`,
-		Args: cobra.ExactArgs(1),
+		Use:   "init [project-name]",
+		Short: "Initialize a new Nexlayer project",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			uiManager := ui.NewManager()
-			progress := uiManager.StartProgress("Initializing project")
-			defer progress.Complete()
-
 			projectName := args[0]
-			progress.Update(20.0, "Got project name")
 
-			// If no template specified, try to detect from current directory
-			if templateFlag == "" {
-				dir, err := os.Getwd()
-				if err != nil {
-					cmd.SilenceUsage = true
-					return fmt.Errorf("failed to get current directory: %w", err)
+			// Create progress bar
+			progress, _ := pterm.DefaultProgressbar.WithTotal(100).Start()
+			progress.Title = "Initializing project"
+
+			// Detect project type and dependencies
+			stackType, deps := detectProjectType(".")
+
+			// Filter out duplicate services
+			uniqueDeps := []ServiceDependency{}
+			seenServices := make(map[string]bool)
+			for _, dep := range deps {
+				if !seenServices[dep.Name] {
+					seenServices[dep.Name] = true
+					uniqueDeps = append(uniqueDeps, dep)
 				}
-				templateFlag = detectProjectType(dir)
-				progress.Update(40.0, fmt.Sprintf("Detected template: %s", templateFlag))
-			} else {
-				// Validate template
-				validTemplates := map[string]bool{
-					StackLangChainJS: true,
-					StackLangChainPy: true,
-					StackMERN:        true,
-					StackMEAN:        true,
-					StackPERN:        true,
-				}
-				if !validTemplates[templateFlag] {
-					cmd.SilenceUsage = true
-					return fmt.Errorf("invalid template type: %s", templateFlag)
-				}
-				progress.Update(40.0, fmt.Sprintf("Using template: %s", templateFlag))
 			}
 
-			config := createDefaultConfig(projectName, templateFlag)
-			progress.Update(60.0, "Created configuration")
+			// Create config
+			config := createDefaultConfig(projectName, stackType, uniqueDeps)
+			progress.Add(60)
 
-			yamlData, err := yaml.Marshal(&config)
-			if err != nil {
-				cmd.SilenceUsage = true
-				return fmt.Errorf("failed to marshal config: %w", err)
-			}
-			progress.Update(80.0, "Generated YAML configuration")
-
-			err = os.WriteFile("nexlayer.yaml", yamlData, 0644)
+			// Write config file using deployment name
+			yamlFileName := config.Application.Template.DeploymentName + ".yaml"
+			err := writeConfig(config, yamlFileName)
 			if err != nil {
 				cmd.SilenceUsage = true
 				return fmt.Errorf("failed to write config file: %w", err)
 			}
-			progress.Update(100.0, "Wrote configuration file")
+			progress.Add(40)
 
-			fmt.Printf("\nSuccessfully created nexlayer.yaml with %s template!\n", templateFlag)
+			// Print success message
+			fmt.Printf("\nSuccessfully created %s with %s template!\n\n", yamlFileName, stackType)
+
+			// Print detected dependencies
+			if len(uniqueDeps) > 0 {
+				fmt.Println("Detected service dependencies:")
+				for _, dep := range uniqueDeps {
+					fmt.Printf("  - %s (%s)\n", dep.Name, dep.Image)
+				}
+				fmt.Println()
+			}
+
 			fmt.Println("To deploy your application, run: nexlayer deploy")
+
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVarP(&templateFlag, "template", "t", "", "Template type (e.g., langchain-nextjs, langchain-fastapi)")
+	cmd.Flags().StringVarP(&templateFlag, "template", "t", "openai-node", "Template to use (openai-node, openai-py, llama-node, llama-py, anthropic-node, anthropic-py)")
+
 	return cmd
 }
 
@@ -648,71 +618,6 @@ func detectProjectName(dir string, projectType string) (string, error) {
 
 	// If no name found, use directory name
 	return filepath.Base(dir), nil
-}
-
-func detectProjectType(dir string) string {
-	// Check for package.json (Node.js)
-	if _, err := os.Stat(filepath.Join(dir, "package.json")); err == nil {
-		var packageJSON struct {
-			Dependencies    map[string]string `json:"dependencies"`
-			DevDependencies map[string]string `json:"devDependencies"`
-		}
-		data, err := os.ReadFile(filepath.Join(dir, "package.json"))
-		if err == nil {
-			if err := json.Unmarshal(data, &packageJSON); err == nil {
-				// Check for specific frameworks
-				if _, hasNext := packageJSON.Dependencies["next"]; hasNext {
-					return StackLangChainJS
-				}
-				if _, hasExpress := packageJSON.Dependencies["express"]; hasExpress {
-					return StackOpenAINode
-				}
-				if _, hasLlama := packageJSON.Dependencies["llama-node"]; hasLlama {
-					return StackLlamaNode
-				}
-			}
-		}
-		return StackOpenAINode
-	}
-
-	// Check for requirements.txt (Python)
-	if _, err := os.Stat(filepath.Join(dir, "requirements.txt")); err == nil {
-		data, err := os.ReadFile(filepath.Join(dir, "requirements.txt"))
-		if err == nil {
-			content := string(data)
-			if strings.Contains(content, "langchain") {
-				return StackLangChainPy
-			}
-			if strings.Contains(content, "llama-cpp-python") {
-				return StackLlamaPy
-			}
-			if strings.Contains(content, "fastapi") {
-				return StackOpenAIPy
-			}
-		}
-		return StackOpenAIPy
-	}
-
-	// Check for pyproject.toml (Python with poetry)
-	if _, err := os.Stat(filepath.Join(dir, "pyproject.toml")); err == nil {
-		data, err := os.ReadFile(filepath.Join(dir, "pyproject.toml"))
-		if err == nil {
-			content := string(data)
-			if strings.Contains(content, "langchain") {
-				return StackLangChainPy
-			}
-			if strings.Contains(content, "llama-cpp-python") {
-				return StackLlamaPy
-			}
-			if strings.Contains(content, "fastapi") {
-				return StackOpenAIPy
-			}
-		}
-		return StackOpenAIPy
-	}
-
-	// Default to OpenAI Node.js if no specific stack is detected
-	return StackOpenAINode
 }
 
 func detectPort(projectType string) int {
@@ -762,70 +667,51 @@ func detectPort(projectType string) int {
 	}
 }
 
-func setBuildConfig(config *Config, projectType string) {
-	switch projectType {
-	case "nodejs":
-		config.Build.Command = "npm install && npm run build"
-		config.Build.Output = "build"
-	case "python":
-		config.Build.Command = "pip install -r requirements.txt"
-	case "golang":
-		config.Build.Command = "go build -o app"
-		config.Build.Output = "app"
-	case "static":
-		// No build needed for static sites
-	case StackMERN:
-		config.Build.Command = "npm install && npm run build"
-		config.Build.Output = "build"
-	case StackMEAN:
-		config.Build.Command = "npm install && npm run build"
-		config.Build.Output = "build"
-	case StackMEVN:
-		config.Build.Command = "npm install && npm run build"
-		config.Build.Output = "build"
-	case StackPERN:
-		config.Build.Command = "npm install && npm run build"
-		config.Build.Output = "build"
-	case StackMNFA:
-		config.Build.Command = "pip install -r requirements.txt"
-	case StackPDN:
-		config.Build.Command = "pip install -r requirements.txt"
-	case StackLangChainJS:
-		config.Build.Command = "npm install && npm run build"
-		config.Build.Output = "build"
-	case StackLangChainPy:
-		config.Build.Command = "pip install -r requirements.txt"
-	case StackOpenAINode:
-		config.Build.Command = "npm install && npm run build"
-		config.Build.Output = "build"
-	case StackOpenAIPy:
-		config.Build.Command = "pip install -r requirements.txt"
-	case StackLlamaNode:
-		config.Build.Command = "npm install && npm run build"
-		config.Build.Output = "build"
-	case StackLlamaPy:
-		config.Build.Command = "pip install -r requirements.txt"
-	case StackVertexAI:
-		config.Build.Command = "pip install -r requirements.txt"
-	case StackHuggingface:
-		config.Build.Command = "pip install -r requirements.txt"
-	case StackAnthropicPy:
-		config.Build.Command = "pip install -r requirements.txt"
-	case StackAnthropicJS:
-		config.Build.Command = "npm install && npm run build"
-		config.Build.Output = "build"
-	}
-}
-
-func writeConfig(file string, config Config) error {
+func writeConfig(config Config, filename string) error {
 	data, err := yaml.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(file, data, 0644); err != nil {
+	err = os.WriteFile(filename, data, 0644)
+	if err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
 	return nil
+}
+
+func detectProjectType(dir string) (string, []ServiceDependency) {
+	// Detect service dependencies from docker-compose.yml
+	deps := detectServiceDependencies(filepath.Join(dir, "docker-compose.yml"))
+
+	// Check for package.json
+	if _, err := os.ReadFile(filepath.Join(dir, "package.json")); err == nil {
+		return StackOpenAINode, deps
+	}
+
+	// Check for pyproject.toml
+	if _, err := os.ReadFile(filepath.Join(dir, "pyproject.toml")); err == nil {
+		return StackOpenAIPy, deps
+	}
+
+	// Default to Node.js if no specific markers found
+	return StackOpenAINode, deps
+}
+
+type PackageJSON struct {
+	Name string `json:"name"`
+}
+
+type PyProject struct {
+	Project struct {
+		Name string `toml:"name"`
+	} `toml:"project"`
+}
+
+type ServiceDependency struct {
+	Type     string
+	Name     string
+	Image    string
+	Required bool
 }
