@@ -8,6 +8,85 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// AIProvider represents an AI code assistant provider
+type AIProvider struct {
+	Name        string
+	EnvVarKey   string
+	Description string
+	Endpoint    string
+}
+
+// Supported AI providers
+var (
+	GitHubCopilot = AIProvider{
+		Name:        "GitHub Copilot",
+		EnvVarKey:   "GITHUB_COPILOT_TOKEN",
+		Description: "GitHub's AI pair programmer",
+		Endpoint:    "https://api.github.com/copilot",
+	}
+	CursorAI = AIProvider{
+		Name:        "Cursor AI",
+		EnvVarKey:   "CURSOR_AI_KEY",
+		Description: "AI-powered code editor",
+		Endpoint:    "https://api.cursor.sh",
+	}
+	WindsurfEditor = AIProvider{
+		Name:        "Windsurf Editor by Codeium",
+		EnvVarKey:   "WINDSURF_API_KEY",
+		Description: "World's first agentic IDE",
+		Endpoint:    "https://api.codeium.com/windsurf",
+	}
+	Tabnine = AIProvider{
+		Name:        "Tabnine",
+		EnvVarKey:   "TABNINE_API_KEY",
+		Description: "AI code completion assistant",
+		Endpoint:    "https://api.tabnine.com",
+	}
+	JetBrainsAI = AIProvider{
+		Name:        "JetBrains AI",
+		EnvVarKey:   "JETBRAINS_AI_KEY",
+		Description: "AI-powered development in JetBrains IDEs",
+		Endpoint:    "https://api.jetbrains.com/ai",
+	}
+	IntelliCode = AIProvider{
+		Name:        "Microsoft IntelliCode",
+		EnvVarKey:   "INTELLICODE_KEY",
+		Description: "AI-assisted development in Visual Studio",
+		Endpoint:    "https://api.intellicode.microsoft.com",
+	}
+	CodeWhisperer = AIProvider{
+		Name:        "Amazon CodeWhisperer",
+		EnvVarKey:   "CODEWHISPERER_KEY",
+		Description: "Amazon's AI code companion",
+		Endpoint:    "https://api.aws.amazon.com/codewhisperer",
+	}
+	ClaudeSonnet = AIProvider{
+		Name:        "Claude Sonnet 3.5",
+		EnvVarKey:   "CLAUDE_API_KEY",
+		Description: "Anthropic's advanced code assistant",
+		Endpoint:    "https://api.anthropic.com/v1",
+	}
+	ChatGPTCode = AIProvider{
+		Name:        "ChatGPT Code Interpreter",
+		EnvVarKey:   "OPENAI_API_KEY",
+		Description: "OpenAI's code interpreter",
+		Endpoint:    "https://api.openai.com/v1",
+	}
+)
+
+// All supported AI providers
+var AllProviders = []AIProvider{
+	GitHubCopilot,
+	CursorAI,
+	WindsurfEditor,
+	Tabnine,
+	JetBrainsAI,
+	IntelliCode,
+	CodeWhisperer,
+	ClaudeSonnet,
+	ChatGPTCode,
+}
+
 const yamlPrompt = `You are an AI assistant integrated into the Nexlayer CLI. Your job is to generate YAML deployment templates that strictly follow the Nexlayer template standards and specifications.
 
 ### Nexlayer Template Requirements:
@@ -25,7 +104,7 @@ const yamlPrompt = `You are an AI assistant integrated into the Nexlayer CLI. Yo
 3. **Supported Pod Types**:
    - Frontend: react, angular, vue
    - Backend: express, django, fastapi
-   - Database: mongodb, postgres, redis, neo4j
+   - Database: mongodb, postgres, redis, neo4j, pinecone
    - Others:
      - nginx: Used for load balancing or serving static assets.
      - llm: Custom pods for large language models or custom workloads (naming allowed).
@@ -37,6 +116,7 @@ const yamlPrompt = `You are an AI assistant integrated into the Nexlayer CLI. Yo
    - Include the following mandatory variables based on the stack:
      - DATABASE_CONNECTION_STRING for database connectivity.
      - FRONTEND_CONNECTION_URL and BACKEND_CONNECTION_URL for connecting frontend and backend services.
+     - PINECONE_API_KEY, PINECONE_ENVIRONMENT, PINECONE_INDEX for Pinecone vector database.
 
 6. **Validation**:
    - Ensure the generated YAML conforms to Nexlayer's standards and avoid hallucinating unsupported configurations.
@@ -48,100 +128,93 @@ Based on the following inputs, generate a YAML deployment file:
 
 The YAML should be valid and follow all the requirements above. Only output the YAML content, nothing else.`
 
-// Command represents the ai command
-type Command struct {
-	client interface{}
-}
-
-// NewCommand creates a new ai command
-func NewCommand(client interface{}) *cobra.Command {
-	c := &Command{
-		client: client,
+// GenerateYAML generates a YAML template using AI
+func GenerateYAML(appName string, stackType string, components []string) (string, error) {
+	// Get preferred AI provider from environment
+	provider := getPreferredProvider()
+	if provider == nil {
+		return "", fmt.Errorf("no AI provider configured. Set one of the following environment variables: %s", getSupportedEnvVars())
 	}
 
+	// Format prompt
+	prompt := fmt.Sprintf(yamlPrompt, appName, stackType, strings.Join(components, ", "))
+
+	// TODO: Make actual API call to the provider
+	// For now, return a mock response
+	return mockGenerateYAML(appName, stackType, components), nil
+}
+
+// getPreferredProvider returns the first configured AI provider
+func getPreferredProvider() *AIProvider {
+	for _, provider := range AllProviders {
+		if os.Getenv(provider.EnvVarKey) != "" {
+			return &provider
+		}
+	}
+	return nil
+}
+
+// getSupportedEnvVars returns a list of supported environment variables
+func getSupportedEnvVars() string {
+	var vars []string
+	for _, provider := range AllProviders {
+		vars = append(vars, provider.EnvVarKey)
+	}
+	return strings.Join(vars, ", ")
+}
+
+// mockGenerateYAML generates a mock YAML response
+func mockGenerateYAML(appName string, stackType string, components []string) string {
+	// ... (existing mock implementation)
+	return "" // TODO: Implement mock response
+}
+
+// Command represents the ai command
+func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ai",
 		Short: "AI-powered features",
-		Long:  "AI-powered features for Nexlayer CLI",
+		Long:  "AI-powered features for generating and optimizing deployment templates",
 	}
 
-	// Add detect subcommand
-	cmd.AddCommand(c.newDetectCommand())
+	cmd.AddCommand(newGenerateCommand())
+	cmd.AddCommand(newDetectCommand())
 
 	return cmd
 }
 
-func (c *Command) newDetectCommand() *cobra.Command {
+func newGenerateCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "detect",
-		Short: "Detect available AI assistants",
-		Long:  "Detect and cache available AI assistants in your development environment",
-		RunE: func(_ *cobra.Command, args []string) error {
-			return detectAI()
+		Use:   "generate [app-name]",
+		Short: "Generate deployment template using AI",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			appName := args[0]
+			stackType, components := detectStack(".")
+			yaml, err := GenerateYAML(appName, stackType, components)
+			if err != nil {
+				return err
+			}
+			fmt.Println(yaml)
+			return nil
 		},
 	}
 }
 
-func detectAI() error {
-	var detectedModels []string
-
-	// Detect Windsurf
-	if _, err := os.Stat("/Applications/Windsurf.app"); err == nil {
-		detectedModels = append(detectedModels, "Windsurf")
+func newDetectCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "detect",
+		Short: "Detect available AI providers",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Println("Available AI Providers:")
+			for _, provider := range AllProviders {
+				configured := ""
+				if os.Getenv(provider.EnvVarKey) != "" {
+					configured = " (configured)"
+				}
+				fmt.Printf("- %s: %s%s\n", provider.Name, provider.Description, configured)
+			}
+			return nil
+		},
 	}
-
-	// Detect OpenAI API key
-	if os.Getenv("OPENAI_API_KEY") != "" {
-		detectedModels = append(detectedModels, "OpenAI")
-	}
-
-	// Detect Anthropic API key
-	if os.Getenv("ANTHROPIC_API_KEY") != "" {
-		detectedModels = append(detectedModels, "Claude")
-	}
-
-	if len(detectedModels) == 0 {
-		return fmt.Errorf("no AI assistants detected")
-	}
-
-	fmt.Printf("Detected AI assistants: %s\n", strings.Join(detectedModels, ", "))
-	return nil
-}
-
-// GenerateYAML generates a YAML template using AI
-func GenerateYAML(appName string, stackType string, components []string) (string, error) {
-	// TODO: Replace this with actual AI service call
-	// For now, we'll use a mock response
-	_ = fmt.Sprintf(yamlPrompt, appName, stackType, strings.Join(components, ", "))
-
-	yaml := fmt.Sprintf(`application:
-  template:
-    name: "%s"
-    deploymentName: "%s"
-    registryLogin:
-      registry: ghcr.io
-      username: <Github username>
-      personalAccessToken: <Github Packages Read-Only PAT>
-    pods:
-      - type: frontend
-        name: frontend
-        tag: node:18
-        vars:
-          - key: NODE_ENV
-            value: development
-          - key: PORT
-            value: "3000"
-        exposeHttp: true
-      - type: database
-        name: redis
-        tag: redis:7-alpine
-        vars:
-          - key: REDIS_MAX_MEMORY
-            value: 256mb
-        exposeHttp: false
-    build:
-      command: npm install && npm run build
-      output: build`, appName, appName)
-
-	return yaml, nil
 }
