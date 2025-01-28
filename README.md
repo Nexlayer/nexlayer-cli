@@ -8,11 +8,13 @@
 
 Deploy AI applications in seconds 
 
-[Quick Start](#quick-start) • [Templates](#templates) • [Examples](#examples) • [Docs](https://docs.nexlayer.com)
+[Quick Start](#quick-start) • [Interactive Setup](#interactive-setup) • [Templates](#templates) • [Examples](#examples) • [Docs](https://docs.nexlayer.com)
 
 </div>
 
 ## Quick Start
+
+The fastest way to get started - Nexlayer will auto-detect your stack:
 
 ```bash
 # Install
@@ -25,7 +27,19 @@ nexlayer init myapp
 nexlayer deploy
 ```
 
-That's it! Your app is live 
+## Interactive Setup
+
+For a guided experience, use our interactive wizard:
+
+```bash
+# Start the wizard
+nexlayer wizard
+
+# The wizard will help you:
+# 1. Select a template
+# 2. Configure environment variables
+# 3. Create a deployment configuration
+```
 
 ## Templates
 
