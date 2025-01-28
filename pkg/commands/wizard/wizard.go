@@ -11,10 +11,22 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 )
 
+type Application struct {
+	Template       string            `yaml:"template"`
+	DeploymentName string            `yaml:"deploymentName"`
+	Variables      map[string]string `yaml:"variables,omitempty"`
+}
+
 type DeploymentConfig struct {
-	AppID     string            `yaml:"appId"`
-	Template  string            `yaml:"template"`
-	Variables map[string]string `yaml:"variables,omitempty"`
+	Application Application `yaml:"application"`
+}
+
+var validTemplates = map[string]bool{
+	"langchain-nextjs":  true,
+	"langchain-fastapi": true,
+	"mern":             true,
+	"pern":             true,
+	"mean":             true,
 }
 
 func NewCommand(client *api.Client) *cobra.Command {
@@ -24,8 +36,8 @@ func NewCommand(client *api.Client) *cobra.Command {
 		Long: `Create a new deployment using an interactive wizard.
 		
 The wizard will guide you through:
-1. Selecting a template
-2. Configuring environment variables
+1. Choosing a project name
+2. Selecting a template
 3. Creating a deployment configuration file`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runWizard(cmd)
@@ -38,27 +50,37 @@ The wizard will guide you through:
 func runWizard(cmd *cobra.Command) error {
 	cmd.Println(ui.RenderTitleWithBorder("Deployment Wizard"))
 
-	// Get application ID
-	var appID string
-	cmd.Print("Enter application ID: ")
-	fmt.Scanln(&appID)
+	// Get project name
+	var projectName string
+	cmd.Print("Enter project name: ")
+	fmt.Scanln(&projectName)
+
+	if projectName == "" {
+		return fmt.Errorf("project name is required")
+	}
 
 	// Get template name
 	var template string
-	cmd.Print("Enter template name (e.g., 'node', 'python'): ")
+	cmd.Print("Enter template name (e.g., langchain-nextjs, langchain-fastapi): ")
 	fmt.Scanln(&template)
+
+	if !validTemplates[template] {
+		return fmt.Errorf("invalid template: %s", template)
+	}
 
 	// Create config
 	config := DeploymentConfig{
-		AppID:    appID,
-		Template: template,
-		Variables: map[string]string{
-			"PORT": "8080",
+		Application: Application{
+			Template:       template,
+			DeploymentName: projectName,
+			Variables: map[string]string{
+				"PORT": "8080",
+			},
 		},
 	}
 
 	// Save config to file
-	configPath := "deployment.yaml"
+	configPath := "nexlayer.yaml"
 	data, err := yaml.Marshal(&config)
 	if err != nil {
 		return fmt.Errorf("failed to create config: %w", err)
@@ -71,7 +93,7 @@ func runWizard(cmd *cobra.Command) error {
 
 	cmd.Printf("\nConfiguration saved to %s\n", configPath)
 	cmd.Println("\nTo deploy your application, run:")
-	cmd.Printf("  nexlayer deploy --app %s --file %s\n", appID, configPath)
+	cmd.Printf("  nexlayer deploy\n")
 
 	return nil
 }
