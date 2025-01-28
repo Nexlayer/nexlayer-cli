@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
-	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 )
 
 var Cmd *cobra.Command
@@ -17,7 +16,7 @@ func init() {
 }
 
 // NewCommand creates a new app command
-func NewCommand(client *api.Client) *cobra.Command {
+func NewCommand(client api.APIClient) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "app",
 		Short: "Manage your applications",
@@ -31,7 +30,7 @@ func NewCommand(client *api.Client) *cobra.Command {
 	return cmd
 }
 
-func newInfoCommand(client *api.Client) *cobra.Command {
+func newInfoCommand(client api.APIClient) *cobra.Command {
 	var appID string
 	var namespace string
 
@@ -55,20 +54,16 @@ Example:
 	return cmd
 }
 
-func runInfo(cmd *cobra.Command, client *api.Client, appID string, namespace string) error {
-	cmd.Println(ui.RenderTitleWithBorder("Application Info"))
-
-	// Get deployment info
-	deployment, err := client.GetDeploymentInfo(cmd.Context(), namespace, appID)
+func runInfo(cmd *cobra.Command, client api.APIClient, appID string, namespace string) error {
+	info, err := client.GetDeploymentInfo(cmd.Context(), namespace, appID)
 	if err != nil {
-		return fmt.Errorf("failed to get application info: %w", err)
+		return fmt.Errorf("failed to get deployment info: %w", err)
 	}
 
-	// Display info
 	cmd.Printf("Application ID: %s\n", appID)
-	cmd.Printf("Namespace:      %s\n", deployment.Namespace)
-	cmd.Printf("Template:       %s\n", deployment.TemplateName)
-	cmd.Printf("Status:         %s\n", deployment.DeploymentStatus)
+	cmd.Printf("Namespace:      %s\n", info.Namespace)
+	cmd.Printf("Template:       %s\n", info.TemplateName)
+	cmd.Printf("Status:         %s\n", info.DeploymentStatus)
 
 	return nil
 }

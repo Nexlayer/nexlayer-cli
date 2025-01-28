@@ -12,6 +12,14 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/types"
 )
 
+// APIClient defines the interface for interacting with the Nexlayer API
+type APIClient interface {
+	StartDeployment(ctx context.Context, appID string, configPath string) (*types.StartDeploymentResponse, error)
+	SaveCustomDomain(ctx context.Context, appID string, domain string) error
+	GetDeployments(ctx context.Context, appID string) ([]types.Deployment, error)
+	GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*types.DeploymentInfo, error)
+}
+
 // Client represents an API client for interacting with the Nexlayer API
 type Client struct {
 	baseURL    string

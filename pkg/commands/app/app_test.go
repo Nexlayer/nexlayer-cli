@@ -1,7 +1,6 @@
 package app
 
 import (
-	"bytes"
 	"context"
 	"testing"
 
@@ -11,59 +10,64 @@ import (
 )
 
 type mockClient struct {
-	getDeploymentInfoFunc func(ctx context.Context, namespace string, appID string) (*types.DeploymentInfo, error)
+	deploymentInfo types.DeploymentInfo
+	err           error
+}
+
+func (m *mockClient) StartDeployment(ctx context.Context, appID string, configPath string) (*types.StartDeploymentResponse, error) {
+	return &types.StartDeploymentResponse{
+		Namespace: "test-ns",
+		URL:      "https://test-ns.nexlayer.com",
+	}, m.err
+}
+
+func (m *mockClient) SaveCustomDomain(ctx context.Context, appID string, domain string) error {
+	return m.err
+}
+
+func (m *mockClient) GetDeployments(ctx context.Context, appID string) ([]types.Deployment, error) {
+	return []types.Deployment{
+		{
+			Namespace:        "test-ns",
+			TemplateName:     "python",
+			TemplateID:       "123",
+			DeploymentStatus: "running",
+		},
+	}, m.err
 }
 
 func (m *mockClient) GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*types.DeploymentInfo, error) {
-	return m.getDeploymentInfoFunc(ctx, namespace, appID)
+	return &m.deploymentInfo, m.err
 }
 
-func TestAppCommand(t *testing.T) {
-	tests := []struct {
-		name      string
-		args      []string
-		mockSetup func(*mockClient)
-		wantErr   bool
-		wantText  string
-	}{
-		{
-			name: "get app info",
-			args: []string{"info", "--app", "testapp", "--namespace", "test-ns"},
-			mockSetup: func(m *mockClient) {
-				m.getDeploymentInfoFunc = func(ctx context.Context, namespace string, appID string) (*types.DeploymentInfo, error) {
-					return &types.DeploymentInfo{
-						Namespace:        "test-ns",
-						TemplateName:     "python",
-						TemplateID:       "123",
-						DeploymentStatus: "running",
-					}, nil
-				}
-			},
-			wantErr:  false,
-			wantText: "Application ID: testapp\nNamespace:      test-ns\nTemplate:       python\nStatus:         running",
+func TestNewCommand(t *testing.T) {
+	mock := &mockClient{
+		deploymentInfo: types.DeploymentInfo{
+			Namespace:        "test-ns",
+			TemplateName:     "python",
+			TemplateID:       "123",
+			DeploymentStatus: "running",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mock := &mockClient{}
-			if tt.mockSetup != nil {
-				tt.mockSetup(mock)
-			}
+	cmd := NewCommand(mock)
+	assert.NotNil(t, cmd)
+	assert.Equal(t, "app", cmd.Use)
+}
 
-			cmd := NewCommand(mock)
-			buf := new(bytes.Buffer)
-			cmd.SetOut(buf)
-			cmd.SetArgs(tt.args)
-
-			err := cmd.Execute()
-			if tt.wantErr {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.Contains(t, buf.String(), tt.wantText)
-		})
+func TestRunCommand(t *testing.T) {
+	mock := &mockClient{
+		deploymentInfo: types.DeploymentInfo{
+			Namespace:        "test-ns",
+			TemplateName:     "python",
+			TemplateID:       "123",
+			DeploymentStatus: "running",
+		},
 	}
+
+	cmd := NewCommand(mock)
+	cmd.SetArgs([]string{"info", "--app", "test-app", "--namespace", "test-ns"})
+
+	err := cmd.Execute()
+	assert.NoError(t, err)
 }

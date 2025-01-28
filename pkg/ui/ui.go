@@ -4,45 +4,67 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/fatih/color"
 )
 
 var (
 	titleStyle = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		Padding(0, 1).
-		Bold(true)
+		Bold(true).
+		Foreground(lipgloss.Color("#00ff00"))
+
+	subtitleStyle = lipgloss.NewStyle().
+		Italic(true).
+		Foreground(lipgloss.Color("#888888"))
 
 	errorStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FF0000"))
+		Bold(true).
+		Foreground(lipgloss.Color("#ff0000"))
 
 	successStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#00FF00"))
+		Bold(true).
+		Foreground(lipgloss.Color("#00ff00"))
+
+	tableStyle = lipgloss.NewStyle().
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("#888888"))
 )
+
+// RenderTitle renders a title with optional subtitle
+func RenderTitle(title string, subtitle ...string) string {
+	result := titleStyle.Render(title)
+	if len(subtitle) > 0 {
+		result += "\n" + subtitleStyle.Render(subtitle[0])
+	}
+	return result
+}
 
 // RenderTitleWithBorder renders a title with a border
 func RenderTitleWithBorder(title string) string {
-	width := len(title) + 4
-	border := strings.Repeat("=", width)
-	return fmt.Sprintf("\n%s\n  %s\n%s\n", border, title, border)
+	return titleStyle.Copy().
+		Border(lipgloss.NormalBorder()).
+		Padding(0, 1).
+		Render(title)
 }
 
-// RenderErrorMessage renders an error message in red
-func RenderErrorMessage(err error) string {
-	return color.RedString("Error: %v", err)
+// RenderError renders an error message
+func RenderError(msg string) string {
+	return errorStyle.Render(fmt.Sprintf("Error: %s", msg))
 }
 
-// RenderSuccessMessage renders a success message in green
-func RenderSuccessMessage(msg string) string {
-	return color.GreenString("Success: %s", msg)
+// RenderSuccess renders a success message
+func RenderSuccess(msg string) string {
+	return successStyle.Render(msg)
 }
 
-// RenderProgressBar renders a progress bar
-func RenderProgressBar(progress float64) string {
-	width := 40
-	filled := int(progress / 100 * float64(width))
-	bar := strings.Repeat("=", filled) + strings.Repeat("-", width-filled)
-	return fmt.Sprintf("[%s] %.0f%%", bar, progress)
+// RenderWarning renders a warning message
+func RenderWarning(msg string) string {
+	return color.YellowString(fmt.Sprintf("Warning: %s", msg))
+}
+
+// RenderInfo renders an info message
+func RenderInfo(msg string) string {
+	return color.BlueString(msg)
 }
 
 // RenderTable renders a table with headers and rows
@@ -88,5 +110,5 @@ func RenderTable(headers []string, rows [][]string) string {
 		sb.WriteString("\n")
 	}
 
-	return sb.String()
+	return tableStyle.Render(sb.String())
 }

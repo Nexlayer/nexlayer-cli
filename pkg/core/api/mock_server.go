@@ -38,7 +38,7 @@ func (s *MockServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/applications"):
 		s.handleCreateApplication(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/applications":
-		s.handleListApplications(w, r)
+		s.handleListApplications(w)
 	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/applications/"):
 		s.handleGetApplication(w, r)
 	case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/applications/"):
@@ -65,7 +65,7 @@ func (s *MockServer) handleCreateApplication(w http.ResponseWriter, r *http.Requ
 	}
 }
 
-func (s *MockServer) handleListApplications(w http.ResponseWriter, r *http.Request) {
+func (s *MockServer) handleListApplications(w http.ResponseWriter) {
 	s.mu.RLock()
 	if err := json.NewEncoder(w).Encode(s.applications); err != nil {
 		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
