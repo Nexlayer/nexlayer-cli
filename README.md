@@ -6,26 +6,49 @@
 [![GoDoc](https://godoc.org/github.com/Nexlayer/nexlayer-cli?status.svg)](https://godoc.org/github.com/Nexlayer/nexlayer-cli)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Deploy AI applications in seconds 
+**Deploy AI applications in seconds**
 
-[Quick Start](#quick-start) • [Templates](#templates) • [Examples](#examples) • [Docs](https://docs.nexlayer.com)
+[Quick Start](#quick-start) • [Templates](#templates) • [Examples](#stack-examples) • [Docs](https://docs.nexlayer.com)
 
 </div>
 
+---
+
+## Prerequisites (Recommended)
+
+- **Go**: You'll need Go 1.18+ installed to run `go install`.
+- **Docker**: Nexlayer uses Docker for containerizing your applications.
+- **A GitHub Account** (optional): Needed if you plan to push to GHCR (GitHub Container Registry).
+
+*(If you need detailed setup steps for Go, Docker, or private registries, see [Nexlayer Docs](https://docs.nexlayer.com).)*
+
+---
+
 ## Quick Start
 
-```bash
-# Install
-go install github.com/Nexlayer/nexlayer-cli@latest
+1. **Install the CLI**  
+   ```bash
+   go install github.com/Nexlayer/nexlayer-cli@latest
+   ```
+   Make sure `$GOPATH/bin` is in your PATH so that the `nexlayer` command is recognized.
 
-# Initialize (auto-detects your stack)
-nexlayer init myapp
+2. **Initialize a New Project**
+   ```bash
+   nexlayer init myapp
+   ```
+   This automatically detects your stack, creates a `nexlayer.yaml` configuration file, and prepares the project for deployment.
 
-# Deploy
-nexlayer deploy
-```
+3. **Deploy Your App**
+   ```bash
+   nexlayer deploy
+   ```
+   That's it! Your app goes live in seconds.
 
-That's it! Your app is live in seconds 
+### Next Steps
+- Check Status: `nexlayer status` to view current deployment state.
+- View Logs: `nexlayer logs -f [podName]` to stream logs.
+- Add a Custom Domain: `nexlayer domain add yourdomain.com`
+- (Everything else can be fine-tuned in `nexlayer.yaml` or by choosing a template.)
 
 ## Templates
 
@@ -36,6 +59,15 @@ Choose your stack and start building:
 # LangChain
 nexlayer init myapp -t langchain-nextjs    # LangChain.js + Next.js
 nexlayer init myapp -t langchain-fastapi   # LangChain Python + FastAPI
+
+# Full-Stack AI
+nexlayer init myapp -t fullstack-ai        # Next.js + Together AI + Neon DB
+nexlayer init myapp -t ml-python           # FastAPI + PyTorch + PostgreSQL
+nexlayer init myapp -t browser-ai          # TensorFlow.js + React + MongoDB
+nexlayer init myapp -t enterprise-ai       # Django + React + AWS Bedrock
+
+# Kubeflow
+nexlayer init myapp -t kubeflow            # Kubeflow AI Pipelines
 ```
 
 ### Traditional
@@ -46,7 +78,105 @@ nexlayer init myapp -t pern    # PostgreSQL + Express + React + Node
 nexlayer init myapp -t mean    # MongoDB + Express + Angular + Node
 ```
 
-## Examples
+## Stack Examples
+
+### Full-Stack AI (Next.js & TypeScript)
+```yaml
+# nexlayer.yaml
+application:
+  template:
+    name: fullstack-ai
+    deploymentName: my-ai-app
+    registryLogin:
+      registry: ghcr.io
+      username: your-username
+      personalAccessToken: your-pat
+  pods:
+    - type: frontend
+      name: next-app
+      tag: node:18
+      exposeHttp: true
+      vars:
+        - key: TOGETHER_API_KEY
+          value: your-key
+        - key: CLERK_SECRET_KEY
+          value: your-key
+        - key: DATABASE_URL
+          value: your-neon-db-url
+        - key: MIXPANEL_TOKEN
+          value: your-token
+    - type: database
+      name: postgres
+      tag: postgres:15
+      vars:
+        - key: POSTGRES_DB
+          value: aiapp
+        - key: POSTGRES_USER
+          value: postgres
+```
+
+### Python ML Stack
+```yaml
+# nexlayer.yaml
+application:
+  template:
+    name: ml-python
+    deploymentName: my-ml-app
+    registryLogin:
+      registry: ghcr.io
+      username: your-username
+      personalAccessToken: your-pat
+  pods:
+    - type: backend
+      name: fastapi
+      tag: python:3.9
+      exposeHttp: true
+      vars:
+        - key: AWS_ACCESS_KEY_ID
+          value: your-key
+        - key: AWS_SECRET_ACCESS_KEY
+          value: your-key
+        - key: DATABASE_CONNECTION_STRING
+          value: postgresql://postgres:password@postgres:5432/mlapp
+    - type: database
+      name: postgres
+      tag: postgres:15
+    - type: database
+      name: redis
+      tag: redis:7
+    - type: frontend
+      name: react-app
+      tag: node:18
+      exposeHttp: true
+```
+
+### Browser-Based AI
+```yaml
+# nexlayer.yaml
+application:
+  template:
+    name: browser-ai
+    deploymentName: my-tfjs-app
+    registryLogin:
+      registry: ghcr.io
+      username: your-username
+      personalAccessToken: your-pat
+  pods:
+    - type: frontend
+      name: react-app
+      tag: node:18
+      exposeHttp: true
+    - type: backend
+      name: express
+      tag: node:18
+      exposeHttp: true
+      vars:
+        - key: DATABASE_CONNECTION_STRING
+          value: mongodb://mongodb:27017/tfjs
+    - type: database
+      name: mongodb
+      tag: mongodb:6
+```
 
 ### LangChain Chat App
 ```yaml
@@ -54,11 +184,16 @@ nexlayer init myapp -t mean    # MongoDB + Express + Angular + Node
 application:
   template:
     name: langchain-nextjs
-    deploymentName: My Chat App
+    deploymentName: my-chat-app
+    registryLogin:
+      registry: ghcr.io
+      username: your-username
+      personalAccessToken: your-pat
   pods:
-    - type: nextjs
+    - type: frontend
+      name: next-app
+      tag: node:18
       exposeHttp: true
-      name: app
       vars:
         - key: OPENAI_API_KEY
           value: your-key
@@ -72,11 +207,16 @@ application:
 application:
   template:
     name: langchain-fastapi
-    deploymentName: My RAG App
+    deploymentName: my-rag-app
+    registryLogin:
+      registry: ghcr.io
+      username: your-username
+      personalAccessToken: your-pat
   pods:
-    - type: fastapi
+    - type: backend
+      name: fastapi
+      tag: python:3.9
       exposeHttp: true
-      name: backend
       vars:
         - key: OPENAI_API_KEY
           value: your-key
@@ -86,33 +226,176 @@ application:
           value: gcp-starter
 ```
 
-### MERN Stack App
+### Enterprise AI SaaS
 ```yaml
 # nexlayer.yaml
 application:
   template:
-    name: mern
-    deploymentName: My MERN App
+    name: enterprise-ai
+    deploymentName: my-enterprise-app
+    registryLogin:
+      registry: ghcr.io
+      username: your-username
+      personalAccessToken: your-pat
   pods:
-    - type: database
-      exposeHttp: false
-      name: mongodb
-      vars:
-        - key: MONGO_INITDB_DATABASE
-          value: myapp
-    - type: express
-      exposeHttp: false
-      name: backend
-      vars:
-        - key: MONGODB_URL
-          value: DATABASE_CONNECTION_STRING
-    - type: nginx
+    - type: frontend
+      name: react-app
+      tag: node:18
       exposeHttp: true
-      name: frontend
       vars:
-        - key: EXPRESS_URL
-          value: BACKEND_CONNECTION_URL
+        - key: BACKEND_CONNECTION_URL
+          value: http://django:8000
+        - key: OKTA_CLIENT_ID
+          value: your-client-id
+    - type: backend
+      name: django
+      tag: python:3.9
+      exposeHttp: true
+      vars:
+        - key: DATABASE_CONNECTION_STRING
+          value: postgresql://postgres:password@postgres:5432/enterprise
+        - key: AWS_BEDROCK_ACCESS_KEY
+          value: your-key
+    - type: database
+      name: postgres
+      tag: postgres:15
+    - type: nginx
+      name: nginx
+      tag: nginx:1.25-alpine
+      exposeHttp: true
+      vars:
+        - key: FRONTEND_CONNECTION_URL
+          value: http://react-app:3000
 ```
+
+### Kubeflow AI Pipelines
+```yaml
+# nexlayer.yaml
+application:
+  template:
+    name: kubeflow
+    deploymentName: my-ml-pipeline
+  pods:
+    - type: ml-workflow
+      name: kubeflow-pipeline
+      tag: kubeflow/pipelines
+      vars:
+        - key: DATASET_PATH
+          value: gs://my-data
+        - key: MODEL_STORAGE
+          value: gs://my-models
+    - type: backend
+      name: fastapi
+      tag: python:3.9
+      exposeHttp: true
+      vars:
+        - key: API_KEY
+          value: your-key
+```
+
+Deploy Kubeflow with a single command:
+```bash
+nexlayer deploy kubeflow
+```
+> No need to specify compute—Nexlayer auto-handles resources.
+
+### AI Model Images for Training & Serving
+
+#### 1. AI Model Training Images
+
+| Framework | Base Image | Usage |
+|-----------|------------|--------|
+| TensorFlow | tensorflow/tensorflow:latest | General ML/DL training |
+| PyTorch | pytorch/pytorch:latest | Training for PyTorch models |
+| XGBoost | dmlc/xgboost:latest | Gradient boosting training |
+| Scikit-Learn | python:3.9 + scikit-learn | Traditional ML models |
+| FastAI | fastai/fastai:latest | Deep learning training |
+
+Example YAML for Training:
+```yaml
+pods:
+  - type: ml-training
+    name: tensorflow-trainer
+    tag: tensorflow/tensorflow:latest
+    vars:
+      - key: DATA_PATH
+        value: gs://my-dataset
+      - key: MODEL_OUTPUT
+        value: gs://my-models
+```
+> 💡 Future-Ready: Can later swap with tensorflow/tensorflow:latest-gpu when GPU support is added. Request GPU support via [GitHub Issues](https://github.com/Nexlayer/nexlayer-cli/issues)
+
+#### 2. AI Model Serving (Inference) Images
+
+| Model Format | Serving Image | Usage |
+|--------------|---------------|--------|
+| TensorFlow SavedModel | tensorflow/serving:latest | Serving TensorFlow models |
+| ONNX Models | microsoft/onnxruntime:latest | Optimized ONNX inference |
+| PyTorch TorchServe | pytorch/torchserve:latest | Serving PyTorch models |
+| Hugging Face Transformers | huggingface/transformers-pipeline:latest | NLP model inference |
+
+Example YAML for Model Deployment:
+```yaml
+pods:
+  - type: ml-inference
+    name: model-serving
+    tag: tensorflow/serving:latest
+    vars:
+      - key: MODEL_PATH
+        value: gs://my-models/tf-model
+```
+> 🚀 Scales dynamically based on request load.
+
+#### 3. AI Pipeline & Workflow Images
+
+| Pipeline Task | Base Image | Usage |
+|---------------|------------|--------|
+| Data Processing | python:3.9 + Pandas, NumPy | Prepares data before training |
+| Hyperparameter Tuning | kubeflowkatib/katib:latest | Runs AutoML optimization |
+| Model Evaluation | python:3.9 + SciPy, Matplotlib | Model performance analysis |
+
+Example YAML for Kubeflow Pipeline:
+```yaml
+pods:
+  - type: ml-workflow
+    name: preprocess-data
+    tag: python:3.9
+    command: ["python", "preprocess.py"]
+```
+
+### AI Model Monitoring & Logging
+
+#### 1. Nexlayer Real-Time Logs
+
+Get Deployment Status:
+```bash
+nexlayer status
+```
+
+View Real-Time Logs:
+```bash
+nexlayer logs -f model-serving
+```
+
+What You Can Track with Nexlayer Logs:
+- Build & Deployment Logs: Track progress from build to live deployment
+- Pod Activity: Monitor AI pipeline execution in real time
+- Model Serving Requests: See live inference requests and responses
+- Errors & Failures: Identify and debug model issues quickly
+
+#### 2. External AI Monitoring & Observability
+
+Nexlayer does not provide model performance monitoring, but you can integrate with third-party observability tools:
+
+| Category | Tool | Use Case |
+|----------|------|----------|
+| LLM Observability | Helicone | Logs & monitors OpenAI/Anthropic model usage |
+| Application Monitoring | Datadog | Real-time app performance tracking |
+| ML Model Performance | Arize AI | Detects model drift, bias, and degradation |
+| Log Management | LogDNA | Aggregates & analyzes system logs |
+| Experiment Tracking | MLflow | Logs & versions model experiments |
+
+> 📝 Nexlayer handles logs; you can integrate with any third-party tool for model performance tracking.
 
 ## Template Configuration
 
@@ -388,3 +671,13 @@ The test suite covers:
 ## License
 
 MIT
+
+---
+
+### Potential Missing Pieces
+
+- **Local vs Cloud Deploy**: Depending on your environment, you might need additional login/credentials. Check out the [Nexlayer Docs](https://docs.nexlayer.com) for cloud deployments, secrets management, and advanced config.
+- **Logging & Monitoring**: For deep observability, you may want to integrate with existing logging solutions (Datadog, Sentry, etc.).
+- **Custom Domains & SSL**: See `nexlayer domain add` and the docs for info on SSL certificates and custom domain mappings.
+
+Happy Deploying! 🚀
