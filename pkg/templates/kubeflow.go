@@ -1,6 +1,8 @@
 package templates
 
-import "github.com/Nexlayer/nexlayer-cli/pkg/commands/init"
+import (
+	init "github.com/Nexlayer/nexlayer-cli/pkg/commands/init"
+)
 
 // CreateKubeflowConfig creates a Kubeflow pipeline template configuration
 func CreateKubeflowConfig(projectName string) init.Config {
