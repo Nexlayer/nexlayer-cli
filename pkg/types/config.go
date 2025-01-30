@@ -1,19 +1,25 @@
 package types
 
+// Template represents the application template configuration
+type Template struct {
+	Name           string       `yaml:"name"`
+	DeploymentName string       `yaml:"deploymentName"`
+	RegistryLogin  RegistryAuth `yaml:"registryLogin"`
+	Pods           []PodConfig  `yaml:"pods"`
+	Build          struct {
+		Command string `yaml:"command"`
+		Output  string `yaml:"output"`
+	} `yaml:"build"`
+}
+
+// Application represents the application configuration
+type Application struct {
+	Template Template `yaml:"template"`
+}
+
 // Config represents the application configuration
 type Config struct {
-	Application struct {
-		Template struct {
-			Name           string       `yaml:"name"`
-			DeploymentName string       `yaml:"deploymentName"`
-			RegistryLogin  RegistryAuth `yaml:"registryLogin"`
-			Pods           []PodConfig  `yaml:"pods"`
-			Build          struct {
-				Command string `yaml:"command"`
-				Output  string `yaml:"output"`
-			} `yaml:"build"`
-		} `yaml:"template"`
-	} `yaml:"application"`
+	Application Application `yaml:"application"`
 }
 
 // RegistryAuth represents registry authentication configuration
