@@ -141,6 +141,126 @@ application:
 
 ## Stack Examples
 
+Here are some example configurations for popular stacks:
+
+#### MEAN Stack
+```yaml
+application:
+  template:
+    name: mean-app
+    deploymentName: my-mean-app
+    pods:
+      - type: database
+        name: mongodb
+        tag: mongodb:latest
+        vars:
+          - key: MONGODB_PORT
+            value: "27017"
+      - type: backend
+        name: express
+        tag: node:18
+        exposeHttp: true
+        vars:
+          - key: PORT
+            value: "3000"
+          - key: NODE_ENV
+            value: "development"
+          - key: MONGODB_URL
+            value: "mongodb://mongodb:27017/mean-app"
+      - type: frontend
+        name: angular
+        tag: node:18
+        exposeHttp: true
+        vars:
+          - key: PORT
+            value: "4200"
+          - key: BACKEND_URL
+            value: "http://express:3000"
+```
+
+#### MEVN Stack
+```yaml
+application:
+  template:
+    name: mevn-app
+    deploymentName: my-mevn-app
+    pods:
+      - type: database
+        name: mongodb
+        tag: mongodb:latest
+        vars:
+          - key: MONGODB_PORT
+            value: "27017"
+      - type: backend
+        name: express
+        tag: node:18
+        exposeHttp: true
+        vars:
+          - key: PORT
+            value: "3000"
+          - key: NODE_ENV
+            value: "development"
+          - key: MONGODB_URL
+            value: "mongodb://mongodb:27017/mevn-app"
+      - type: frontend
+        name: vue
+        tag: node:18
+        exposeHttp: true
+        vars:
+          - key: PORT
+            value: "8080"
+          - key: BACKEND_URL
+            value: "http://express:3000"
+```
+
+#### PERN Stack
+```yaml
+application:
+  template:
+    name: pern-app
+    deploymentName: my-pern-app
+    pods:
+      - type: database
+        name: postgres
+        tag: postgres:latest
+        vars:
+          - key: POSTGRES_DB
+            value: "pern-app"
+          - key: POSTGRES_USER
+            value: "postgres"
+          - key: POSTGRES_PASSWORD
+            value: "postgres"
+          - key: POSTGRES_PORT
+            value: "5432"
+      - type: backend
+        name: express
+        tag: node:18
+        exposeHttp: true
+        vars:
+          - key: PORT
+            value: "3000"
+          - key: NODE_ENV
+            value: "development"
+          - key: DATABASE_URL
+            value: "postgresql://postgres:postgres@postgres:5432/pern-app"
+      - type: frontend
+        name: react
+        tag: node:18
+        exposeHttp: true
+        vars:
+          - key: PORT
+            value: "3000"
+          - key: BACKEND_URL
+            value: "http://express:3000"
+```
+
+Each stack can be initialized using:
+```bash
+nexlayer init myapp -t mean    # For MEAN stack
+nexlayer init myapp -t mevn    # For MEVN stack
+nexlayer init myapp -t pern    # For PERN stack
+```
+
 ### Full-Stack AI (Next.js & TypeScript)
 ```yaml
 # nexlayer.yaml
@@ -457,6 +577,59 @@ Nexlayer does not provide model performance monitoring, but you can integrate wi
 | Experiment Tracking | MLflow | Logs & versions model experiments |
 
 > 📝 Nexlayer handles logs; you can integrate with any third-party tool for model performance tracking.
+
+## Local Development
+
+For local development and testing, you can use Docker Compose without needing to authenticate with the Nexlayer AI Cloud Platform. Follow these steps:
+
+1. **Initialize Your Project**
+   ```bash
+   nexlayer init myapp -t <template>  # e.g., mern, mean, pern, etc.
+   ```
+
+2. **Generate Docker Compose Files**
+   ```bash
+   nexlayer compose generate
+   ```
+   This will create a `docker-compose.yml` file based on your `nexlayer.yaml` configuration.
+
+3. **Start Local Development Environment**
+   ```bash
+   nexlayer compose up
+   ```
+   This will start all your services locally using Docker Compose.
+
+4. **View Service Logs**
+   ```bash
+   nexlayer compose logs -f [service-name]  # e.g., mongodb, express, react
+   ```
+
+5. **Stop Local Environment**
+   ```bash
+   nexlayer compose down
+   ```
+
+### Local Development Tips
+- Services will be available at `localhost` with their configured ports
+- Frontend: http://localhost:3000
+- Backend: http://localhost:3000 (or configured port)
+- MongoDB: mongodb://localhost:27017
+- PostgreSQL: postgresql://localhost:5432
+
+### Switching to Cloud Deployment
+Once the Nexlayer AI Cloud Platform authentication is ready:
+
+1. **Login to Nexlayer Cloud**
+   ```bash
+   nexlayer login  # This will be available in future releases
+   ```
+
+2. **Deploy to Cloud**
+   ```bash
+   nexlayer deploy
+   ```
+
+Note: Cloud deployment features will be available in future releases. For now, use the local development workflow with Docker Compose.
 
 ## Template Configuration
 

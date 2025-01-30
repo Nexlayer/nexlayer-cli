@@ -386,7 +386,7 @@ func createMERNConfig(projectName string) Config {
 					{
 						Type: PodTypeMongoDB,
 						Name: "mongodb",
-						Tag:  "mongo:6",
+						Tag:  "mongo:4.4",
 						Vars: []types.VarPair{
 							{Key: "MONGO_INITDB_ROOT_USERNAME", Value: "root"},
 							{Key: "MONGO_INITDB_ROOT_PASSWORD", Value: "<your-mongodb-password>"},
@@ -402,14 +402,13 @@ func createMERNConfig(projectName string) Config {
 							{Key: "NODE_ENV", Value: "development"},
 							{Key: "MONGODB_URI", Value: "mongodb://root:<your-mongodb-password>@mongodb:27017/" + projectName + "?authSource=admin"},
 						},
-						ExposeHttp: true,
 					},
 					{
 						Type: PodTypeReact,
 						Name: "react",
 						Tag:  "node:18",
 						Vars: []types.VarPair{
-							{Key: "PORT", Value: "3001"},
+							{Key: "PORT", Value: "8080"},
 							{Key: "REACT_APP_API_URL", Value: "http://localhost:3000"},
 						},
 						ExposeHttp: true,
@@ -590,6 +589,102 @@ func createMLConfig(projectName string, stackType string) Config {
 	return config
 }
 
+func createMEANConfig(projectName string) Config {
+	config := Config{
+		Application: types.Application{
+			Template: types.Template{
+				Name:           projectName,
+				DeploymentName: projectName,
+			},
+		},
+	}
+
+	// Add MongoDB
+	addPod(&config, "database", "mongodb", false, []VarPair{
+		{Key: "MONGODB_PORT", Value: "27017"},
+	})
+
+	// Add Express backend
+	addPod(&config, "backend", "express", true, []VarPair{
+		{Key: "PORT", Value: "3000"},
+		{Key: "NODE_ENV", Value: "development"},
+		{Key: "MONGODB_URL", Value: "mongodb://mongodb:27017/" + projectName},
+	})
+
+	// Add Angular frontend
+	addPod(&config, "frontend", "angular", true, []VarPair{
+		{Key: "PORT", Value: "4200"},
+		{Key: "BACKEND_URL", Value: "http://express:3000"},
+	})
+
+	return config
+}
+
+func createMEVNConfig(projectName string) Config {
+	config := Config{
+		Application: types.Application{
+			Template: types.Template{
+				Name:           projectName,
+				DeploymentName: projectName,
+			},
+		},
+	}
+
+	// Add MongoDB
+	addPod(&config, "database", "mongodb", false, []VarPair{
+		{Key: "MONGODB_PORT", Value: "27017"},
+	})
+
+	// Add Express backend
+	addPod(&config, "backend", "express", true, []VarPair{
+		{Key: "PORT", Value: "3000"},
+		{Key: "NODE_ENV", Value: "development"},
+		{Key: "MONGODB_URL", Value: "mongodb://mongodb:27017/" + projectName},
+	})
+
+	// Add Vue.js frontend
+	addPod(&config, "frontend", "vue", true, []VarPair{
+		{Key: "PORT", Value: "8080"},
+		{Key: "BACKEND_URL", Value: "http://express:3000"},
+	})
+
+	return config
+}
+
+func createPERNConfig(projectName string) Config {
+	config := Config{
+		Application: types.Application{
+			Template: types.Template{
+				Name:           projectName,
+				DeploymentName: projectName,
+			},
+		},
+	}
+
+	// Add PostgreSQL
+	addPod(&config, "database", "postgres", false, []VarPair{
+		{Key: "POSTGRES_DB", Value: projectName},
+		{Key: "POSTGRES_USER", Value: "postgres"},
+		{Key: "POSTGRES_PASSWORD", Value: "postgres"},
+		{Key: "POSTGRES_PORT", Value: "5432"},
+	})
+
+	// Add Express backend
+	addPod(&config, "backend", "express", true, []VarPair{
+		{Key: "PORT", Value: "3000"},
+		{Key: "NODE_ENV", Value: "development"},
+		{Key: "DATABASE_URL", Value: "postgresql://postgres:postgres@postgres:5432/" + projectName},
+	})
+
+	// Add React frontend
+	addPod(&config, "frontend", "react", true, []VarPair{
+		{Key: "PORT", Value: "3000"},
+		{Key: "BACKEND_URL", Value: "http://express:3000"},
+	})
+
+	return config
+}
+
 func setBuildConfig(config *Config, stackType string) {
 	// Set build configuration based on stack type
 	switch {
@@ -675,7 +770,7 @@ func NewCommand() *cobra.Command {
 			progress.Add(60)
 
 			// Write config file
-			yamlFileName := config.Application.Template.DeploymentName + ".yaml"
+			yamlFileName := config.Application.Template.Name + ".yaml"
 			err := writeConfig(config, yamlFileName)
 			if err != nil {
 				cmd.SilenceUsage = true
@@ -700,7 +795,7 @@ func detectProjectName(dir string, projectType string) (string, error) {
 	switch projectType {
 	case "nodejs":
 		// Try to get name from package.json
-		if _, err := os.Stat(filepath.Join(dir, "package.json")); err == nil {
+		if _, err := os.ReadFile(filepath.Join(dir, "package.json")); err == nil {
 			var packageJSON struct {
 				Name string `json:"name"`
 			}
@@ -713,7 +808,7 @@ func detectProjectName(dir string, projectType string) (string, error) {
 		}
 	case "python":
 		// Try to get name from pyproject.toml
-		if _, err := os.Stat(filepath.Join(dir, "pyproject.toml")); err == nil {
+		if _, err := os.ReadFile(filepath.Join(dir, "pyproject.toml")); err == nil {
 			data, err := os.ReadFile(filepath.Join(dir, "pyproject.toml"))
 			if err == nil {
 				content := string(data)
@@ -827,7 +922,8 @@ type PyProject struct {
 }
 
 type ServiceDependency struct {
-	Name  string
-	Type  string
-	Image string
+	Name     string
+	Type     string
+	Image    string
+	Required bool
 }
