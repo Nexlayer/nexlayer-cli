@@ -10,7 +10,7 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 const (
@@ -45,6 +45,10 @@ const (
 	StackPERN = "pern"  // PostgreSQL, Express, React, Node.js
 	StackMNFA = "mnfa"  // MongoDB, Neo4j, FastAPI, Angular
 	StackPDN  = "pdn"   // PostgreSQL, Django, Node.js
+
+	// Stack types - ML
+	StackKubeflow = "kubeflow" // Kubeflow ML Pipeline
+	StackMLflow   = "mlflow"   // MLflow with tracking server
 
 	// Stack types - AI/LLM
 	StackLangChainJS = "langchain-nextjs"    // LangChain.js, Next.js, MongoDB
@@ -91,6 +95,15 @@ type PodConfig struct {
 type VarPair struct {
 	Key   string `yaml:"key"`
 	Value string `yaml:"value"`
+}
+
+type DockerCompose struct {
+	Services map[string]struct {
+		Image       string            `yaml:"image"`
+		Build      string            `yaml:"build"`
+		Environment []string          `yaml:"environment"`
+		Env        map[string]string `yaml:"env"`
+	} `yaml:"services"`
 }
 
 func addTemplateConfig(config *Config, templateName string, pods []PodConfig) {
@@ -215,14 +228,7 @@ func detectServiceDependencies(dockerComposePath string) []ServiceDependency {
 
 	// Read docker-compose.yml if it exists
 	if data, err := os.ReadFile(dockerComposePath); err == nil {
-		var compose struct {
-			Services map[string]struct {
-				Image       string            `yaml:"image"`
-				Build      string            `yaml:"build"`
-				Environment []string          `yaml:"environment"`
-				Env        map[string]string `yaml:"env"`
-			} `yaml:"services"`
-		}
+		var compose DockerCompose
 		if err := yaml.Unmarshal(data, &compose); err == nil {
 			for name, service := range compose.Services {
 				if !seenServices[name] {
@@ -500,6 +506,56 @@ func createHuggingFaceConfig(projectName string) Config {
 	return config
 }
 
+func createMLConfig(projectName string, stackType string) Config {
+	var config Config
+	config.Application.Template.Name = projectName
+	config.Application.Template.DeploymentName = projectName
+
+	switch stackType {
+	case StackKubeflow:
+		config.Application.Template.Pods = []PodConfig{
+			{
+				Type: "llm",
+				Name: "ml-pipeline",
+				Tag:  "python:3.11-slim",
+				Vars: []VarPair{
+					{Key: "PIPELINE_ROOT", Value: "/tmp/pipeline"},
+					{Key: "DATA_PATH", Value: "/tmp/data"},
+					{Key: "MODEL_PATH", Value: "/tmp/model"},
+					{Key: "KUBEFLOW_URL", Value: "http://localhost:8080"},
+				},
+				ExposeHttp: true,
+			},
+		}
+	case StackMLflow:
+		config.Application.Template.Pods = []PodConfig{
+			{
+				Type: "llm",
+				Name: "mlflow-server",
+				Tag:  "mlflow:latest",
+				Vars: []VarPair{
+					{Key: "MLFLOW_TRACKING_URI", Value: "http://localhost:5000"},
+					{Key: "MLFLOW_S3_ENDPOINT_URL", Value: "http://minio:9000"},
+					{Key: "AWS_ACCESS_KEY_ID", Value: "minioadmin"},
+					{Key: "AWS_SECRET_ACCESS_KEY", Value: "minioadmin"},
+				},
+				ExposeHttp: true,
+			},
+			{
+				Type: "database",
+				Name: "minio",
+				Tag:  "minio/minio:latest",
+				Vars: []VarPair{
+					{Key: "MINIO_ROOT_USER", Value: "minioadmin"},
+					{Key: "MINIO_ROOT_PASSWORD", Value: "minioadmin"},
+				},
+			},
+		}
+	}
+
+	return config
+}
+
 func setBuildConfig(config *Config, stackType string) {
 	// Set build configuration based on stack type
 	switch {
@@ -526,28 +582,49 @@ func NewCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projectName := args[0]
 
+			// If no template specified, show interactive prompt
+			if templateFlag == "" {
+				selectedTemplate, _ := pterm.DefaultInteractiveSelect.
+					WithOptions([]string{
+						// Web Templates
+						"MERN - MongoDB, Express, React, Node.js",
+						"MEAN - MongoDB, Express, Angular, Node.js",
+						"MEVN - MongoDB, Express, Vue.js, Node.js",
+						"PERN - PostgreSQL, Express, React, Node.js",
+						// ML Templates
+						"Kubeflow - ML Pipeline with Kubeflow",
+						"MLflow - MLflow with tracking server",
+						// AI Templates
+						"OpenAI Node.js - OpenAI with Express and React",
+						"OpenAI Python - OpenAI with FastAPI and Vue",
+					}).
+					WithDefaultText("Select a template:").
+					Show()
+
+				// Extract template ID from selection
+				templateFlag = strings.Split(selectedTemplate, " - ")[0]
+				templateFlag = strings.ToLower(templateFlag)
+			}
+
 			// Create progress bar
 			progress, _ := pterm.DefaultProgressbar.WithTotal(100).Start()
 			progress.Title = "Initializing project"
 
-			// Detect project type and dependencies
-			stackType, deps := detectProjectType(".")
+			var config Config
 
-			// Filter out duplicate services
-			uniqueDeps := []ServiceDependency{}
-			seenServices := make(map[string]bool)
-			for _, dep := range deps {
-				if !seenServices[dep.Name] {
-					seenServices[dep.Name] = true
-					uniqueDeps = append(uniqueDeps, dep)
-				}
+			// Create config based on template type
+			switch templateFlag {
+			case StackKubeflow, StackMLflow:
+				config = createMLConfig(projectName, templateFlag)
+			default:
+				// Detect project type and dependencies for web/AI templates
+				stackType, deps := detectProjectType(".")
+				config = createDefaultConfig(projectName, stackType, deps)
 			}
 
-			// Create config
-			config := createDefaultConfig(projectName, stackType, uniqueDeps)
 			progress.Add(60)
 
-			// Write config file using deployment name
+			// Write config file
 			yamlFileName := config.Application.Template.DeploymentName + ".yaml"
 			err := writeConfig(config, yamlFileName)
 			if err != nil {
@@ -557,24 +634,15 @@ func NewCommand() *cobra.Command {
 			progress.Add(40)
 
 			// Print success message
-			fmt.Printf("\nSuccessfully created %s with %s template!\n\n", yamlFileName, stackType)
-
-			// Print detected dependencies
-			if len(uniqueDeps) > 0 {
-				fmt.Println("Detected service dependencies:")
-				for _, dep := range uniqueDeps {
-					fmt.Printf("  - %s (%s)\n", dep.Name, dep.Image)
-				}
-				fmt.Println()
-			}
-
-			fmt.Println("To deploy your application, run: nexlayer deploy")
+			fmt.Printf("\nSuccessfully created %s with %s template!\n", yamlFileName, templateFlag)
+			fmt.Println("\nTo deploy your application, run: nexlayer deploy")
 
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVarP(&templateFlag, "template", "t", "openai-node", "Template to use (openai-node, openai-py, llama-node, llama-py, anthropic-node, anthropic-py)")
+	cmd.Flags().StringVarP(&templateFlag, "template", "t", "mern", 
+		"Template to use (mern, mean, mevn, pern, kubeflow, mlflow, openai-node, openai-py)")
 
 	return cmd
 }

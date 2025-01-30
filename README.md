@@ -52,31 +52,92 @@
 
 ## Templates
 
-Choose your stack and start building:
+Nexlayer provides a variety of templates to help you get started quickly. Templates are organized into three categories:
 
-### AI & LLM
+### Web Applications
+Traditional web application stacks:
+- `mern`: MongoDB, Express, React, Node.js
+- `mean`: MongoDB, Express, Angular, Node.js
+- `mevn`: MongoDB, Express, Vue.js, Node.js
+- `pern`: PostgreSQL, Express, React, Node.js
+- `mnfa`: MongoDB, Neo4j, FastAPI, Angular
+- `pdn`: PostgreSQL, Django, Node.js
+
+### Machine Learning
+ML pipeline and model serving templates:
+- `kubeflow`: ML pipeline with Kubeflow
+- `mlflow`: MLflow with tracking server
+- `tensorflow-serving`: Model serving with TF Serving
+- `triton`: NVIDIA Triton Inference Server
+
+### AI/LLM
+AI and Large Language Model templates:
+- `langchain-nextjs`: LangChain.js with Next.js
+- `langchain-fastapi`: LangChain Python with FastAPI
+- `openai-node`: OpenAI with Express and React
+- `openai-py`: OpenAI with FastAPI and Vue
+- `llama-node`: Llama.cpp with Next.js
+- `llama-py`: Llama.cpp with FastAPI
+- `vertex-ai`: Google Vertex AI with Flask
+- `huggingface`: Hugging Face with FastAPI
+- `anthropic-py`: Anthropic Claude with FastAPI
+- `anthropic-js`: Anthropic Claude with Next.js
+
+### Using Templates
+
+There are two ways to use templates:
+
+1. Interactive Selection:
 ```bash
-# LangChain
-nexlayer init myapp -t langchain-nextjs    # LangChain.js + Next.js
-nexlayer init myapp -t langchain-fastapi   # LangChain Python + FastAPI
+nexlayer init my-project
+```
+This will prompt you to:
+1. Select a template category
+2. Choose a specific template
+3. Configure your project
 
-# Full-Stack AI
-nexlayer init myapp -t fullstack-ai        # Next.js + Together AI + Neon DB
-nexlayer init myapp -t ml-python           # FastAPI + PyTorch + PostgreSQL
-nexlayer init myapp -t browser-ai          # TensorFlow.js + React + MongoDB
-nexlayer init myapp -t enterprise-ai       # Django + React + AWS Bedrock
+2. Direct Selection:
+```bash
+nexlayer init my-project -t mern
+```
+Replace `mern` with any template ID from the list above.
 
-# Kubeflow
-nexlayer init myapp -t kubeflow            # Kubeflow AI Pipelines
+### Listing Templates
+To see all available templates:
+```bash
+nexlayer templates list
 ```
 
-### Traditional
-```bash
-# Full-Stack
-nexlayer init myapp -t mern    # MongoDB + Express + React + Node
-nexlayer init myapp -t pern    # PostgreSQL + Express + React + Node
-nexlayer init myapp -t mean    # MongoDB + Express + Angular + Node
+### Template Structure
+All templates follow this structure:
+```yaml
+application:
+  template:
+    name: "project-name"
+    deploymentName: "project-name"
+    registryLogin:
+      registry: ghcr.io
+      username: <username>
+      personalAccessToken: <token>
+    pods:
+      - type: backend|frontend|database|nginx|llm
+        name: <pod-name>
+        tag: <image-tag>
+        vars:
+          - key: VAR_NAME
+            value: VALUE
 ```
+
+### Supported Pod Types
+- Frontend: `react`, `angular`, `vue`
+- Backend: `express`, `django`, `fastapi`
+- Database: `mongodb`, `postgres`, `redis`, `neo4j`
+- Others: `nginx` (load balancing/static assets), `llm` (custom workloads)
+
+### Standard Environment Variables
+- Database: `DATABASE_CONNECTION_STRING`
+- Frontend/Backend: `FRONTEND_CONNECTION_URL`, `BACKEND_CONNECTION_URL`
+- LLM: `LLM_CONNECTION_URL`
 
 ## Stack Examples
 
