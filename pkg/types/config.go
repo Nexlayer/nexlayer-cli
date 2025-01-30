@@ -6,10 +6,7 @@ type Template struct {
 	DeploymentName string       `yaml:"deploymentName"`
 	RegistryLogin  RegistryAuth `yaml:"registryLogin"`
 	Pods           []PodConfig  `yaml:"pods"`
-	Build          struct {
-		Command string `yaml:"command"`
-		Output  string `yaml:"output"`
-	} `yaml:"build"`
+	Build          Build        `yaml:"build"`
 }
 
 // Application represents the application configuration
@@ -42,4 +39,10 @@ type PodConfig struct {
 type VarPair struct {
 	Key   string `yaml:"key"`
 	Value string `yaml:"value"`
+}
+
+// Build represents the build configuration
+type Build struct {
+	Command string `yaml:"command"`
+	Output  string `yaml:"output"`
 }

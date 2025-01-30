@@ -284,10 +284,7 @@ func createDefaultConfig(projectName string, stackType string, deps []ServiceDep
 					Username:           "<Github username>",
 					PersonalAccessToken: "<Github Packages Read-Only PAT>",
 				},
-				Build: struct {
-					Command string `yaml:"command"`
-					Output  string `yaml:"output"`
-				}{
+				Build: types.Build{
 					Command: "npm install && npm run build",
 					Output:  "build",
 				},
@@ -401,10 +398,7 @@ func createMERNConfig(projectName string) Config {
 						ExposeHttp: true,
 					},
 				},
-				Build: struct {
-					Command string `yaml:"command"`
-					Output  string `yaml:"output"`
-				}{
+				Build: types.Build{
 					Command: "npm install && npm run build",
 					Output:  "build",
 				},
