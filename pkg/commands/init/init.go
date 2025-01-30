@@ -1,4 +1,4 @@
-package init
+package initcmd
 
 import (
 	"encoding/json"
@@ -20,9 +20,9 @@ const (
 	PodTypeVue     = "vue"
 
 	// Backend pod types
-	PodTypeExpress  = "express"
-	PodTypeDjango   = "django"
-	PodTypeFastAPI  = "fastapi"
+	PodTypeExpress = "express"
+	PodTypeDjango  = "django"
+	PodTypeFastAPI = "fastapi"
 
 	// Database pod types
 	PodTypePostgres = "postgres"
@@ -39,28 +39,28 @@ const (
 
 // Supported stack types
 const (
-	StackMERN = "mern"  // MongoDB, Express, React, Node.js
-	StackMEAN = "mean"  // MongoDB, Express, Angular, Node.js
-	StackMEVN = "mevn"  // MongoDB, Express, Vue.js, Node.js
-	StackPERN = "pern"  // PostgreSQL, Express, React, Node.js
-	StackMNFA = "mnfa"  // MongoDB, Neo4j, FastAPI, Angular
-	StackPDN  = "pdn"   // PostgreSQL, Django, Node.js
+	StackMERN = "mern" // MongoDB, Express, React, Node.js
+	StackMEAN = "mean" // MongoDB, Express, Angular, Node.js
+	StackMEVN = "mevn" // MongoDB, Express, Vue.js, Node.js
+	StackPERN = "pern" // PostgreSQL, Express, React, Node.js
+	StackMNFA = "mnfa" // MongoDB, Neo4j, FastAPI, Angular
+	StackPDN  = "pdn"  // PostgreSQL, Django, Node.js
 
 	// Stack types - ML
 	StackKubeflow = "kubeflow" // Kubeflow ML Pipeline
 	StackMLflow   = "mlflow"   // MLflow with tracking server
 
 	// Stack types - AI/LLM
-	StackLangChainJS = "langchain-nextjs"    // LangChain.js, Next.js, MongoDB
-	StackLangChainPy = "langchain-fastapi"    // LangChain Python, FastAPI, PostgreSQL
-	StackOpenAINode  = "openai-node"     // OpenAI Node.js SDK, Express, React
-	StackOpenAIPy    = "openai-py"       // OpenAI Python SDK, FastAPI, Vue
-	StackLlamaNode   = "llama-node"      // Llama.cpp Node.js, Next.js, PostgreSQL
-	StackLlamaPy     = "llama-py"        // Llama.cpp Python, FastAPI, MongoDB
-	StackVertexAI    = "vertex-ai"       // Google Vertex AI, Flask, React
-	StackHuggingface = "huggingface"     // Hugging Face Transformers, FastAPI, React
-	StackAnthropicPy = "anthropic-py"    // Anthropic Claude, FastAPI, Svelte
-	StackAnthropicJS = "anthropic-js"    // Anthropic Claude, Next.js, MongoDB
+	StackLangChainJS = "langchain-nextjs"  // LangChain.js, Next.js, MongoDB
+	StackLangChainPy = "langchain-fastapi" // LangChain Python, FastAPI, PostgreSQL
+	StackOpenAINode  = "openai-node"       // OpenAI Node.js SDK, Express, React
+	StackOpenAIPy    = "openai-py"         // OpenAI Python SDK, FastAPI, Vue
+	StackLlamaNode   = "llama-node"        // Llama.cpp Node.js, Next.js, PostgreSQL
+	StackLlamaPy     = "llama-py"          // Llama.cpp Python, FastAPI, MongoDB
+	StackVertexAI    = "vertex-ai"         // Google Vertex AI, Flask, React
+	StackHuggingface = "huggingface"       // Hugging Face Transformers, FastAPI, React
+	StackAnthropicPy = "anthropic-py"      // Anthropic Claude, FastAPI, Svelte
+	StackAnthropicJS = "anthropic-js"      // Anthropic Claude, Next.js, MongoDB
 )
 
 type Config struct {
@@ -69,8 +69,8 @@ type Config struct {
 			Name           string       `yaml:"name"`
 			DeploymentName string       `yaml:"deploymentName"`
 			RegistryLogin  RegistryAuth `yaml:"registryLogin"`
-			Pods          []PodConfig   `yaml:"pods"`
-			Build         struct {
+			Pods           []PodConfig  `yaml:"pods"`
+			Build          struct {
 				Command string `yaml:"command"`
 				Output  string `yaml:"output"`
 			} `yaml:"build"`
@@ -100,15 +100,15 @@ type VarPair struct {
 type DockerCompose struct {
 	Services map[string]struct {
 		Image       string            `yaml:"image"`
-		Build      string            `yaml:"build"`
+		Build       string            `yaml:"build"`
 		Environment []string          `yaml:"environment"`
-		Env        map[string]string `yaml:"env"`
+		Env         map[string]string `yaml:"env"`
 	} `yaml:"services"`
 }
 
 func addTemplateConfig(config *Config, templateName string, pods []PodConfig) {
 	config.Application.Template.Name = templateName
-	
+
 	for _, pod := range pods {
 		addPod(config, pod.Type, pod.Name, pod.ExposeHttp, pod.Vars)
 	}
@@ -299,7 +299,7 @@ func createDefaultConfig(projectName string, stackType string, deps []ServiceDep
 	// Convert dependencies to components
 	var components []string
 	seenComponents := make(map[string]bool)
-	
+
 	for _, dep := range deps {
 		if seenComponents[dep.Type] {
 			continue
@@ -641,7 +641,7 @@ func NewCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&templateFlag, "template", "t", "mern", 
+	cmd.Flags().StringVarP(&templateFlag, "template", "t", "mern",
 		"Template to use (mern, mean, mevn, pern, kubeflow, mlflow, openai-node, openai-py)")
 
 	return cmd
