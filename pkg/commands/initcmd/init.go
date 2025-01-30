@@ -274,114 +274,143 @@ func detectServiceDependencies(dockerComposePath string) []ServiceDependency {
 }
 
 func createDefaultConfig(projectName string, stackType string, deps []ServiceDependency) Config {
-	// Convert dependencies to components
-	var components []string
-	seenComponents := make(map[string]bool)
+	config := Config{
+		Application: types.Application{
+			Template: types.Template{
+				Name:           projectName,
+				DeploymentName: projectName,
+				RegistryLogin: types.RegistryAuth{
+					Registry:            "ghcr.io",
+					Username:           "<Github username>",
+					PersonalAccessToken: "<Github Packages Read-Only PAT>",
+				},
+				Build: struct {
+					Command string `yaml:"command"`
+					Output  string `yaml:"output"`
+				}{
+					Command: "npm install && npm run build",
+					Output:  "build",
+				},
+			},
+		},
+	}
+
+	// Add detected service dependencies
+	var pods []types.PodConfig
+	seenServices := make(map[string]bool)
 
 	for _, dep := range deps {
-		if seenComponents[dep.Type] {
+		if seenServices[dep.Name] {
 			continue
 		}
-		seenComponents[dep.Type] = true
-		components = append(components, dep.Type)
+		seenServices[dep.Name] = true
+
+		switch dep.Type {
+		case "frontend":
+			pods = append(pods, types.PodConfig{
+				Type: PodTypeReact,
+				Name: "frontend",
+				Tag:  dep.Image,
+				Vars: []types.VarPair{
+					{Key: "NODE_ENV", Value: "development"},
+					{Key: "PORT", Value: "3000"},
+				},
+				ExposeHttp: true,
+			})
+		case "backend":
+			pods = append(pods, types.PodConfig{
+				Type: PodTypeExpress,
+				Name: "backend",
+				Tag:  dep.Image,
+				Vars: []types.VarPair{
+					{Key: "NODE_ENV", Value: "development"},
+					{Key: "PORT", Value: "3001"},
+				},
+				ExposeHttp: true,
+			})
+		case "database":
+			if strings.Contains(dep.Name, "redis") || strings.Contains(dep.Image, "redis") {
+				pods = append(pods, types.PodConfig{
+					Type: PodTypeRedis,
+					Name: "redis",
+					Tag:  dep.Image,
+					Vars: []types.VarPair{
+						{Key: "REDIS_MAX_MEMORY", Value: "256mb"},
+					},
+				})
+			} else if strings.Contains(dep.Name, "mongodb") || strings.Contains(dep.Image, "mongo") {
+				pods = append(pods, types.PodConfig{
+					Type: PodTypeMongoDB,
+					Name: "mongodb",
+					Tag:  dep.Image,
+					Vars: []types.VarPair{
+						{Key: "MONGO_INITDB_ROOT_USERNAME", Value: "root"},
+						{Key: "MONGO_INITDB_ROOT_PASSWORD", Value: "<your-mongodb-password>"},
+						{Key: "MONGO_INITDB_DATABASE", Value: projectName},
+					},
+				})
+			}
+		}
 	}
 
-	// Generate YAML using AI
-	yamlStr, err := ai.GenerateYAML(projectName, stackType, components)
-	if err != nil {
-		// Fallback to default template if AI fails
-		return createFallbackConfig(projectName, stackType, deps)
-	}
-
-	// Parse generated YAML
-	var config Config
-	err = yaml.Unmarshal([]byte(yamlStr), &config)
-	if err != nil {
-		// Fallback to default template if parsing fails
-		return createFallbackConfig(projectName, stackType, deps)
-	}
-
+	config.Application.Template.Pods = pods
 	return config
 }
 
-func createFallbackConfig(projectName string, stackType string, deps []ServiceDependency) Config {
-	switch stackType {
-	case "mern":
-		return createMERNConfig(projectName)
-	case "kubeflow":
-		return templates.CreateKubeflowConfig(projectName)
-	case "mlflow":
-		return createMLConfig(projectName, stackType)
-	case "openai-node":
-		return createLlamaNodeConfig(projectName)
-	case "openai-py":
-		return createLlamaPyConfig(projectName)
-	case "huggingface":
-		return createHuggingFaceConfig(projectName)
-	default:
-		// Create a basic configuration
-		var config Config
-		config.Application.Template.Name = projectName
-		config.Application.Template.DeploymentName = projectName
-		config.Application.Template.RegistryLogin = RegistryAuth{
-			Registry: "ghcr.io",
-			Username: "<Github username>",
-			PersonalAccessToken: "<Github Packages Read-Only PAT>",
-		}
-		return config
-	}
-}
-
 func createMERNConfig(projectName string) Config {
-	var config Config
-	config.Application.Template.Name = projectName
-	config.Application.Template.DeploymentName = projectName
-
-	// Set registry login
-	config.Application.Template.RegistryLogin = RegistryAuth{
-		Registry: "ghcr.io",
-		Username: "<Github username>",
-		PersonalAccessToken: "<Github Packages Read-Only PAT>",
+	config := Config{
+		Application: types.Application{
+			Template: types.Template{
+				Name:           projectName,
+				DeploymentName: projectName,
+				RegistryLogin: types.RegistryAuth{
+					Registry:            "ghcr.io",
+					Username:           "<Github username>",
+					PersonalAccessToken: "<Github Packages Read-Only PAT>",
+				},
+				Pods: []types.PodConfig{
+					{
+						Type: PodTypeMongoDB,
+						Name: "mongodb",
+						Tag:  "mongo:6",
+						Vars: []types.VarPair{
+							{Key: "MONGO_INITDB_ROOT_USERNAME", Value: "root"},
+							{Key: "MONGO_INITDB_ROOT_PASSWORD", Value: "<your-mongodb-password>"},
+							{Key: "MONGO_INITDB_DATABASE", Value: projectName},
+						},
+					},
+					{
+						Type: PodTypeExpress,
+						Name: "express",
+						Tag:  "node:18",
+						Vars: []types.VarPair{
+							{Key: "PORT", Value: "3000"},
+							{Key: "NODE_ENV", Value: "development"},
+							{Key: "MONGODB_URI", Value: "mongodb://root:<your-mongodb-password>@mongodb:27017/" + projectName + "?authSource=admin"},
+						},
+						ExposeHttp: true,
+					},
+					{
+						Type: PodTypeReact,
+						Name: "react",
+						Tag:  "node:18",
+						Vars: []types.VarPair{
+							{Key: "PORT", Value: "3001"},
+							{Key: "REACT_APP_API_URL", Value: "http://localhost:3000"},
+						},
+						ExposeHttp: true,
+					},
+				},
+				Build: struct {
+					Command string `yaml:"command"`
+					Output  string `yaml:"output"`
+				}{
+					Command: "npm install && npm run build",
+					Output:  "build",
+				},
+			},
+		},
 	}
-
-	// Add MongoDB pod
-	config.Application.Template.Pods = []PodConfig{
-		{
-			Type: PodTypeMongoDB,
-			Name: "mongodb",
-			Tag:  "mongo:6",
-			Vars: []VarPair{
-				{Key: "MONGO_INITDB_ROOT_USERNAME", Value: "root"},
-				{Key: "MONGO_INITDB_ROOT_PASSWORD", Value: "<your-mongodb-password>"},
-				{Key: "MONGO_INITDB_DATABASE", Value: projectName},
-			},
-		},
-		{
-			Type: PodTypeExpress,
-			Name: "express",
-			Tag:  "node:18",
-			Vars: []VarPair{
-				{Key: "PORT", Value: "3000"},
-				{Key: "NODE_ENV", Value: "development"},
-				{Key: "MONGODB_URI", Value: "mongodb://root:<your-mongodb-password>@mongodb:27017/" + projectName + "?authSource=admin"},
-			},
-			ExposeHttp: true,
-		},
-		{
-			Type: PodTypeReact,
-			Name: "react",
-			Tag:  "node:18",
-			Vars: []VarPair{
-				{Key: "PORT", Value: "3001"},
-				{Key: "REACT_APP_API_URL", Value: "http://localhost:3000"},
-			},
-			ExposeHttp: true,
-		},
-	}
-
-	// Set build configuration
-	config.Application.Template.Build.Command = "npm install && npm run build"
-	config.Application.Template.Build.Output = "build"
 
 	return config
 }
@@ -610,6 +639,12 @@ func NewCommand() *cobra.Command {
 			switch templateFlag {
 			case "mern":
 				config = createMERNConfig(projectName)
+			case "mean":
+				config = createMEANConfig(projectName)
+			case "mevn":
+				config = createMEVNConfig(projectName)
+			case "pern":
+				config = createPERNConfig(projectName)
 			case "kubeflow":
 				config = templates.CreateKubeflowConfig(projectName)
 			case "mlflow":
@@ -621,7 +656,7 @@ func NewCommand() *cobra.Command {
 			case "huggingface":
 				config = createHuggingFaceConfig(projectName)
 			default:
-				// Detect project type and dependencies for web/AI templates
+				// For unknown templates, detect project type and dependencies
 				stackType, deps := detectProjectType(".")
 				config = createDefaultConfig(projectName, stackType, deps)
 			}
