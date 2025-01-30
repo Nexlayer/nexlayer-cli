@@ -9,7 +9,7 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/debug"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/deploy"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/domain"
-	initcmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/init"
+	initcmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/initcmd"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/status"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/wizard"

@@ -29,7 +29,7 @@ func TestStartDeployment(t *testing.T) {
 
 		resp := types.StartDeploymentResponse{
 			Namespace: "test-ns",
-			URL:      "https://test-ns.nexlayer.com",
+			URL:       "https://test-ns.nexlayer.com",
 		}
 		json.NewEncoder(w).Encode(resp)
 	}))

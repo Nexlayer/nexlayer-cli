@@ -21,7 +21,7 @@ func NewCommand(client *api.Client) *cobra.Command {
 		
 Example:
   nexlayer deploy --app myapp --file deploy.yaml`,
-		Args:  cobra.ExactArgs(0),
+		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, client, appID, yamlFile)
 		},

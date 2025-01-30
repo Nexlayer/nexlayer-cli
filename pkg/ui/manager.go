@@ -10,7 +10,7 @@ type Manager interface {
 	RenderWarning(msg string) string
 	RenderInfo(msg string) string
 	RenderTable(headers []string, rows [][]string) string
-	
+
 	// Progress tracking
 	StartProgress(msg string) ProgressTracker
 	UpdateProgress(progress float64, msg string)

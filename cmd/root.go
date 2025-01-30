@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	initcmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/init"
+	initcmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/initcmd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

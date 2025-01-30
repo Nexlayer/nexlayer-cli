@@ -10,24 +10,24 @@ import (
 
 var (
 	titleStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#00ff00"))
+			Bold(true).
+			Foreground(lipgloss.Color("#00ff00"))
 
 	subtitleStyle = lipgloss.NewStyle().
-		Italic(true).
-		Foreground(lipgloss.Color("#888888"))
+			Italic(true).
+			Foreground(lipgloss.Color("#888888"))
 
 	errorStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#ff0000"))
+			Bold(true).
+			Foreground(lipgloss.Color("#ff0000"))
 
 	successStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#00ff00"))
+			Bold(true).
+			Foreground(lipgloss.Color("#00ff00"))
 
 	tableStyle = lipgloss.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("#888888"))
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("#888888"))
 )
 
 // RenderTitle renders a title with optional subtitle

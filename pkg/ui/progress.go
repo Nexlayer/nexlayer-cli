@@ -41,7 +41,7 @@ func (p *progressBar) Update(progress float64, msg string) {
 	}
 
 	// Clear the current line and print the progress bar
-	fmt.Printf("\r\033[K[%s] %.1f%% %s (%s)", 
+	fmt.Printf("\r\033[K[%s] %.1f%% %s (%s)",
 		bar,
 		progress,
 		p.message,
@@ -55,7 +55,7 @@ func (p *progressBar) Complete() {
 
 	// Clear the current line
 	fmt.Print("\r\033[K")
-	
+
 	// Print completion message
 	color.Green("✓ %s (%.2fs)", p.message, time.Since(p.started).Seconds())
 }

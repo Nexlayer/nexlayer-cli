@@ -27,7 +27,7 @@ func (m *Manager) GetString(key string) string {
 func (m *Manager) GetStringMap(key string) map[string]string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	result := make(map[string]string)
 	for k, v := range viper.GetStringMap(key) {
 		if str, ok := v.(string); ok {
@@ -56,12 +56,12 @@ func (m *Manager) GetAPIEndpoint(env string) string {
 	if env == "" {
 		env = "production"
 	}
-	
+
 	endpoints := m.GetStringMap("api.endpoints")
 	if endpoint, ok := endpoints[env]; ok {
 		return endpoint
 	}
-	
+
 	// Default production endpoint
 	return "https://api.nexlayer.com"
 }

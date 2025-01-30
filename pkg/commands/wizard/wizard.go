@@ -42,9 +42,9 @@ type DeploymentConfig struct {
 var validTemplates = map[string]bool{
 	"langchain-nextjs":  true,
 	"langchain-fastapi": true,
-	"mern":             true,
-	"pern":             true,
-	"mean":             true,
+	"mern":              true,
+	"pern":              true,
+	"mean":              true,
 }
 
 var templateToPods = map[string][]Pod{
@@ -52,7 +52,7 @@ var templateToPods = map[string][]Pod{
 		{
 			Type:       "nextjs",
 			ExposeHttp: true,
-			Name:      "app",
+			Name:       "app",
 			Vars: []Var{
 				{Key: "OPENAI_API_KEY", Value: "your-key"},
 				{Key: "LANGCHAIN_TRACING_V2", Value: "true"},
@@ -63,7 +63,7 @@ var templateToPods = map[string][]Pod{
 		{
 			Type:       "fastapi",
 			ExposeHttp: true,
-			Name:      "backend",
+			Name:       "backend",
 			Vars: []Var{
 				{Key: "OPENAI_API_KEY", Value: "your-key"},
 				{Key: "PINECONE_API_KEY", Value: "your-key"},
@@ -75,7 +75,7 @@ var templateToPods = map[string][]Pod{
 		{
 			Type:       "database",
 			ExposeHttp: false,
-			Name:      "mongodb",
+			Name:       "mongodb",
 			Vars: []Var{
 				{Key: "MONGO_INITDB_DATABASE", Value: "myapp"},
 			},
@@ -83,7 +83,7 @@ var templateToPods = map[string][]Pod{
 		{
 			Type:       "express",
 			ExposeHttp: false,
-			Name:      "backend",
+			Name:       "backend",
 			Vars: []Var{
 				{Key: "MONGODB_URL", Value: "DATABASE_CONNECTION_STRING"},
 			},
@@ -91,7 +91,7 @@ var templateToPods = map[string][]Pod{
 		{
 			Type:       "nginx",
 			ExposeHttp: true,
-			Name:      "frontend",
+			Name:       "frontend",
 			Vars: []Var{
 				{Key: "EXPRESS_URL", Value: "BACKEND_CONNECTION_URL"},
 			},

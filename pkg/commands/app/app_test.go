@@ -11,13 +11,13 @@ import (
 
 type mockClient struct {
 	deploymentInfo types.DeploymentInfo
-	err           error
+	err            error
 }
 
 func (m *mockClient) StartDeployment(ctx context.Context, appID string, configPath string) (*types.StartDeploymentResponse, error) {
 	return &types.StartDeploymentResponse{
 		Namespace: "test-ns",
-		URL:      "https://test-ns.nexlayer.com",
+		URL:       "https://test-ns.nexlayer.com",
 	}, m.err
 }
 

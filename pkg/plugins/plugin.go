@@ -11,10 +11,10 @@ import (
 type Plugin interface {
 	// Name returns the name of the plugin
 	Name() string
-	
+
 	// Description returns a description of what the plugin does
 	Description() string
-	
+
 	// Run executes the plugin with the given options
 	Run(opts map[string]interface{}) error
 }

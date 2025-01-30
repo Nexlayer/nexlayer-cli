@@ -95,10 +95,10 @@ deployment:
 
 // TemplateData holds data for template rendering
 type TemplateData struct {
-	AppName      string
-	MONGODB_URI  string
-	FLASK_ENV    string
-	GO_ENV       string
+	AppName     string
+	MONGODB_URI string
+	FLASK_ENV   string
+	GO_ENV      string
 }
 
 // RenderTemplate renders a template with the given data
