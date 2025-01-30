@@ -63,7 +63,7 @@ const (
 	StackAnthropicJS = "anthropic-js"      // Anthropic Claude, Next.js, MongoDB
 )
 
-// Config is an alias for types.Config
+// Config aliases types.Config for convenience
 type Config = types.Config
 
 // RegistryAuth is an alias for types.RegistryAuth
@@ -274,6 +274,23 @@ func detectServiceDependencies(dockerComposePath string) []ServiceDependency {
 }
 
 func createDefaultConfig(projectName string, stackType string, deps []ServiceDependency) Config {
+	// First try AI-based generation
+	components := make([]string, len(deps))
+	for i, dep := range deps {
+		components[i] = dep.Type
+	}
+
+	yamlStr, err := ai.GenerateYAML(projectName, stackType, components)
+	if err == nil {
+		// Parse generated YAML
+		var config Config
+		err = yaml.Unmarshal([]byte(yamlStr), &config)
+		if err == nil {
+			return config
+		}
+	}
+
+	// Fallback to manual template if AI generation fails
 	config := Config{
 		Application: types.Application{
 			Template: types.Template{
@@ -810,8 +827,7 @@ type PyProject struct {
 }
 
 type ServiceDependency struct {
-	Type     string
-	Name     string
-	Image    string
-	Required bool
+	Name  string
+	Type  string
+	Image string
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // AIProvider represents an AI code assistant provider
