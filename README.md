@@ -50,6 +50,98 @@
 - Add a Custom Domain: `nexlayer domain add yourdomain.com`
 - (Everything else can be fine-tuned in `nexlayer.yaml` or by choosing a template.)
 
+## Hello World in 30 Seconds
+
+Want to see how easy it is? Deploy a modern FastAPI app with just four commands:
+
+```bash
+mkdir hello-world
+cd hello-world
+nexlayer init hello-world -t fastapi
+nexlayer deploy
+```
+
+That's it! Your app will be live at `https://<namespace>.nexlayer.io` with this sleek endpoint:
+
+```python
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+
+app = FastAPI(title="Nexlayer Hello World")
+
+@app.get("/", response_class=HTMLResponse)
+async def hello_world():
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Welcome to Nexlayer</title>
+        <style>
+            body {
+                margin: 0;
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: linear-gradient(135deg, #1a1a1a 0%, #0a0a2e 100%);
+                font-family: system-ui, -apple-system, sans-serif;
+                color: #fff;
+            }
+            .container {
+                text-align: center;
+                padding: 2rem;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 1rem;
+                backdrop-filter: blur(10px);
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            }
+            h1 {
+                margin: 0;
+                font-size: 3rem;
+                background: linear-gradient(45deg, #00dc82 0%, #36e4da 50%, #0047e1 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            p {
+                margin: 1rem 0 0;
+                opacity: 0.8;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Hello, Nexlayer!</h1>
+            <p>Your modern FastAPI app is ready to scale</p>
+        </div>
+    </body>
+    </html>
+    """
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+```
+
+The `-t fastapi` flag uses our FastAPI template that includes:
+- A modern Python FastAPI server
+- Beautiful, responsive UI out of the box
+- Automatic OpenAPI documentation at `/docs`
+- Health check endpoint at `/health`
+- Docker configuration with Python 3.11
+- Automatic HTTPS and custom domains
+- Zero configuration needed
+- Built-in async support
+- Type hints and validation
+
+Want to try other stacks? Replace `fastapi` with:
+- `express` for Node.js
+- `django` for a full-featured Python framework
+- `react` for a React frontend
+- `nextjs` for Next.js
+- And [many more templates](#templates)
+
 ## Templates
 
 Nexlayer provides a variety of templates to help you get started quickly. Templates are organized into three categories:
@@ -660,7 +752,7 @@ application:
 - **Database**: `postgres`, `mysql`, `neo4j`, `redis`, `mongodb`
 - **Frontend**: `react`, `angular`, `vue`
 - **Backend**: `django`, `fastapi`, `express`
-- **Others**: `nginx`, `llm` (custom naming allowed)
+- **Others**: `nginx` (load balancing/static assets), `llm` (custom naming allowed)
 
 ### Environment Variables
 Nexlayer automatically provides these environment variables to your pods:
