@@ -75,38 +75,31 @@ Need help? Use 'nexlayer debug' for deployment assistance.`,
 	return cmd
 }
 
-func (f *Factory) createDeployCommand(client api.APIClient) *cobra.Command {
-	if apiClient, ok := client.(*api.Client); ok {
-		return deploy.NewCommand(apiClient)
+// assertAPIClient ensures the client is of type *api.Client
+func (f *Factory) assertAPIClient(client api.APIClient) *api.Client {
+	apiClient, ok := client.(*api.Client)
+	if !ok {
+		panic("invalid API client type: expected *api.Client")
 	}
-	// This should never happen as we control the DI container
-	panic("invalid API client type")
+	return apiClient
+}
+
+func (f *Factory) createDeployCommand(client api.APIClient) *cobra.Command {
+	return deploy.NewCommand(f.assertAPIClient(client))
 }
 
 func (f *Factory) createDomainCommand(client api.APIClient) *cobra.Command {
-	if apiClient, ok := client.(*api.Client); ok {
-		return domain.NewCommand(apiClient)
-	}
-	panic("invalid API client type")
+	return domain.NewCommand(f.assertAPIClient(client))
 }
 
 func (f *Factory) createListCommand(client api.APIClient) *cobra.Command {
-	if apiClient, ok := client.(*api.Client); ok {
-		return list.NewCommand(apiClient)
-	}
-	panic("invalid API client type")
+	return list.NewCommand(f.assertAPIClient(client))
 }
 
 func (f *Factory) createStatusCommand(client api.APIClient) *cobra.Command {
-	if apiClient, ok := client.(*api.Client); ok {
-		return status.NewCommand(apiClient)
-	}
-	panic("invalid API client type")
+	return status.NewCommand(f.assertAPIClient(client))
 }
 
 func (f *Factory) createDebugCommand(client api.APIClient) *cobra.Command {
-	if apiClient, ok := client.(*api.Client); ok {
-		return debug.NewCommand(apiClient)
-	}
-	panic("invalid API client type")
+	return debug.NewCommand(f.assertAPIClient(client))
 }
