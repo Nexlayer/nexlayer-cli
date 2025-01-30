@@ -25,11 +25,7 @@ func (p *Provider) Dependencies() []string {
 }
 
 func (p *Provider) Commands(deps *registry.CommandDependencies) []*cobra.Command {
-	if apiClient, ok := deps.APIClient.(*api.Client); ok {
-		return []*cobra.Command{
-			NewCommand(apiClient),
-		}
+	return []*cobra.Command{
+		NewCommand(),
 	}
-	deps.Logger.Error(nil, "Invalid API client type for AI command")
-	return nil
 }

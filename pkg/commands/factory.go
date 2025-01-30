@@ -15,7 +15,6 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/plugin"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/registry"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/status"
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/di"
 	"github.com/Nexlayer/nexlayer-cli/pkg/plugins"
 )
@@ -104,14 +103,6 @@ Need help? Use 'nexlayer debug' for deployment assistance.`,
 
 // registerBuiltinCommands registers all built-in command providers
 func (f *Factory) registerBuiltinCommands() {
-	// Create command dependencies
-	deps := &registry.CommandDependencies{
-		APIClient:        f.container.GetAPIClient(),
-		Logger:           f.container.GetLogger(),
-		UIManager:        f.container.GetUIManager(),
-		MetricsCollector: f.container.GetMetricsCollector(),
-	}
-
 	// Register core command providers
 	providers := []registry.CommandProvider{
 		deploy.NewProvider(),
