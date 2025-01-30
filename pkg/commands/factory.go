@@ -6,25 +6,53 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/debug"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/deploy"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/domain"
 	initcmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/initcmd"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/plugin"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/registry"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/status"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/di"
+	"github.com/Nexlayer/nexlayer-cli/pkg/plugins"
 )
 
 // Factory creates and configures commands
 type Factory struct {
 	container *di.Container
+	registry  *registry.Registry
+	plugins   *plugins.Manager
 }
 
 // NewFactory creates a new command factory
 func NewFactory(container *di.Container) *Factory {
+	// Create dependencies for commands and plugins
+	deps := &registry.CommandDependencies{
+		APIClient:        container.GetAPIClient(),
+		Logger:           container.GetLogger(),
+		UIManager:        container.GetUIManager(),
+		MetricsCollector: container.GetMetricsCollector(),
+	}
+
+	// Create plugin manager
+	pluginDeps := &plugins.PluginDependencies{
+		APIClient:        deps.APIClient,
+		Logger:           deps.Logger,
+		UIManager:        deps.UIManager,
+		MetricsCollector: deps.MetricsCollector,
+	}
+	pluginManager := plugins.NewManager(pluginDeps, container.GetConfig().PluginsDir)
+
+	// Create command registry
+	reg := registry.NewRegistry(deps)
+
 	return &Factory{
 		container: container,
+		registry:  reg,
+		plugins:   pluginManager,
 	}
 }
 
@@ -40,6 +68,7 @@ Key features:
 - Custom domain management
 - Deployment status monitoring
 - Deployment assistance
+- Plugin system for extensibility
 
 Need help? Use 'nexlayer debug' for deployment assistance.`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
@@ -59,47 +88,59 @@ Need help? Use 'nexlayer debug' for deployment assistance.`,
 		},
 	}
 
-	// Get dependencies
-	client := f.container.GetAPIClient()
+	// Register built-in command providers
+	f.registerBuiltinCommands()
 
-	// Add subcommands
-	cmd.AddCommand(
-		f.createDeployCommand(client),
-		f.createDomainCommand(client),
-		f.createListCommand(client),
-		f.createStatusCommand(client),
-		f.createDebugCommand(client),
-		initcmd.NewCommand(),
-	)
+	// Load plugins
+	if err := f.plugins.LoadPluginsFromDir(""); err != nil {
+		f.container.GetLogger().Error(nil, "Failed to load plugins: %v", err)
+	}
+
+	// Add all commands from registry and plugins
+	cmd.AddCommand(f.getAllCommands()...)
 
 	return cmd
 }
 
-// assertAPIClient ensures the client is of type *api.Client
-func (f *Factory) assertAPIClient(client api.APIClient) *api.Client {
-	apiClient, ok := client.(*api.Client)
-	if !ok {
-		panic("invalid API client type: expected *api.Client")
+// registerBuiltinCommands registers all built-in command providers
+func (f *Factory) registerBuiltinCommands() {
+	// Create command dependencies
+	deps := &registry.CommandDependencies{
+		APIClient:        f.container.GetAPIClient(),
+		Logger:           f.container.GetLogger(),
+		UIManager:        f.container.GetUIManager(),
+		MetricsCollector: f.container.GetMetricsCollector(),
 	}
-	return apiClient
+
+	// Register core command providers
+	providers := []registry.CommandProvider{
+		deploy.NewProvider(),
+		domain.NewProvider(),
+		list.NewProvider(),
+		status.NewProvider(),
+		debug.NewProvider(),
+		initcmd.NewProvider(),
+		ai.NewProvider(),
+		plugin.NewProvider(f.plugins),
+	}
+
+	// Register each provider
+	for _, p := range providers {
+		if err := f.registry.Register(p); err != nil {
+			f.container.GetLogger().Error(nil, "Failed to register command provider %s: %v", p.Name(), err)
+		}
+	}
 }
 
-func (f *Factory) createDeployCommand(client api.APIClient) *cobra.Command {
-	return deploy.NewCommand(f.assertAPIClient(client))
-}
+// getAllCommands returns all commands from both the registry and plugins
+func (f *Factory) getAllCommands() []*cobra.Command {
+	var commands []*cobra.Command
 
-func (f *Factory) createDomainCommand(client api.APIClient) *cobra.Command {
-	return domain.NewCommand(f.assertAPIClient(client))
-}
+	// Get commands from registry
+	commands = append(commands, f.registry.GetCommands()...)
 
-func (f *Factory) createListCommand(client api.APIClient) *cobra.Command {
-	return list.NewCommand(f.assertAPIClient(client))
-}
+	// Get commands from plugins
+	commands = append(commands, f.plugins.GetCommands()...)
 
-func (f *Factory) createStatusCommand(client api.APIClient) *cobra.Command {
-	return status.NewCommand(f.assertAPIClient(client))
-}
-
-func (f *Factory) createDebugCommand(client api.APIClient) *cobra.Command {
-	return debug.NewCommand(f.assertAPIClient(client))
+	return commands
 }
