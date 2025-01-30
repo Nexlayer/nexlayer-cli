@@ -327,67 +327,83 @@ func createDefaultConfig(projectName string, stackType string, deps []ServiceDep
 }
 
 func createFallbackConfig(projectName string, stackType string, deps []ServiceDependency) Config {
-	config := Config{}
+	switch stackType {
+	case "mern":
+		return createMERNConfig(projectName)
+	case "kubeflow":
+		return CreateKubeflowConfig(projectName)
+	case "mlflow":
+		return createMLConfig(projectName, stackType)
+	case "openai-node":
+		return createLlamaNodeConfig(projectName)
+	case "openai-py":
+		return createLlamaPyConfig(projectName)
+	case "huggingface":
+		return createHuggingFaceConfig(projectName)
+	default:
+		// Create a basic configuration
+		var config Config
+		config.Application.Template.Name = projectName
+		config.Application.Template.DeploymentName = projectName
+		config.Application.Template.RegistryLogin = RegistryAuth{
+			Registry: "ghcr.io",
+			Username: "<Github username>",
+			PersonalAccessToken: "<Github Packages Read-Only PAT>",
+		}
+		return config
+	}
+}
 
-	// Set application template
+func createMERNConfig(projectName string) Config {
+	var config Config
 	config.Application.Template.Name = projectName
 	config.Application.Template.DeploymentName = projectName
-	config.Application.Template.RegistryLogin.Registry = "ghcr.io"
-	config.Application.Template.RegistryLogin.Username = "<Github username>"
-	config.Application.Template.RegistryLogin.PersonalAccessToken = "<Github Packages Read-Only PAT>"
 
-	// Initialize pods slice
-	config.Application.Template.Pods = []PodConfig{}
-
-	// Add detected service dependencies
-	seenServices := make(map[string]bool)
-	for _, dep := range deps {
-		if seenServices[dep.Name] {
-			continue
-		}
-		seenServices[dep.Name] = true
-
-		switch dep.Type {
-		case "frontend":
-			frontendPod := PodConfig{
-				Type: "frontend",
-				Name: "frontend",
-				Tag:  dep.Image,
-				Vars: []VarPair{
-					{Key: "NODE_ENV", Value: "development"},
-					{Key: "PORT", Value: "3000"},
-				},
-				ExposeHttp: true,
-			}
-			config.Application.Template.Pods = append(config.Application.Template.Pods, frontendPod)
-		case "database":
-			if strings.Contains(dep.Name, "redis") || strings.Contains(dep.Image, "redis") {
-				redisPod := PodConfig{
-					Type: "database",
-					Name: "redis",
-					Tag:  dep.Image,
-					Vars: []VarPair{
-						{Key: "REDIS_MAX_MEMORY", Value: "256mb"},
-					},
-				}
-				config.Application.Template.Pods = append(config.Application.Template.Pods, redisPod)
-			} else if strings.Contains(dep.Name, "pinecone") || strings.Contains(dep.Image, "pinecone") {
-				pineconePod := PodConfig{
-					Type: "database",
-					Name: "pinecone",
-					Tag:  dep.Image,
-					Vars: []VarPair{
-						{Key: "PINECONE_API_KEY", Value: "<your-pinecone-api-key>"},
-						{Key: "PINECONE_ENVIRONMENT", Value: "<your-pinecone-environment>"},
-						{Key: "PINECONE_INDEX", Value: "<your-pinecone-index>"},
-					},
-				}
-				config.Application.Template.Pods = append(config.Application.Template.Pods, pineconePod)
-			}
-		}
+	// Set registry login
+	config.Application.Template.RegistryLogin = RegistryAuth{
+		Registry: "ghcr.io",
+		Username: "<Github username>",
+		PersonalAccessToken: "<Github Packages Read-Only PAT>",
 	}
 
-	setBuildConfig(&config, stackType)
+	// Add MongoDB pod
+	config.Application.Template.Pods = []PodConfig{
+		{
+			Type: "database",
+			Name: "mongodb",
+			Tag:  "mongo:6",
+			Vars: []VarPair{
+				{Key: "MONGO_INITDB_ROOT_USERNAME", Value: "root"},
+				{Key: "MONGO_INITDB_ROOT_PASSWORD", Value: "<your-mongodb-password>"},
+				{Key: "MONGO_INITDB_DATABASE", Value: projectName},
+			},
+		},
+		{
+			Type: "backend",
+			Name: "express",
+			Tag:  "node:18",
+			Vars: []VarPair{
+				{Key: "PORT", Value: "3000"},
+				{Key: "NODE_ENV", Value: "development"},
+				{Key: "MONGODB_URI", Value: "mongodb://root:<your-mongodb-password>@mongodb:27017/" + projectName + "?authSource=admin"},
+			},
+			ExposeHttp: true,
+		},
+		{
+			Type: "frontend",
+			Name: "react",
+			Tag:  "node:18",
+			Vars: []VarPair{
+				{Key: "PORT", Value: "3001"},
+				{Key: "REACT_APP_API_URL", Value: "http://localhost:3000"},
+			},
+			ExposeHttp: true,
+		},
+	}
+
+	// Set build configuration
+	config.Application.Template.Build.Command = "npm install && npm run build"
+	config.Application.Template.Build.Output = "build"
 
 	return config
 }

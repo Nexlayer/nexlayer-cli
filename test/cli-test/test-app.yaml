@@ -1,0 +1,12 @@
+application:
+    template:
+        name: test-app
+        deploymentName: test-app
+        registryLogin:
+            registry: ghcr.io
+            username: <Github username>
+            personalAccessToken: <Github Packages Read-Only PAT>
+        pods: []
+        build:
+            command: npm install && npm run build
+            output: build
