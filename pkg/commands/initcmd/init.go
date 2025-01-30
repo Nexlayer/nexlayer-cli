@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
+	"github.com/Nexlayer/nexlayer-cli/pkg/templates"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v3"
@@ -331,7 +332,7 @@ func createFallbackConfig(projectName string, stackType string, deps []ServiceDe
 	case "mern":
 		return createMERNConfig(projectName)
 	case "kubeflow":
-		return CreateKubeflowConfig(projectName)
+		return templates.CreateKubeflowConfig(projectName)
 	case "mlflow":
 		return createMLConfig(projectName, stackType)
 	case "openai-node":
@@ -633,7 +634,7 @@ func NewCommand() *cobra.Command {
 			case "mern":
 				config = createMERNConfig(projectName)
 			case "kubeflow":
-				config = CreateKubeflowConfig(projectName)
+				config = templates.CreateKubeflowConfig(projectName)
 			case "mlflow":
 				config = createMLConfig(projectName, templateFlag)
 			case "openai-node":
