@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	nexerrors "github.com/Nexlayer/nexlayer-cli/pkg/errors"
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v3"
 )
@@ -17,131 +18,249 @@ type AIProvider struct {
 	EnvVarKey   string
 	Description string
 	Endpoint    string
+	Priority    int // Higher number = higher priority
 }
 
 // Supported AI providers
 var (
+	WindsurfEditor = AIProvider{
+		Name:        "Windsurf Editor by Codeium",
+		EnvVarKey:   "WINDSURF_API_KEY",
+		Description: "World's first agentic IDE",
+		Endpoint:    "https://api.codeium.com/windsurf",
+		Priority:    100,
+	}
 	GitHubCopilot = AIProvider{
 		Name:        "GitHub Copilot",
 		EnvVarKey:   "GITHUB_COPILOT_TOKEN",
 		Description: "GitHub's AI pair programmer",
 		Endpoint:    "https://api.github.com/copilot",
+		Priority:    90,
 	}
 	CursorAI = AIProvider{
 		Name:        "Cursor AI",
 		EnvVarKey:   "CURSOR_AI_KEY",
 		Description: "AI-powered code editor",
 		Endpoint:    "https://api.cursor.sh",
-	}
-	WindsurfEditor = AIProvider{
-		Name:        "Windsurf Editor by Codeium",
-		EnvVarKey:   "WINDSURF_API_KEY",
-		Description: "World's first agentic IDE",
-		Endpoint:    "https://api.codeium.com/windsurf",
-	}
-	Tabnine = AIProvider{
-		Name:        "Tabnine",
-		EnvVarKey:   "TABNINE_API_KEY",
-		Description: "AI code completion assistant",
-		Endpoint:    "https://api.tabnine.com",
+		Priority:    80,
 	}
 	JetBrainsAI = AIProvider{
 		Name:        "JetBrains AI",
 		EnvVarKey:   "JETBRAINS_AI_KEY",
 		Description: "AI-powered development in JetBrains IDEs",
 		Endpoint:    "https://api.jetbrains.com/ai",
+		Priority:    70,
 	}
-	IntelliCode = AIProvider{
-		Name:        "Microsoft IntelliCode",
-		EnvVarKey:   "INTELLICODE_KEY",
-		Description: "AI-assisted development in Visual Studio",
-		Endpoint:    "https://api.intellicode.microsoft.com",
-	}
-	CodeWhisperer = AIProvider{
-		Name:        "Amazon CodeWhisperer",
-		EnvVarKey:   "CODEWHISPERER_KEY",
-		Description: "Amazon's AI code companion",
-		Endpoint:    "https://api.aws.amazon.com/codewhisperer",
-	}
-	ClaudeSonnet = AIProvider{
-		Name:        "Claude Sonnet 3.5",
-		EnvVarKey:   "CLAUDE_API_KEY",
-		Description: "Anthropic's advanced code assistant",
-		Endpoint:    "https://api.anthropic.com/v1",
-	}
-	ChatGPTCode = AIProvider{
-		Name:        "ChatGPT Code Interpreter",
-		EnvVarKey:   "OPENAI_API_KEY",
-		Description: "OpenAI's code interpreter",
-		Endpoint:    "https://api.openai.com/v1",
+	VSCodeAI = AIProvider{
+		Name:        "VS Code AI",
+		EnvVarKey:   "VSCODE_AI_KEY",
+		Description: "AI assistance in VS Code",
+		Endpoint:    "https://api.vscode.dev/ai",
+		Priority:    60,
 	}
 )
 
-// All supported AI providers
+// AllProviders holds all recognized AI providers, sorted by priority
 var AllProviders = []AIProvider{
+	WindsurfEditor,
 	GitHubCopilot,
 	CursorAI,
-	WindsurfEditor,
-	Tabnine,
 	JetBrainsAI,
-	IntelliCode,
-	CodeWhisperer,
-	ClaudeSonnet,
-	ChatGPTCode,
+	VSCodeAI,
 }
 
-const yamlPrompt = `You are an AI assistant integrated into the Nexlayer CLI. Your job is to generate YAML deployment templates that strictly follow the Nexlayer template standards and specifications.
+// NexlayerYAML represents the structure of a Nexlayer deployment template
+type NexlayerYAML struct {
+	Application struct {
+		Template struct {
+			Name           string `yaml:"name"`
+			DeploymentName string `yaml:"deploymentName"`
+			RegistryLogin  struct {
+				Registry            string `yaml:"registry"`
+				Username            string `yaml:"username"`
+				PersonalAccessToken string `yaml:"personalAccessToken"`
+			} `yaml:"registryLogin"`
+			Pods []struct {
+				Type       string `yaml:"type"`
+				Name       string `yaml:"name"`
+				Tag        string `yaml:"tag"`
+				PrivateTag bool   `yaml:"privateTag"`
+				ExposeHTTP bool   `yaml:"exposeHttp"`
+				Vars       []struct {
+					Key   string `yaml:"key"`
+					Value string `yaml:"value"`
+				} `yaml:"vars"`
+			} `yaml:"pods"`
+			Build struct {
+				Command string `yaml:"command"`
+				Output  string `yaml:"output"`
+			} `yaml:"build"`
+		} `yaml:"template"`
+	} `yaml:"application"`
+}
 
-### Nexlayer Template Requirements:
-1. **General Structure**:
-   - The YAML must include application.template.name, application.template.deploymentName, and application.template.registryLogin fields.
-   - The pods array must define the application's components, such as frontend, backend, database, or others (e.g., nginx, llm).
+// Template generation prompt for AI assistants
+const yamlPrompt = `As a Nexlayer AI assistant, generate a deployment template YAML that follows these requirements:
 
-2. **Pod Configuration**:
-   - Each pod must include:
-     - type: The type of component (frontend, backend, database, nginx, llm, etc.).
-     - name: A specific, descriptive name for the pod (e.g., backend-api, frontend-react, custom-llm-service).
-     - tag: A valid Docker image tag (e.g., node:18, redis:7, nginx:1.23).
-     - vars: Environment variables for the pod in the format [{ "key": "<VAR_NAME>", "value": "<VALUE>" }].
+1. Structure Requirements:
+   - Must include application.template.name, deploymentName, and registryLogin
+   - Must define pods array with application components
 
-3. **Supported Pod Types**:
-   - Frontend: react, angular, vue
-   - Backend: express, django, fastapi
-   - Database: mongodb, postgres, redis, neo4j, pinecone
-   - Others:
-     - nginx: Used for load balancing or serving static assets.
-     - llm: Custom pods for large language models or custom workloads (naming allowed).
+2. Pod Configuration:
+   - Each pod needs: type, name, tag, privateTag, vars array
+   - Supported pod types:
+     * Frontend: react, angular, vue
+     * Backend: express, django, fastapi
+     * Database: postgres, mongodb, redis, neo4j
+     * Others: nginx, llm
 
-4. **Expose HTTP**:
-   - Use exposeHttp: true for components that need to be accessible via HTTP.
+3. Environment Variables:
+   - Database pods: Include DATABASE_CONNECTION_STRING
+   - Frontend/Backend: Include appropriate connection URLs
+   - LLM pods: Include model-specific variables
 
-5. **Predefined Environment Variables**:
-   - Include the following mandatory variables based on the stack:
-     - DATABASE_CONNECTION_STRING for database connectivity.
-     - FRONTEND_CONNECTION_URL and BACKEND_CONNECTION_URL for connecting frontend and backend services.
-     - PINECONE_API_KEY, PINECONE_ENVIRONMENT, PINECONE_INDEX for Pinecone vector database.
+4. HTTP Exposure:
+   - Set exposeHttp: true for web-accessible components
 
-6. **Validation**:
-   - Ensure the generated YAML conforms to Nexlayer's standards and avoid hallucinating unsupported configurations.
+Application Details:
+- Name: %s
+- Stack Type: %s
+- Components: %s
 
-Based on the following inputs, generate a YAML deployment file:
-- Application Name: %s
-- Detected Stack: %s
-- Required Components: %s
+Output the YAML content only, no explanations.`
 
-The YAML should be valid and follow all the requirements above. Only output the YAML content, nothing else.`
-
-// GenerateYAML generates a YAML template using AI
+// GenerateYAML generates a Nexlayer deployment template using available AI assistants
 func GenerateYAML(appName string, stackType string, components []string) (string, error) {
-	// Get preferred AI provider from environment
+	// Try to get an AI provider from the IDE
 	provider := getPreferredProvider()
 	if provider == nil {
-		return "", fmt.Errorf("no AI provider configured. Set one of the following environment variables: %s", getSupportedEnvVars())
+		// No AI provider available, use default template
+		return generateDefaultTemplate(appName, stackType, components)
 	}
 
-	// For now, return a mock response
-	// TODO: Make actual API call to the provider using the prompt
-	return mockGenerateYAML(appName, stackType, components), nil
+	// Format the prompt for the AI
+	prompt := fmt.Sprintf(yamlPrompt, appName, stackType, strings.Join(components, ", "))
+
+	// In a real implementation, we would:
+	// 1. Call the AI provider's API with the prompt
+	// 2. Process the response
+	// For now, use a mock response with the formatted prompt
+	rawYAML := mockGenerateYAML(appName, stackType, components, prompt)
+
+	// Validate and fix the generated YAML
+	return validateAndFixYAML(rawYAML)
+}
+
+// generateDefaultTemplate creates a basic template based on detected components
+func generateDefaultTemplate(appName string, stackType string, components []string) (string, error) {
+	template := NexlayerYAML{}
+	template.Application.Template.Name = appName
+	template.Application.Template.DeploymentName = appName
+	template.Application.Template.RegistryLogin.Registry = "ghcr.io"
+	template.Application.Template.RegistryLogin.Username = "<your-username>"
+	template.Application.Template.RegistryLogin.PersonalAccessToken = "<your-pat>"
+
+	// Add pods based on components
+	for _, comp := range components {
+		pod := struct {
+			Type       string `yaml:"type"`
+			Name       string `yaml:"name"`
+			Tag        string `yaml:"tag"`
+			PrivateTag bool   `yaml:"privateTag"`
+			ExposeHTTP bool   `yaml:"exposeHttp"`
+			Vars       []struct {
+				Key   string `yaml:"key"`
+				Value string `yaml:"value"`
+			} `yaml:"vars"`
+		}{
+			Type:       comp,
+			Name:       fmt.Sprintf("%s-service", comp),
+			Tag:        defaultTagForType(comp),
+			PrivateTag: false,
+			ExposeHTTP: isExposeByDefault(comp),
+		}
+
+		// Add default environment variables
+		if isDatabaseType(comp) {
+			pod.Vars = append(pod.Vars, struct {
+				Key   string `yaml:"key"`
+				Value string `yaml:"value"`
+			}{
+				Key:   "DATABASE_CONNECTION_STRING",
+				Value: fmt.Sprintf("%s://%s:1234/db", comp, pod.Name),
+			})
+		}
+
+		template.Application.Template.Pods = append(template.Application.Template.Pods, pod)
+	}
+
+	// Set build configuration
+	template.Application.Template.Build.Command = getBuildCommand(stackType)
+	template.Application.Template.Build.Output = "dist"
+
+	// Convert to YAML
+	out, err := yaml.Marshal(&template)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate template: %w", err)
+	}
+
+	return string(out), nil
+}
+
+func getBuildCommand(stackType string) string {
+	switch strings.ToLower(stackType) {
+	case "python":
+		return "pip install -r requirements.txt"
+	case "node":
+		return "npm install && npm run build"
+	default:
+		return "npm install && npm run build"
+	}
+}
+
+func isExposeByDefault(podType string) bool {
+	switch strings.ToLower(podType) {
+	case "react", "angular", "vue", "express", "django", "fastapi", "nginx":
+		return true
+	default:
+		return false
+	}
+}
+
+func defaultTagForType(podType string) string {
+	switch strings.ToLower(podType) {
+	case "react":
+		return "node:18"
+	case "angular":
+		return "node:18"
+	case "vue":
+		return "node:18"
+	case "express":
+		return "node:18"
+	case "django":
+		return "python:3.10"
+	case "fastapi":
+		return "python:3.10"
+	case "postgres":
+		return "postgres:15"
+	case "mongodb":
+		return "mongo:6"
+	case "redis":
+		return "redis:7"
+	case "nginx":
+		return "nginx:1.25"
+	default:
+		return "latest"
+	}
+}
+
+func isDatabaseType(podType string) bool {
+	switch strings.ToLower(podType) {
+	case "postgres", "mongodb", "redis":
+		return true
+	default:
+		return false
+	}
 }
 
 // getPreferredProvider returns the first configured AI provider
@@ -154,17 +273,8 @@ func getPreferredProvider() *AIProvider {
 	return nil
 }
 
-// getSupportedEnvVars returns a list of supported environment variables
-func getSupportedEnvVars() string {
-	var vars []string
-	for _, provider := range AllProviders {
-		vars = append(vars, provider.EnvVarKey)
-	}
-	return strings.Join(vars, ", ")
-}
-
 // mockGenerateYAML generates a mock YAML response
-func mockGenerateYAML(appName string, stackType string, components []string) string {
+func mockGenerateYAML(appName string, stackType string, components []string, prompt string) string {
 	// Base template following Nexlayer standards
 	yaml := fmt.Sprintf(`application:
   template:
@@ -291,7 +401,11 @@ func mockGenerateYAML(appName string, stackType string, components []string) str
       command: "npm install && npm run build"
       output: "build"`
 
-	return yaml
+	// Add prompt to the YAML
+	yaml += `
+    prompt: "%s"`
+
+	return fmt.Sprintf(yaml, prompt)
 }
 
 // detectStack detects the project's stack and components
@@ -464,4 +578,282 @@ func newDetectCommand() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func validateAndFixYAML(yamlString string) (string, error) {
+	// First, unify exposeOn80 -> exposeHttp (legacy support)
+	yamlString = strings.ReplaceAll(yamlString, "exposeOn80:", "exposeHttp:")
+
+	var template NexlayerYAML
+	if err := yaml.Unmarshal([]byte(yamlString), &template); err != nil {
+		return "", fmt.Errorf("failed to unmarshal YAML: %w", err)
+	}
+
+	// 1. Validate and fix template section
+	if err := validateTemplate(&template); err != nil {
+		return "", err
+	}
+
+	// 2. Validate and fix pods
+	if err := validatePods(&template); err != nil {
+		return "", err
+	}
+
+	// 3. Validate and fix build section
+	if err := validateBuild(&template); err != nil {
+		return "", err
+	}
+
+	// Marshal back to YAML
+	out, err := yaml.Marshal(&template)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal template: %w", err)
+	}
+
+	return string(out), nil
+}
+
+func validateTemplate(template *NexlayerYAML) error {
+	// Check required fields
+	if template.Application.Template.Name == "" {
+		return nexerrors.NewValidationError(
+			"template name is required",
+			&nexerrors.ValidationContext{
+				Field:         "application.template.name",
+				ExpectedType:  "string",
+				ActualValue:   "",
+				ResolutionHints: []string{
+					"Add 'name' field under application.template",
+					"The name should be a valid identifier for your application",
+				},
+				Example: `application:
+  template:
+    name: my-app`,
+			},
+		)
+	}
+	if template.Application.Template.DeploymentName == "" {
+		template.Application.Template.DeploymentName = template.Application.Template.Name
+	}
+
+	// Validate registry login
+	reg := &template.Application.Template.RegistryLogin
+	if reg.Registry == "" {
+		reg.Registry = "ghcr.io"
+	}
+	if reg.Username == "" {
+		reg.Username = "<your-username>"
+	}
+	if reg.PersonalAccessToken == "" {
+		reg.PersonalAccessToken = "<your-pat>"
+	}
+
+	return nil
+}
+
+func validatePods(template *NexlayerYAML) error {
+	if len(template.Application.Template.Pods) == 0 {
+		return nexerrors.NewValidationError(
+			"at least one pod is required",
+			&nexerrors.ValidationContext{
+				Field:         "application.template.pods",
+				ExpectedType:  "array",
+				ActualValue:   "[]",
+				ResolutionHints: []string{
+					"Add at least one pod under application.template.pods",
+					"Each pod must have a type, name, and tag",
+				},
+				Example: `application:
+  template:
+    pods:
+      - type: backend
+        name: api
+        tag: node:18`,
+			},
+		)
+	}
+
+	// Track used names to ensure uniqueness
+	usedNames := make(map[string]bool)
+
+	for i := range template.Application.Template.Pods {
+		pod := &template.Application.Template.Pods[i]
+
+		// Validate pod type
+		if pod.Type == "" {
+			return nexerrors.NewValidationError(
+				fmt.Sprintf("pod[%d] missing type", i),
+				&nexerrors.ValidationContext{
+					Field:         fmt.Sprintf("application.template.pods[%d].type", i),
+					ExpectedType:  "string",
+					ActualValue:   "",
+					AllowedValues: []string{"frontend", "backend", "database", "nginx", "llm"},
+					ResolutionHints: []string{
+						"Add 'type' field to the pod configuration",
+						"Choose one of the supported pod types",
+					},
+				},
+			)
+		}
+		if !isValidPodType(pod.Type) {
+			return nexerrors.NewValidationError(
+				fmt.Sprintf("pod[%d] has invalid type: %s", i, pod.Type),
+				&nexerrors.ValidationContext{
+					Field:         fmt.Sprintf("application.template.pods[%d].type", i),
+					ExpectedType:  "string",
+					ActualValue:   pod.Type,
+					AllowedValues: []string{"frontend", "backend", "database", "nginx", "llm"},
+					ResolutionHints: []string{
+						"Use one of the supported pod types",
+						fmt.Sprintf("Replace '%s' with a supported type", pod.Type),
+					},
+				},
+			)
+		}
+
+		// Generate or validate name
+		if pod.Name == "" {
+			pod.Name = fmt.Sprintf("%s-service", pod.Type)
+		}
+		if usedNames[pod.Name] {
+			return nexerrors.NewValidationError(
+				fmt.Sprintf("duplicate pod name: %s", pod.Name),
+				&nexerrors.ValidationContext{
+					Field:       fmt.Sprintf("application.template.pods[%d].name", i),
+					ActualValue: pod.Name,
+					ResolutionHints: []string{
+						"Each pod must have a unique name",
+						fmt.Sprintf("Change the name of one of the pods with name '%s'", pod.Name),
+					},
+				},
+			)
+		}
+		usedNames[pod.Name] = true
+
+		// Set default tag if missing
+		if pod.Tag == "" {
+			pod.Tag = defaultTagForType(pod.Type)
+		}
+
+		// Initialize vars if nil
+		if pod.Vars == nil {
+			pod.Vars = []struct {
+				Key   string `yaml:"key"`
+				Value string `yaml:"value"`
+			}{}
+		}
+
+		// Add required environment variables
+		if err := addRequiredVars(pod); err != nil {
+			if envErr, ok := err.(*nexerrors.DeploymentError); ok {
+				return nexerrors.NewValidationError(
+					"failed to add required environment variables",
+					&nexerrors.ValidationContext{
+						Field:         fmt.Sprintf("application.template.pods[%d].vars", i),
+						MissingVar:    envErr.Message,
+						ResolutionHints: []string{
+							"Check the environment variable configuration",
+							"Ensure all required environment variables are properly set",
+						},
+					},
+				)
+			}
+			return err
+		}
+
+		// Set exposeHttp based on type
+		if isExposeByDefault(pod.Type) {
+			pod.ExposeHTTP = true
+		}
+	}
+
+	return nil
+}
+
+func validateBuild(template *NexlayerYAML) error {
+	build := &template.Application.Template.Build
+	if build.Command == "" {
+		// Default to npm since it's most common
+		build.Command = "npm install && npm run build"
+	}
+	if build.Output == "" {
+		build.Output = "dist"
+	}
+	return nil
+}
+
+func isValidPodType(podType string) bool {
+	validTypes := map[string]bool{
+		"react":    true,
+		"angular":  true,
+		"vue":      true,
+		"express":  true,
+		"django":   true,
+		"fastapi":  true,
+		"postgres": true,
+		"mongodb":  true,
+		"redis":    true,
+		"neo4j":    true,
+		"nginx":    true,
+		"llm":      true,
+	}
+	return validTypes[strings.ToLower(podType)]
+}
+
+func addRequiredVars(pod *struct {
+	Type       string `yaml:"type"`
+	Name       string `yaml:"name"`
+	Tag        string `yaml:"tag"`
+	PrivateTag bool   `yaml:"privateTag"`
+	ExposeHTTP bool   `yaml:"exposeHttp"`
+	Vars       []struct {
+		Key   string `yaml:"key"`
+		Value string `yaml:"value"`
+	} `yaml:"vars"`
+}) error {
+	// Helper to check if a variable exists
+	hasVar := func(key string) bool {
+		for _, v := range pod.Vars {
+			if v.Key == key {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Helper to add a variable
+	addVar := func(key, value string) {
+		if !hasVar(key) {
+			pod.Vars = append(pod.Vars, struct {
+				Key   string `yaml:"key"`
+				Value string `yaml:"value"`
+			}{
+				Key:   key,
+				Value: value,
+			})
+		}
+	}
+
+	// Add required variables based on pod type
+	switch strings.ToLower(pod.Type) {
+	case "postgres", "mongodb", "redis", "neo4j":
+		addVar("DATABASE_CONNECTION_STRING", fmt.Sprintf("%s://%s:1234/db", pod.Type, pod.Name))
+	case "react", "angular", "vue":
+		addVar("PORT", "3000")
+		addVar("NODE_ENV", "development")
+		addVar("BACKEND_CONNECTION_URL", "http://backend:3001")
+	case "express", "django", "fastapi":
+		addVar("PORT", "3001")
+		addVar("NODE_ENV", "development")
+		addVar("DATABASE_CONNECTION_STRING", "database://database:1234/db")
+	case "llm":
+		addVar("MODEL_PATH", "/models")
+		addVar("CACHE_DIR", "/cache")
+		addVar("MAX_MEMORY", "8g")
+	case "nginx":
+		addVar("PORT", "80")
+		addVar("WORKER_PROCESSES", "auto")
+	}
+
+	return nil
 }
