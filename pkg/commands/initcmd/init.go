@@ -9,6 +9,7 @@ import (
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
 	"github.com/Nexlayer/nexlayer-cli/pkg/templates"
+	"github.com/Nexlayer/nexlayer-cli/pkg/types"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v3"
@@ -64,39 +65,17 @@ const (
 	StackAnthropicJS = "anthropic-js"      // Anthropic Claude, Next.js, MongoDB
 )
 
-type Config struct {
-	Application struct {
-		Template struct {
-			Name           string       `yaml:"name"`
-			DeploymentName string       `yaml:"deploymentName"`
-			RegistryLogin  RegistryAuth `yaml:"registryLogin"`
-			Pods           []PodConfig  `yaml:"pods"`
-			Build          struct {
-				Command string `yaml:"command"`
-				Output  string `yaml:"output"`
-			} `yaml:"build"`
-		} `yaml:"template"`
-	} `yaml:"application"`
-}
+// Config is an alias for types.Config
+type Config = types.Config
 
-type RegistryAuth struct {
-	Registry            string `yaml:"registry"`
-	Username            string `yaml:"username"`
-	PersonalAccessToken string `yaml:"personalAccessToken"`
-}
+// RegistryAuth is an alias for types.RegistryAuth
+type RegistryAuth = types.RegistryAuth
 
-type PodConfig struct {
-	Type       string    `yaml:"type"`
-	Name       string    `yaml:"name"`
-	Tag        string    `yaml:"tag"`
-	Vars       []VarPair `yaml:"vars"`
-	ExposeHttp bool      `yaml:"exposeHttp"`
-}
+// PodConfig is an alias for types.PodConfig
+type PodConfig = types.PodConfig
 
-type VarPair struct {
-	Key   string `yaml:"key"`
-	Value string `yaml:"value"`
-}
+// VarPair is an alias for types.VarPair
+type VarPair = types.VarPair
 
 type DockerCompose struct {
 	Services map[string]struct {
