@@ -27,26 +27,24 @@ const (
 	PodTypeFastAPI = "fastapi"
 
 	// Database pod types
+	PodTypeMongoDB  = "mongodb"
 	PodTypePostgres = "postgres"
 	PodTypeMySQL    = "mysql"
 	PodTypeNeo4j    = "neo4j"
 	PodTypeRedis    = "redis"
-	PodTypeMongoDB  = "mongodb"
 	PodTypePinecone = "pinecone"
 
 	// Other pod types
 	PodTypeNginx = "nginx"
 	PodTypeLLM   = "llm"
-)
 
-// Supported stack types
-const (
-	StackMERN = "mern" // MongoDB, Express, React, Node.js
-	StackMEAN = "mean" // MongoDB, Express, Angular, Node.js
-	StackMEVN = "mevn" // MongoDB, Express, Vue.js, Node.js
-	StackPERN = "pern" // PostgreSQL, Express, React, Node.js
-	StackMNFA = "mnfa" // MongoDB, Neo4j, FastAPI, Angular
-	StackPDN  = "pdn"  // PostgreSQL, Django, Node.js
+	// Stack types
+	StackMERN        = "mern"        // MongoDB, Express, React, Node.js
+	StackMEAN        = "mean"        // MongoDB, Express, Angular, Node.js
+	StackMEVN        = "mevn"        // MongoDB, Express, Vue.js, Node.js
+	StackPERN        = "pern"        // PostgreSQL, Express, React, Node.js
+	StackMNFA        = "mnfa"        // MongoDB, Neo4j, FastAPI, Angular
+	StackPDN         = "pdn"         // PostgreSQL, Django, Node.js
 
 	// Stack types - ML
 	StackKubeflow = "kubeflow" // Kubeflow ML Pipeline
@@ -349,7 +347,7 @@ func createMERNConfig(projectName string) Config {
 	// Add MongoDB pod
 	config.Application.Template.Pods = []PodConfig{
 		{
-			Type: "database",
+			Type: PodTypeMongoDB,
 			Name: "mongodb",
 			Tag:  "mongo:6",
 			Vars: []VarPair{
@@ -359,7 +357,7 @@ func createMERNConfig(projectName string) Config {
 			},
 		},
 		{
-			Type: "backend",
+			Type: PodTypeExpress,
 			Name: "express",
 			Tag:  "node:18",
 			Vars: []VarPair{
@@ -370,7 +368,7 @@ func createMERNConfig(projectName string) Config {
 			ExposeHttp: true,
 		},
 		{
-			Type: "frontend",
+			Type: PodTypeReact,
 			Name: "react",
 			Tag:  "node:18",
 			Vars: []VarPair{
