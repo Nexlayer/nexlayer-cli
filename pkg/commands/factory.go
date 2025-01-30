@@ -12,7 +12,6 @@ import (
 	initcmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/initcmd"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/status"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/wizard"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/di"
 )
@@ -65,13 +64,12 @@ Need help? Use 'nexlayer debug' for deployment assistance.`,
 
 	// Add subcommands
 	cmd.AddCommand(
-		initcmd.NewCommand(),
 		f.createDeployCommand(client),
 		f.createDomainCommand(client),
 		f.createListCommand(client),
 		f.createStatusCommand(client),
-		f.createWizardCommand(client),
 		f.createDebugCommand(client),
+		initcmd.NewCommand(),
 	)
 
 	return cmd
@@ -106,16 +104,6 @@ func (f *Factory) createStatusCommand(client api.APIClient) *cobra.Command {
 	panic("invalid API client type")
 }
 
-func (f *Factory) createWizardCommand(client api.APIClient) *cobra.Command {
-	if apiClient, ok := client.(*api.Client); ok {
-		return wizard.NewCommand(apiClient)
-	}
-	panic("invalid API client type")
-}
-
 func (f *Factory) createDebugCommand(client api.APIClient) *cobra.Command {
-	if apiClient, ok := client.(*api.Client); ok {
-		return debug.NewCommand(apiClient)
-	}
-	panic("invalid API client type")
+	return debug.NewCommand(client)
 }
