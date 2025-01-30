@@ -105,5 +105,8 @@ func (f *Factory) createStatusCommand(client api.APIClient) *cobra.Command {
 }
 
 func (f *Factory) createDebugCommand(client api.APIClient) *cobra.Command {
-	return debug.NewCommand(client)
+	if apiClient, ok := client.(*api.Client); ok {
+		return debug.NewCommand(apiClient)
+	}
+	panic("invalid API client type")
 }
