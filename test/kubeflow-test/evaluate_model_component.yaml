@@ -1,0 +1,82 @@
+name: Evaluate model op
+inputs:
+- {name: model, type: Joblib}
+- {name: x_test, type: CSV}
+- {name: y_test, type: CSV}
+outputs:
+- {name: Output, type: Float}
+implementation:
+  container:
+    image: python:3.7
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def evaluate_model_op(model_path,
+                           x_test_path,
+                           y_test_path):
+          from sklearn.metrics import accuracy_score
+          import joblib
+          import pandas as pd
+
+          # Load model and test data
+          model = joblib.load(model_path)
+          X_test = pd.read_csv(x_test_path)
+          y_test = pd.read_csv(y_test_path)
+
+          # Make predictions
+          y_pred = model.predict(X_test)
+
+          # Calculate accuracy
+          accuracy = accuracy_score(y_test.iloc[:, 0], y_pred)
+          print(f"Model accuracy: {accuracy}")
+
+          return accuracy
+
+      def _serialize_float(float_value: float) -> str:
+          if isinstance(float_value, str):
+              return float_value
+          if not isinstance(float_value, (float, int)):
+              raise TypeError('Value "{}" has type "{}" instead of float.'.format(
+                  str(float_value), str(type(float_value))))
+          return str(float_value)
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Evaluate model op', description='')
+      _parser.add_argument("--model", dest="model_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--x-test", dest="x_test_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--y-test", dest="y_test_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+      _parsed_args = vars(_parser.parse_args())
+      _output_files = _parsed_args.pop("_output_paths", [])
+
+      _outputs = evaluate_model_op(**_parsed_args)
+
+      _outputs = [_outputs]
+
+      _output_serializers = [
+          _serialize_float,
+
+      ]
+
+      import os
+      for idx, output_file in enumerate(_output_files):
+          try:
+              os.makedirs(os.path.dirname(output_file))
+          except OSError:
+              pass
+          with open(output_file, 'w') as f:
+              f.write(_output_serializers[idx](_outputs[idx]))
+    args:
+    - --model
+    - {inputPath: model}
+    - --x-test
+    - {inputPath: x_test}
+    - --y-test
+    - {inputPath: y_test}
+    - '----output-paths'
+    - {outputPath: Output}
