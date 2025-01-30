@@ -8,16 +8,19 @@ import (
 // Config represents the application configuration
 type Config struct {
 	APIEndpoints map[string]string
+	PluginsDir   string
 }
 
 // GetConfig returns the application configuration
 func GetConfig() *Config {
+	configDir := GetConfigDir()
 	return &Config{
 		APIEndpoints: map[string]string{
 			"production": "https://app.nexlayer.io",
 			"staging":    "https://app.staging.nexlayer.io",
 			"default":    "https://app.staging.nexlayer.io",
 		},
+		PluginsDir: filepath.Join(configDir, "plugins"),
 	}
 }
 
@@ -36,4 +39,12 @@ func GetConfigDir() string {
 		configDir = filepath.Join(os.Getenv("HOME"), ".nexlayer")
 	}
 	return configDir
+}
+
+// GetPluginsDir returns the plugins directory
+func (c *Config) GetPluginsDir() string {
+	if c.PluginsDir == "" {
+		return filepath.Join(GetConfigDir(), "plugins")
+	}
+	return c.PluginsDir
 }

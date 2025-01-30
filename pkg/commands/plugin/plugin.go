@@ -2,114 +2,88 @@ package plugin
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/registry"
 	"github.com/Nexlayer/nexlayer-cli/pkg/plugins"
 )
 
-func NewCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "plugin",
-		Short: "Manage Nexlayer plugins",
-		Long: `Manage Nexlayer plugins.
-		
-Available Commands:
-  list    List installed plugins
-  run     Run a plugin
-  install Install a plugin from a .so file`,
-	}
-
-	cmd.AddCommand(
-		newListCommand(),
-		newRunCommand(),
-		newInstallCommand(),
-	)
-
-	return cmd
+type Provider struct {
+	pluginManager *plugins.Manager
 }
 
-func newListCommand() *cobra.Command {
-	return &cobra.Command{
+func NewProvider(pluginManager *plugins.Manager) registry.CommandProvider {
+	return &Provider{
+		pluginManager: pluginManager,
+	}
+}
+
+func (p *Provider) Name() string {
+	return "plugin"
+}
+
+func (p *Provider) Description() string {
+	return "Provides commands for managing Nexlayer plugins"
+}
+
+func (p *Provider) Dependencies() []string {
+	return nil
+}
+
+func (p *Provider) Commands(deps *registry.CommandDependencies) []*cobra.Command {
+	pluginCmd := &cobra.Command{
+		Use:   "plugin",
+		Short: "Manage Nexlayer plugins",
+		Long: `Manage Nexlayer plugins:
+- List installed plugins
+- Install new plugins
+- Remove plugins
+- Run plugin commands`,
+	}
+
+	// List plugins command
+	listCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List installed plugins",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			manager := plugins.NewManager()
-			if err := manager.LoadPluginsFromDir(""); err != nil {
-				return err
-			}
-
-			plugins := manager.ListPlugins()
+			plugins := p.pluginManager.ListPlugins()
 			if len(plugins) == 0 {
-				cmd.Println("No plugins installed")
+				fmt.Println("No plugins installed")
 				return nil
 			}
 
-			cmd.Println("Installed plugins:")
-			for _, name := range plugins {
-				plugin, _ := manager.GetPlugin(name)
-				cmd.Printf("  %s - %s\n", name, plugin.Description())
+			fmt.Println("Installed plugins:")
+			for name, version := range plugins {
+				fmt.Printf("  %s (v%s)\n", name, version)
 			}
 			return nil
 		},
 	}
-}
 
-func newRunCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "run [plugin-name]",
-		Short: "Run a plugin",
+	// Install plugin command
+	installCmd := &cobra.Command{
+		Use:   "install [plugin-path]",
+		Short: "Install a plugin from a path",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			manager := plugins.NewManager()
-			if err := manager.LoadPluginsFromDir(""); err != nil {
-				return err
-			}
+			return p.pluginManager.LoadPlugin(args[0])
+		},
+	}
 
-			// Get options from flags
+	// Run plugin command
+	runCmd := &cobra.Command{
+		Use:   "run [plugin-name] [args...]",
+		Short: "Run a plugin command",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			opts := make(map[string]interface{})
-			cmd.Flags().VisitAll(func(f *pflag.Flag) {
-				opts[f.Name] = f.Value.String()
-			})
-
-			return manager.RunPlugin(args[0], opts)
+			if len(args) > 1 {
+				opts["args"] = args[1:]
+			}
+			return p.pluginManager.RunPlugin(args[0], opts)
 		},
 	}
-}
 
-func newInstallCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "install [plugin-file]",
-		Short: "Install a plugin from a .so file",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			pluginFile := args[0]
-			if filepath.Ext(pluginFile) != ".so" {
-				return fmt.Errorf("plugin file must be a .so file")
-			}
-
-			// Get plugin directory
-			pluginDir := filepath.Join(os.Getenv("HOME"), ".nexlayer", "plugins")
-			if err := os.MkdirAll(pluginDir, 0755); err != nil {
-				return fmt.Errorf("failed to create plugin directory: %w", err)
-			}
-
-			// Copy plugin to plugins directory
-			dest := filepath.Join(pluginDir, filepath.Base(pluginFile))
-			data, err := os.ReadFile(pluginFile)
-			if err != nil {
-				return fmt.Errorf("failed to read plugin file: %w", err)
-			}
-
-			if err := os.WriteFile(dest, data, 0644); err != nil {
-				return fmt.Errorf("failed to install plugin: %w", err)
-			}
-
-			cmd.Printf("Plugin installed successfully to %s\n", dest)
-			return nil
-		},
-	}
+	pluginCmd.AddCommand(listCmd, installCmd, runCmd)
+	return []*cobra.Command{pluginCmd}
 }
