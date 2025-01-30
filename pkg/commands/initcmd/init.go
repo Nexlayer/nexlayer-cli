@@ -630,8 +630,18 @@ func NewCommand() *cobra.Command {
 
 			// Create config based on template type
 			switch templateFlag {
-			case StackKubeflow, StackMLflow:
+			case "mern":
+				config = createMERNConfig(projectName)
+			case "kubeflow":
+				config = CreateKubeflowConfig(projectName)
+			case "mlflow":
 				config = createMLConfig(projectName, templateFlag)
+			case "openai-node":
+				config = createLlamaNodeConfig(projectName)
+			case "openai-py":
+				config = createLlamaPyConfig(projectName)
+			case "huggingface":
+				config = createHuggingFaceConfig(projectName)
 			default:
 				// Detect project type and dependencies for web/AI templates
 				stackType, deps := detectProjectType(".")
@@ -647,18 +657,17 @@ func NewCommand() *cobra.Command {
 				cmd.SilenceUsage = true
 				return fmt.Errorf("failed to write config file: %w", err)
 			}
+
 			progress.Add(40)
 
-			// Print success message
-			fmt.Printf("\nSuccessfully created %s with %s template!\n", yamlFileName, templateFlag)
-			fmt.Println("\nTo deploy your application, run: nexlayer deploy")
+			fmt.Printf("\nSuccessfully created %s with %s template!\n\n", yamlFileName, templateFlag)
+			fmt.Println("To deploy your application, run: nexlayer deploy")
 
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVarP(&templateFlag, "template", "t", "mern",
-		"Template to use (mern, mean, mevn, pern, kubeflow, mlflow, openai-node, openai-py)")
+	cmd.Flags().StringVarP(&templateFlag, "template", "t", "", "Template to use (e.g., mern, kubeflow)")
 
 	return cmd
 }
