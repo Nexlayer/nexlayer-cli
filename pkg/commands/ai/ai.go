@@ -654,13 +654,13 @@ func validateTemplate(template *NexlayerYAML) error {
 func validatePods(template *NexlayerYAML) error {
 	if len(template.Application.Template.Pods) == 0 {
 		return nexerrors.NewValidationError(
-			"at least one pod is required",
+			"no pods defined in template",
 			&nexerrors.ValidationContext{
 				Field:         "application.template.pods",
 				ExpectedType:  "array",
 				ActualValue:   "[]",
 				ResolutionHints: []string{
-					"Add at least one pod under application.template.pods",
+					"Add at least one pod configuration",
 					"Each pod must have a type, name, and tag",
 				},
 				Example: `application:
@@ -673,97 +673,93 @@ func validatePods(template *NexlayerYAML) error {
 		)
 	}
 
-	// Track used names to ensure uniqueness
-	usedNames := make(map[string]bool)
+	// Required environment variables by pod type
+	requiredVars := map[string][]string{
+		"database": {
+			"DATABASE_CONNECTION_STRING",
+			"DATABASE_HOST",
+		},
+		"neo4j": {
+			"NEO4J_URI",
+		},
+		"frontend": {
+			"PROXY_URL",
+			"PROXY_DOMAIN",
+			"BACKEND_CONNECTION_URL",
+			"BACKEND_CONNECTION_DOMAIN",
+		},
+		"backend": {
+			"PROXY_URL",
+			"PROXY_DOMAIN",
+			"FRONTEND_CONNECTION_URL",
+			"FRONTEND_CONNECTION_DOMAIN",
+			"DATABASE_CONNECTION_STRING",
+		},
+		"llm": {
+			"PROXY_URL",
+			"PROXY_DOMAIN",
+			"LLM_CONNECTION_URL",
+			"LLM_CONNECTION_DOMAIN",
+		},
+	}
 
-	for i := range template.Application.Template.Pods {
-		pod := &template.Application.Template.Pods[i]
-
-		// Validate pod type
-		if pod.Type == "" {
-			return nexerrors.NewValidationError(
-				fmt.Sprintf("pod[%d] missing type", i),
-				&nexerrors.ValidationContext{
-					Field:         fmt.Sprintf("application.template.pods[%d].type", i),
-					ExpectedType:  "string",
-					ActualValue:   "",
-					AllowedValues: []string{"frontend", "backend", "database", "nginx", "llm"},
-					ResolutionHints: []string{
-						"Add 'type' field to the pod configuration",
-						"Choose one of the supported pod types",
-					},
-				},
-			)
-		}
-		if !isValidPodType(pod.Type) {
-			return nexerrors.NewValidationError(
-				fmt.Sprintf("pod[%d] has invalid type: %s", i, pod.Type),
-				&nexerrors.ValidationContext{
-					Field:         fmt.Sprintf("application.template.pods[%d].type", i),
-					ExpectedType:  "string",
-					ActualValue:   pod.Type,
-					AllowedValues: []string{"frontend", "backend", "database", "nginx", "llm"},
-					ResolutionHints: []string{
-						"Use one of the supported pod types",
-						fmt.Sprintf("Replace '%s' with a supported type", pod.Type),
-					},
-				},
-			)
-		}
-
-		// Generate or validate name
-		if pod.Name == "" {
-			pod.Name = fmt.Sprintf("%s-service", pod.Type)
-		}
-		if usedNames[pod.Name] {
-			return nexerrors.NewValidationError(
-				fmt.Sprintf("duplicate pod name: %s", pod.Name),
-				&nexerrors.ValidationContext{
-					Field:       fmt.Sprintf("application.template.pods[%d].name", i),
-					ActualValue: pod.Name,
-					ResolutionHints: []string{
-						"Each pod must have a unique name",
-						fmt.Sprintf("Change the name of one of the pods with name '%s'", pod.Name),
-					},
-				},
-			)
-		}
-		usedNames[pod.Name] = true
-
-		// Set default tag if missing
-		if pod.Tag == "" {
-			pod.Tag = defaultTagForType(pod.Type)
-		}
-
-		// Initialize vars if nil
-		if pod.Vars == nil {
-			pod.Vars = []struct {
-				Key   string `yaml:"key"`
-				Value string `yaml:"value"`
-			}{}
-		}
-
-		// Add required environment variables
-		if err := addRequiredVars(pod); err != nil {
-			if envErr, ok := err.(*nexerrors.DeploymentError); ok {
-				return nexerrors.NewValidationError(
-					"failed to add required environment variables",
-					&nexerrors.ValidationContext{
-						Field:         fmt.Sprintf("application.template.pods[%d].vars", i),
-						MissingVar:    envErr.Message,
-						ResolutionHints: []string{
-							"Check the environment variable configuration",
-							"Ensure all required environment variables are properly set",
-						},
-					},
-				)
-			}
+	for _, pod := range template.Application.Template.Pods {
+		if err := validatePodType(pod.Type); err != nil {
 			return err
 		}
 
-		// Set exposeHttp based on type
-		if isExposeByDefault(pod.Type) {
-			pod.ExposeHTTP = true
+		if pod.Name == "" {
+			return nexerrors.NewValidationError(
+				fmt.Sprintf("pod of type %s has no name", pod.Type),
+				&nexerrors.ValidationContext{
+					Field:       fmt.Sprintf("application.template.pods[].name"),
+					ActualValue: "",
+					ResolutionHints: []string{
+						"Add a name field to the pod configuration",
+						"The name should be a valid identifier for the pod",
+					},
+				},
+			)
+		}
+
+		if pod.Tag == "" {
+			return nexerrors.NewValidationError(
+				fmt.Sprintf("pod %s has no tag", pod.Name),
+				&nexerrors.ValidationContext{
+					Field:       fmt.Sprintf("application.template.pods[].tag"),
+					ActualValue: "",
+					ResolutionHints: []string{
+						"Add a tag field with a valid Docker image tag",
+						"The tag should match the pod's type and version",
+					},
+				},
+			)
+		}
+
+		// Validate required environment variables
+		if vars, ok := requiredVars[pod.Type]; ok {
+			for _, required := range vars {
+				found := false
+				for _, v := range pod.Vars {
+					if v.Key == required {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return nexerrors.NewValidationError(
+						fmt.Sprintf("pod %s is missing required environment variable %s", pod.Name, required),
+						&nexerrors.ValidationContext{
+							Field:       fmt.Sprintf("application.template.pods[].vars"),
+							MissingVar:  required,
+							ResolutionHints: []string{
+								fmt.Sprintf("Add %s to the pod's vars section", required),
+								fmt.Sprintf("Ensure the value for %s is correctly set", required),
+							},
+						},
+					)
+				}
+			}
 		}
 	}
 
@@ -782,7 +778,7 @@ func validateBuild(template *NexlayerYAML) error {
 	return nil
 }
 
-func isValidPodType(podType string) bool {
+func validatePodType(podType string) error {
 	validTypes := map[string]bool{
 		"react":    true,
 		"angular":  true,
@@ -797,63 +793,32 @@ func isValidPodType(podType string) bool {
 		"nginx":    true,
 		"llm":      true,
 	}
-	return validTypes[strings.ToLower(podType)]
-}
-
-func addRequiredVars(pod *struct {
-	Type       string `yaml:"type"`
-	Name       string `yaml:"name"`
-	Tag        string `yaml:"tag"`
-	PrivateTag bool   `yaml:"privateTag"`
-	ExposeHTTP bool   `yaml:"exposeHttp"`
-	Vars       []struct {
-		Key   string `yaml:"key"`
-		Value string `yaml:"value"`
-	} `yaml:"vars"`
-}) error {
-	// Helper to check if a variable exists
-	hasVar := func(key string) bool {
-		for _, v := range pod.Vars {
-			if v.Key == key {
-				return true
-			}
-		}
-		return false
+	if !validTypes[strings.ToLower(podType)] {
+		return nexerrors.NewValidationError(
+			fmt.Sprintf("invalid pod type: %s", podType),
+			&nexerrors.ValidationContext{
+				Field:       "application.template.pods[].type",
+				ActualValue: podType,
+				AllowedValues: []string{
+					"react",
+					"angular",
+					"vue",
+					"express",
+					"django",
+					"fastapi",
+					"postgres",
+					"mongodb",
+					"redis",
+					"neo4j",
+					"nginx",
+					"llm",
+				},
+				ResolutionHints: []string{
+					fmt.Sprintf("Replace '%s' with a supported type", podType),
+					"Check the pod's type and ensure it matches the application's requirements",
+				},
+			},
+		)
 	}
-
-	// Helper to add a variable
-	addVar := func(key, value string) {
-		if !hasVar(key) {
-			pod.Vars = append(pod.Vars, struct {
-				Key   string `yaml:"key"`
-				Value string `yaml:"value"`
-			}{
-				Key:   key,
-				Value: value,
-			})
-		}
-	}
-
-	// Add required variables based on pod type
-	switch strings.ToLower(pod.Type) {
-	case "postgres", "mongodb", "redis", "neo4j":
-		addVar("DATABASE_CONNECTION_STRING", fmt.Sprintf("%s://%s:1234/db", pod.Type, pod.Name))
-	case "react", "angular", "vue":
-		addVar("PORT", "3000")
-		addVar("NODE_ENV", "development")
-		addVar("BACKEND_CONNECTION_URL", "http://backend:3001")
-	case "express", "django", "fastapi":
-		addVar("PORT", "3001")
-		addVar("NODE_ENV", "development")
-		addVar("DATABASE_CONNECTION_STRING", "database://database:1234/db")
-	case "llm":
-		addVar("MODEL_PATH", "/models")
-		addVar("CACHE_DIR", "/cache")
-		addVar("MAX_MEMORY", "8g")
-	case "nginx":
-		addVar("PORT", "80")
-		addVar("WORKER_PROCESSES", "auto")
-	}
-
 	return nil
 }

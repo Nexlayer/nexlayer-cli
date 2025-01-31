@@ -1,0 +1,29 @@
+version: "3.8"
+services:
+  express:
+    image: node:18
+    ports:
+    - 3000:3000
+    environment:
+    - PORT=3000
+    - NODE_ENV=development
+    - MONGODB_URL=mongodb://mongodb:27017/local-test-app
+    networks:
+    - nexlayer
+  mongodb:
+    image: mongo:latest
+    environment:
+    - MONGODB_PORT=27017
+    networks:
+    - nexlayer
+  react:
+    image: node:18
+    ports:
+    - 8080:8080
+    environment:
+    - PORT=8080
+    - BACKEND_URL=http://express:3000
+    networks:
+    - nexlayer
+networks:
+  nexlayer: null

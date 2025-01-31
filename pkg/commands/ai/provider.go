@@ -3,7 +3,6 @@ package ai
 import (
 	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/registry"
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 )
 
 type Provider struct{}
