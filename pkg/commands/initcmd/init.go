@@ -7,81 +7,60 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
-	"github.com/Nexlayer/nexlayer-cli/pkg/templates"
-	"github.com/Nexlayer/nexlayer-cli/pkg/types"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/template"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/types"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v3"
 )
 
 const (
-	// Frontend pod types
-	PodTypeReact   = "react"
-	PodTypeAngular = "angular"
-	PodTypeVue     = "vue"
-
-	// Backend pod types
-	PodTypeExpress = "express"
-	PodTypeDjango  = "django"
-	PodTypeFastAPI = "fastapi"
-
-	// Database pod types
-	PodTypeMongoDB  = "mongodb"
-	PodTypePostgres = "postgres"
-	PodTypeMySQL    = "mysql"
-	PodTypeNeo4j    = "neo4j"
-	PodTypeRedis    = "redis"
-	PodTypePinecone = "pinecone"
-
-	// Other pod types
-	PodTypeNginx = "nginx"
-	PodTypeLLM   = "llm"
-
-	// Stack types
-	StackMERN        = "mern"        // MongoDB, Express, React, Node.js
-	StackMEAN        = "mean"        // MongoDB, Express, Angular, Node.js
-	StackMEVN        = "mevn"        // MongoDB, Express, Vue.js, Node.js
-	StackPERN        = "pern"        // PostgreSQL, Express, React, Node.js
-	StackMNFA        = "mnfa"        // MongoDB, Neo4j, FastAPI, Angular
-	StackPDN         = "pdn"         // PostgreSQL, Django, Node.js
-
-	// Stack types - ML
-	StackKubeflow = "kubeflow" // Kubeflow ML Pipeline
-	StackMLflow   = "mlflow"   // MLflow with tracking server
-
-	// Stack types - AI/LLM
-	StackLangChainJS = "langchain-nextjs"  // LangChain.js, Next.js, MongoDB
-	StackLangChainPy = "langchain-fastapi" // LangChain Python, FastAPI, PostgreSQL
-	StackOpenAINode  = "openai-node"       // OpenAI Node.js SDK, Express, React
-	StackOpenAIPy    = "openai-py"         // OpenAI Python SDK, FastAPI, Vue
-	StackLlamaNode   = "llama-node"        // Llama.cpp Node.js, Next.js, PostgreSQL
-	StackLlamaPy     = "llama-py"          // Llama.cpp Python, FastAPI, MongoDB
-	StackVertexAI    = "vertex-ai"         // Google Vertex AI, Flask, React
-	StackHuggingface = "huggingface"       // Hugging Face Transformers, FastAPI, React
-	StackAnthropicPy = "anthropic-py"      // Anthropic Claude, FastAPI, Svelte
-	StackAnthropicJS = "anthropic-js"      // Anthropic Claude, Next.js, MongoDB
+	// Stack types for modern web applications
+	StackMERN          = "mern"           // MongoDB, Express, React, Node.js
+	StackMEAN          = "mean"           // MongoDB, Express, Angular, Node.js
+	StackMEVN          = "mevn"           // MongoDB, Express, Vue.js, Node.js
+	StackPERN          = "pern"           // PostgreSQL, Express, React, Node.js
+	StackNextJS        = "nextjs"         // Next.js
+	
+	// Stack types for ML/AI applications
+	StackKubeflow      = "kubeflow"       // Kubeflow ML platform
+	StackMLflow        = "mlflow"         // MLflow ML platform
+	StackHuggingface   = "huggingface"    // Hugging Face
+	StackMNFA          = "mnfa"           // MongoDB, Node.js, FastAPI
+	StackPDN           = "pdn"            // PostgreSQL, Django, Node.js
+	
+	// Stack types for LLM applications
+	StackLlamaNode     = "llama-node"     // Llama, Node.js
+	StackLlamaPy       = "llama-py"       // Llama, Python
+	StackLlamaJS       = "llama-js"       // Llama, Next.js
+	StackAnthropicNode = "anthropic-node" // Anthropic Claude, Node.js
+	StackAnthropicJS   = "anthropic-js"   // Anthropic Claude, Next.js
+	StackAnthropicPy   = "anthropic-py"   // Anthropic Claude, Python
+	StackLangChainJS   = "langchain-js"   // LangChain, Node.js
+	StackLangChainPy   = "langchain-py"   // LangChain, Python
+	StackOpenAINode    = "openai-node"    // OpenAI, Node.js
+	StackOpenAIPy      = "openai-py"      // OpenAI, Python
+	StackVertexAI      = "vertex-ai"      // Google Vertex AI
 )
 
-// Config aliases types.Config for convenience
+// Use type aliases to ensure consistency
 type Config = types.Config
-
-// RegistryAuth is an alias for types.RegistryAuth
+type PodConfig = types.PodConfig
+type VarPair = types.VarPair
+type BuildConfig = types.BuildConfig
 type RegistryAuth = types.RegistryAuth
 
-// PodConfig is an alias for types.PodConfig
-type PodConfig = types.PodConfig
+type Dependency struct {
+	Name     string
+	Type     string
+	Required bool
+}
 
-// VarPair is an alias for types.VarPair
-type VarPair = types.VarPair
-
-type DockerCompose struct {
-	Services map[string]struct {
-		Image       string            `yaml:"image"`
-		Build       string            `yaml:"build"`
-		Environment []string          `yaml:"environment"`
-		Env         map[string]string `yaml:"env"`
-	} `yaml:"services"`
+type ServiceDependency struct {
+	Name     string
+	Type     string
+	Image    string
+	Required bool
 }
 
 func addTemplateConfig(config *Config, templateName string, pods []PodConfig) {
@@ -93,66 +72,63 @@ func addTemplateConfig(config *Config, templateName string, pods []PodConfig) {
 }
 
 func addPod(config *Config, podType string, name string, exposeHttp bool, vars []VarPair) {
-	pod := PodConfig{
+	config.Application.Template.Pods = append(config.Application.Template.Pods, types.PodConfig{
 		Type:       podType,
 		Name:       name,
-		Tag:        fmt.Sprintf("ghcr.io/your-username/%s:latest", name),
 		ExposeHttp: exposeHttp,
 		Vars:       vars,
-	}
-
-	config.Application.Template.Pods = append(config.Application.Template.Pods, pod)
+	})
 }
 
 func getPodTypeFromService(name string, image string) string {
 	// Database types
 	if strings.Contains(image, "postgres") || strings.Contains(name, "postgres") {
-		return PodTypePostgres
+		return "postgres"
 	}
 	if strings.Contains(image, "mysql") || strings.Contains(name, "mysql") {
-		return PodTypeMySQL
+		return "mysql"
 	}
 	if strings.Contains(image, "neo4j") || strings.Contains(name, "neo4j") {
-		return PodTypeNeo4j
+		return "neo4j"
 	}
 	if strings.Contains(image, "redis") || strings.Contains(name, "redis") {
-		return PodTypeRedis
+		return "redis"
 	}
 	if strings.Contains(image, "mongo") || strings.Contains(name, "mongo") {
-		return PodTypeMongoDB
+		return "mongo"
 	}
 	if strings.Contains(image, "pinecone") || strings.Contains(name, "pinecone") {
-		return PodTypePinecone
+		return "pinecone"
 	}
 
 	// Frontend types
 	if strings.Contains(image, "react") || strings.Contains(name, "react") {
-		return PodTypeReact
+		return "react"
 	}
 	if strings.Contains(image, "angular") || strings.Contains(name, "angular") {
-		return PodTypeAngular
+		return "angular"
 	}
 	if strings.Contains(image, "vue") || strings.Contains(name, "vue") {
-		return PodTypeVue
+		return "vue"
 	}
 
 	// Backend types
 	if strings.Contains(image, "django") || strings.Contains(name, "django") {
-		return PodTypeDjango
+		return "django"
 	}
 	if strings.Contains(image, "fastapi") || strings.Contains(name, "fastapi") {
-		return PodTypeFastAPI
+		return "fastapi"
 	}
 	if strings.Contains(image, "express") || strings.Contains(name, "express") {
-		return PodTypeExpress
+		return "express"
 	}
 
 	// Other types
 	if strings.Contains(image, "nginx") || strings.Contains(name, "nginx") {
-		return PodTypeNginx
+		return "nginx"
 	}
 	if strings.Contains(image, "llm") || strings.Contains(name, "llm") {
-		return PodTypeLLM
+		return "llm"
 	}
 
 	return ""
@@ -162,110 +138,80 @@ func getPodTypeFromDependency(name string) string {
 	switch name {
 	// Database dependencies
 	case "pg", "postgres", "postgresql":
-		return PodTypePostgres
+		return "postgres"
 	case "mysql", "mysql2":
-		return PodTypeMySQL
+		return "mysql"
 	case "neo4j-driver":
-		return PodTypeNeo4j
+		return "neo4j"
 	case "redis":
-		return PodTypeRedis
+		return "redis"
 	case "mongodb", "mongoose":
-		return PodTypeMongoDB
+		return "mongo"
 	case "pinecone-client":
-		return PodTypePinecone
+		return "pinecone"
 
 	// Frontend dependencies
 	case "react", "react-dom":
-		return PodTypeReact
+		return "react"
 	case "@angular/core":
-		return PodTypeAngular
+		return "angular"
 	case "vue":
-		return PodTypeVue
+		return "vue"
 
 	// Backend dependencies
 	case "django":
-		return PodTypeDjango
+		return "django"
 	case "fastapi":
-		return PodTypeFastAPI
+		return "fastapi"
 	case "express":
-		return PodTypeExpress
+		return "express"
 
 	// Other dependencies
 	case "nginx":
-		return PodTypeNginx
+		return "nginx"
 	case "@langchain/core", "langchain":
-		return PodTypeLLM
+		return "llm"
 	}
 
 	return ""
 }
 
-func detectServiceDependencies(dockerComposePath string) []ServiceDependency {
-	deps := []ServiceDependency{}
-	seenServices := make(map[string]bool)
+func getDependencyType(name string) string {
+	return getPodTypeFromDependency(name)
+}
 
-	// Read docker-compose.yml if it exists
-	if data, err := os.ReadFile(dockerComposePath); err == nil {
-		var compose DockerCompose
-		if err := yaml.Unmarshal(data, &compose); err == nil {
-			for name, service := range compose.Services {
-				if !seenServices[name] {
-					seenServices[name] = true
+func detectServiceDependencies(dir string) []Dependency {
+	var deps []Dependency
 
-					// Determine pod type and image
-					podType := ""
-					image := service.Image
-					switch {
-					case name == "frontend" || strings.Contains(name, "react"):
-						podType = "frontend"
-						if image == "" {
-							image = "node:18"
-						}
-					case strings.Contains(name, "redis") || strings.Contains(image, "redis"):
-						podType = "database"
-						if image == "" {
-							image = "redis:7"
-						}
-					case strings.Contains(name, "postgres") || strings.Contains(image, "postgres"):
-						podType = "database"
-						if image == "" {
-							image = "postgres:latest"
-						}
-					case strings.Contains(name, "mysql") || strings.Contains(image, "mysql"):
-						podType = "database"
-						if image == "" {
-							image = "mysql:latest"
-						}
-					case strings.Contains(name, "mongodb") || strings.Contains(image, "mongo"):
-						podType = "database"
-						if image == "" {
-							image = "mongo:latest"
-						}
-					case strings.Contains(name, "neo4j") || strings.Contains(image, "neo4j"):
-						podType = "database"
-						if image == "" {
-							image = "neo4j:latest"
-						}
-					case strings.Contains(name, "nginx") || strings.Contains(image, "nginx"):
-						podType = "nginx"
-						if image == "" {
-							image = "nginx:latest"
-						}
-					case strings.Contains(name, "llm") || strings.Contains(image, "llm"):
-						podType = "llm"
-					case strings.Contains(name, "pinecone") || strings.Contains(image, "pinecone"):
-						podType = "pinecone"
-					}
-
-					if podType != "" {
-						deps = append(deps, ServiceDependency{
-							Type:     podType,
-							Name:     name,
-							Image:    image,
-							Required: true,
-						})
-					}
+	// Check package.json for Node.js dependencies
+	if pkgJson, err := os.ReadFile(filepath.Join(dir, "package.json")); err == nil {
+		var pkg struct {
+			Dependencies    map[string]string `json:"dependencies"`
+			DevDependencies map[string]string `json:"devDependencies"`
+		}
+		if err := json.Unmarshal(pkgJson, &pkg); err == nil {
+			for name := range pkg.Dependencies {
+				if depType := getDependencyType(name); depType != "" {
+					deps = append(deps, Dependency{
+						Name:     name,
+						Type:     depType,
+						Required: true,
+					})
 				}
+			}
+		}
+	}
+
+	// Check requirements.txt for Python dependencies
+	if reqsTxt, err := os.ReadFile(filepath.Join(dir, "requirements.txt")); err == nil {
+		for _, line := range strings.Split(string(reqsTxt), "\n") {
+			name := strings.Split(strings.TrimSpace(line), "==")[0]
+			if depType := getDependencyType(name); depType != "" {
+				deps = append(deps, Dependency{
+					Name:     name,
+					Type:     depType,
+					Required: true,
+				})
 			}
 		}
 	}
@@ -273,273 +219,125 @@ func detectServiceDependencies(dockerComposePath string) []ServiceDependency {
 	return deps
 }
 
-func createDefaultConfig(projectName string, stackType string, deps []ServiceDependency) Config {
-	// First try AI-based generation
-	components := make([]string, len(deps))
-	for i, dep := range deps {
-		components[i] = dep.Type
-	}
+func createDefaultConfig(projectName, stackType string, deps []Dependency) Config {
+	config := Config{}
+	config.Application.Template.Name = projectName
+	config.Application.Template.DeploymentName = projectName
+	config.Application.Template.RegistryLogin = defaultRegistryLogin()
 
-	yamlStr, err := ai.GenerateYAML(projectName, stackType, components)
-	if err == nil {
-		// Parse generated YAML
-		var config Config
-		err = yaml.Unmarshal([]byte(yamlStr), &config)
-		if err == nil {
-			return config
-		}
-	}
-
-	// Fallback to manual template if AI generation fails
-	config := Config{
-		Application: types.Application{
-			Template: types.Template{
-				Name:           projectName,
-				DeploymentName: projectName,
-				RegistryLogin: types.RegistryAuth{
-					Registry:            "ghcr.io",
-					Username:           "<Github username>",
-					PersonalAccessToken: "<Github Packages Read-Only PAT>",
-				},
-				Build: types.Build{
-					Command: "npm install && npm run build",
-					Output:  "build",
-				},
-			},
-		},
-	}
-
-	// Add detected service dependencies
-	var pods []types.PodConfig
-	seenServices := make(map[string]bool)
-
+	// Add pods based on detected dependencies
 	for _, dep := range deps {
-		if seenServices[dep.Name] {
-			continue
-		}
-		seenServices[dep.Name] = true
-
 		switch dep.Type {
 		case "frontend":
-			pods = append(pods, types.PodConfig{
-				Type: PodTypeReact,
-				Name: "frontend",
-				Tag:  dep.Image,
-				Vars: []types.VarPair{
-					{Key: "NODE_ENV", Value: "development"},
-					{Key: "PORT", Value: "3000"},
-				},
-				ExposeHttp: true,
+			addPod(&config, "react", "frontend", true, []types.VarPair{
+				{Key: "NODE_ENV", Value: "development"},
+				{Key: "PORT", Value: "3000"},
 			})
 		case "backend":
-			pods = append(pods, types.PodConfig{
-				Type: PodTypeExpress,
-				Name: "backend",
-				Tag:  dep.Image,
-				Vars: []types.VarPair{
-					{Key: "NODE_ENV", Value: "development"},
-					{Key: "PORT", Value: "3001"},
-				},
-				ExposeHttp: true,
+			addPod(&config, "express", "backend", true, []types.VarPair{
+				{Key: "NODE_ENV", Value: "development"},
+				{Key: "PORT", Value: "5000"},
 			})
 		case "database":
-			if strings.Contains(dep.Name, "redis") || strings.Contains(dep.Image, "redis") {
-				pods = append(pods, types.PodConfig{
-					Type: PodTypeRedis,
-					Name: "redis",
-					Tag:  dep.Image,
-					Vars: []types.VarPair{
-						{Key: "REDIS_MAX_MEMORY", Value: "256mb"},
-					},
+			if strings.Contains(dep.Name, "mongodb") {
+				addPod(&config, "mongodb", "mongodb", false, []types.VarPair{
+					{Key: "MONGODB_URI", Value: "mongodb://mongodb:27017/myapp"},
 				})
-			} else if strings.Contains(dep.Name, "mongodb") || strings.Contains(dep.Image, "mongo") {
-				pods = append(pods, types.PodConfig{
-					Type: PodTypeMongoDB,
-					Name: "mongodb",
-					Tag:  dep.Image,
-					Vars: []types.VarPair{
-						{Key: "MONGO_INITDB_ROOT_USERNAME", Value: "root"},
-						{Key: "MONGO_INITDB_ROOT_PASSWORD", Value: "<your-mongodb-password>"},
-						{Key: "MONGO_INITDB_DATABASE", Value: projectName},
-					},
+			} else if strings.Contains(dep.Name, "postgres") {
+				addPod(&config, "postgres", "postgres", false, []types.VarPair{
+					{Key: "POSTGRES_DB", Value: "myapp"},
+					{Key: "POSTGRES_USER", Value: "postgres"},
+					{Key: "POSTGRES_PASSWORD", Value: "postgres"},
 				})
 			}
 		}
 	}
 
-	config.Application.Template.Pods = pods
 	return config
 }
 
-func createMERNConfig(projectName string) Config {
-	config := Config{
-		Application: types.Application{
-			Template: types.Template{
-				Name:           projectName,
-				DeploymentName: projectName,
-				RegistryLogin: types.RegistryAuth{
-					Registry:            "ghcr.io",
-					Username:           "<Github username>",
-					PersonalAccessToken: "<Github Packages Read-Only PAT>",
-				},
-				Pods: []types.PodConfig{
-					{
-						Type: PodTypeMongoDB,
-						Name: "mongodb",
-						Tag:  "mongo:4.4",
-						Vars: []types.VarPair{
-							{Key: "MONGO_INITDB_ROOT_USERNAME", Value: "root"},
-							{Key: "MONGO_INITDB_ROOT_PASSWORD", Value: "<your-mongodb-password>"},
-							{Key: "MONGO_INITDB_DATABASE", Value: projectName},
-						},
-					},
-					{
-						Type: PodTypeExpress,
-						Name: "express",
-						Tag:  "node:18",
-						Vars: []types.VarPair{
-							{Key: "PORT", Value: "3000"},
-							{Key: "NODE_ENV", Value: "development"},
-							{Key: "MONGODB_URI", Value: "mongodb://root:<your-mongodb-password>@mongodb:27017/" + projectName + "?authSource=admin"},
-						},
-					},
-					{
-						Type: PodTypeReact,
-						Name: "react",
-						Tag:  "node:18",
-						Vars: []types.VarPair{
-							{Key: "PORT", Value: "8080"},
-							{Key: "REACT_APP_API_URL", Value: "http://localhost:3000"},
-						},
-						ExposeHttp: true,
-					},
-				},
-				Build: types.Build{
-					Command: "npm install && npm run build",
-					Output:  "build",
-				},
-			},
-		},
+func createConfig(projectName, templateName string) (Config, error) {
+	cfg, exists := template.GetTemplate(templateName)
+	if !exists {
+		return Config{}, fmt.Errorf("unknown template: %s", templateName)
 	}
 
-	return config
-}
-
-func createLlamaNodeConfig(projectName string) Config {
 	config := Config{}
 	config.Application.Template.Name = projectName
-	config.Application.Template.DeploymentName = fmt.Sprintf("My %s App", strings.ToUpper("llama-node"))
-	config.Application.Template.RegistryLogin.Registry = "ghcr.io"
+	config.Application.Template.DeploymentName = projectName
+	config.Application.Template.RegistryLogin = defaultRegistryLogin()
 
-	dbPod := PodConfig{
-		Type:       PodTypePostgres,
-		Name:       "postgres",
-		Tag:        "postgres:latest",
-		ExposeHttp: false,
-		Vars: []VarPair{
-			{Key: "POSTGRES_USER", Value: "postgres"},
-			{Key: "POSTGRES_PASSWORD", Value: "passw0rd"},
-			{Key: "POSTGRES_DB", Value: "llama"},
-		},
+	// Convert template.VarPair to types.VarPair
+	for _, pod := range cfg.DefaultPods {
+		vars := make([]types.VarPair, len(pod.Vars))
+		for i, v := range pod.Vars {
+			vars[i] = types.VarPair{
+				Key:   v.Key,
+				Value: v.Value,
+			}
+		}
+		addPod(&config, pod.Type, pod.Name, pod.ExposeHttp, vars)
 	}
 
-	appPod := PodConfig{
-		Type:       PodTypeExpress,
-		Name:       "app",
-		Tag:        "ghcr.io/your-username/llama-app:latest",
-		ExposeHttp: true,
-		Vars: []VarPair{
-			{Key: "DATABASE_URL", Value: "postgresql://postgres:passw0rd@postgres:5432/llama"},
-			{Key: "MODEL_PATH", Value: "/models/llama-2-70b-chat.Q4_K_M.gguf"},
-			{Key: "NUM_GPU_LAYERS", Value: "35"},
-			{Key: "CONTEXT_SIZE", Value: "4096"},
-			{Key: "NUM_THREADS", Value: "4"},
-			{Key: "GPU_LAYERS", Value: "all"},
-		},
-	}
-
-	config.Application.Template.Pods = []PodConfig{dbPod, appPod}
-
-	return config
+	return config, nil
 }
 
-func createLlamaPyConfig(projectName string) Config {
-	config := Config{}
-	config.Application.Template.Name = projectName
-	config.Application.Template.DeploymentName = fmt.Sprintf("My %s App", strings.ToUpper("llama-py"))
-	config.Application.Template.RegistryLogin.Registry = "ghcr.io"
-
-	dbPod := PodConfig{
-		Type:       PodTypeMongoDB,
-		Name:       "mongodb",
-		Tag:        "mongo:latest",
-		ExposeHttp: false,
-		Vars: []VarPair{
-			{Key: "MONGO_INITDB_ROOT_USERNAME", Value: "mongo"},
-			{Key: "MONGO_INITDB_ROOT_PASSWORD", Value: "passw0rd"},
-			{Key: "MONGO_INITDB_DATABASE", Value: "llama"},
-		},
-	}
-
-	appPod := PodConfig{
-		Type:       PodTypeFastAPI,
-		Name:       "app",
-		Tag:        "ghcr.io/your-username/llama-app:latest",
-		ExposeHttp: true,
-		Vars: []VarPair{
-			{Key: "MONGODB_URL", Value: "DATABASE_CONNECTION_STRING"},
-			{Key: "MODEL_PATH", Value: "/models/llama-2-70b-chat.Q4_K_M.gguf"},
-			{Key: "NUM_GPU_LAYERS", Value: "35"},
-			{Key: "CONTEXT_SIZE", Value: "4096"},
-			{Key: "NUM_THREADS", Value: "4"},
-			{Key: "USE_MLOCK", Value: "true"},
-			{Key: "GPU_LAYERS", Value: "all"},
-		},
-	}
-
-	config.Application.Template.Pods = []PodConfig{dbPod, appPod}
-
-	return config
+func createLlamaPyConfig(projectName string) (Config, error) {
+	return createConfig(projectName, StackLlamaPy)
 }
 
-func createHuggingFaceConfig(projectName string) Config {
-	config := Config{}
-	config.Application.Template.Name = projectName
-	config.Application.Template.DeploymentName = fmt.Sprintf("My %s App", strings.ToUpper("huggingface"))
-	config.Application.Template.RegistryLogin.Registry = "ghcr.io"
-
-	backendPod := PodConfig{
-		Type:       PodTypeFastAPI,
-		Name:       "backend",
-		Tag:        "ghcr.io/your-username/hf-app:latest",
-		ExposeHttp: false,
-		Vars: []VarPair{
-			{Key: "HF_API_KEY", Value: "your-huggingface-api-key"},
-			{Key: "MODEL_ID", Value: "mistralai/Mixtral-8x7B-Instruct-v0.1"},
-			{Key: "CUDA_VISIBLE_DEVICES", Value: "0"},
-			{Key: "MAX_LENGTH", Value: "2048"},
-			{Key: "TOP_K", Value: "50"},
-			{Key: "TOP_P", Value: "0.9"},
-		},
-	}
-
-	frontendPod := PodConfig{
-		Type:       PodTypeNginx,
-		Name:       "frontend",
-		Tag:        "ghcr.io/your-username/hf-frontend:latest",
-		ExposeHttp: true,
-		Vars: []VarPair{
-			{Key: "BACKEND_URL", Value: "BACKEND_CONNECTION_URL"},
-			{Key: "VITE_API_URL", Value: "/api"},
-		},
-	}
-
-	config.Application.Template.Pods = []PodConfig{backendPod, frontendPod}
-
-	return config
+func createHuggingFaceConfig(projectName string) (Config, error) {
+	return createConfig(projectName, StackHuggingface)
 }
 
-func createMLConfig(projectName string, stackType string) Config {
+func defaultRegistryLogin() RegistryAuth {
+	return RegistryAuth{
+		Registry:            "ghcr.io",
+		Username:           "<Github username>",
+		PersonalAccessToken: "<Github Packages Read-Only PAT>",
+	}
+}
+
+func createKubeflowConfig(projectName string) (Config, error) {
+	cfg := Config{}
+	cfg.Application.Template.Name = projectName
+	cfg.Application.Template.DeploymentName = projectName
+	cfg.Application.Template.RegistryLogin = defaultRegistryLogin()
+
+	// Add Kubeflow-specific pods
+	addPod(&cfg, "kubeflow", "notebook", true, []types.VarPair{
+		{Key: "JUPYTER_ENABLE_LAB", Value: "yes"},
+		{Key: "NB_PREFIX", Value: "/"},
+	})
+
+	return cfg, nil
+}
+
+func createLlamaNodeConfig(projectName string) (Config, error) {
+	return createConfig(projectName, StackLlamaNode)
+}
+
+func createLlamaJSConfig(projectName string) (Config, error) {
+	return createConfig(projectName, StackLlamaJS)
+}
+
+func createAnthropicNodeConfig(projectName string) (Config, error) {
+	return createConfig(projectName, StackAnthropicNode)
+}
+
+func createAnthropicJSConfig(projectName string) (Config, error) {
+	return createConfig(projectName, StackAnthropicJS)
+}
+
+func createMernConfig(projectName string) (Config, error) {
+	return createConfig(projectName, StackMERN)
+}
+
+func createNextjsConfig(projectName string) (Config, error) {
+	return createConfig(projectName, StackNextJS)
+}
+
+func createMLConfig(projectName string, stackType string) (Config, error) {
 	var config Config
 	config.Application.Template.Name = projectName
 	config.Application.Template.DeploymentName = projectName
@@ -566,7 +364,7 @@ func createMLConfig(projectName string, stackType string) Config {
 				Type: "llm",
 				Name: "mlflow-server",
 				Tag:  "mlflow:latest",
-				Vars: []VarPair{
+				Vars: []types.VarPair{
 					{Key: "MLFLOW_TRACKING_URI", Value: "http://localhost:5000"},
 					{Key: "MLFLOW_S3_ENDPOINT_URL", Value: "http://minio:9000"},
 					{Key: "AWS_ACCESS_KEY_ID", Value: "minioadmin"},
@@ -578,7 +376,7 @@ func createMLConfig(projectName string, stackType string) Config {
 				Type: "database",
 				Name: "minio",
 				Tag:  "minio/minio:latest",
-				Vars: []VarPair{
+				Vars: []types.VarPair{
 					{Key: "MINIO_ROOT_USER", Value: "minioadmin"},
 					{Key: "MINIO_ROOT_PASSWORD", Value: "minioadmin"},
 				},
@@ -586,103 +384,19 @@ func createMLConfig(projectName string, stackType string) Config {
 		}
 	}
 
-	return config
+	return config, nil
 }
 
-func createMEANConfig(projectName string) Config {
-	config := Config{
-		Application: types.Application{
-			Template: types.Template{
-				Name:           projectName,
-				DeploymentName: projectName,
-			},
-		},
-	}
-
-	// Add MongoDB
-	addPod(&config, "database", "mongodb", false, []VarPair{
-		{Key: "MONGODB_PORT", Value: "27017"},
-	})
-
-	// Add Express backend
-	addPod(&config, "backend", "express", true, []VarPair{
-		{Key: "PORT", Value: "3000"},
-		{Key: "NODE_ENV", Value: "development"},
-		{Key: "MONGODB_URL", Value: "mongodb://mongodb:27017/" + projectName},
-	})
-
-	// Add Angular frontend
-	addPod(&config, "frontend", "angular", true, []VarPair{
-		{Key: "PORT", Value: "4200"},
-		{Key: "BACKEND_URL", Value: "http://express:3000"},
-	})
-
-	return config
+func createMEANConfig(projectName string) (Config, error) {
+	return createConfig(projectName, StackMEAN)
 }
 
-func createMEVNConfig(projectName string) Config {
-	config := Config{
-		Application: types.Application{
-			Template: types.Template{
-				Name:           projectName,
-				DeploymentName: projectName,
-			},
-		},
-	}
-
-	// Add MongoDB
-	addPod(&config, "database", "mongodb", false, []VarPair{
-		{Key: "MONGODB_PORT", Value: "27017"},
-	})
-
-	// Add Express backend
-	addPod(&config, "backend", "express", true, []VarPair{
-		{Key: "PORT", Value: "3000"},
-		{Key: "NODE_ENV", Value: "development"},
-		{Key: "MONGODB_URL", Value: "mongodb://mongodb:27017/" + projectName},
-	})
-
-	// Add Vue.js frontend
-	addPod(&config, "frontend", "vue", true, []VarPair{
-		{Key: "PORT", Value: "8080"},
-		{Key: "BACKEND_URL", Value: "http://express:3000"},
-	})
-
-	return config
+func createMEVNConfig(projectName string) (Config, error) {
+	return createConfig(projectName, StackMEVN)
 }
 
-func createPERNConfig(projectName string) Config {
-	config := Config{
-		Application: types.Application{
-			Template: types.Template{
-				Name:           projectName,
-				DeploymentName: projectName,
-			},
-		},
-	}
-
-	// Add PostgreSQL
-	addPod(&config, "database", "postgres", false, []VarPair{
-		{Key: "POSTGRES_DB", Value: projectName},
-		{Key: "POSTGRES_USER", Value: "postgres"},
-		{Key: "POSTGRES_PASSWORD", Value: "postgres"},
-		{Key: "POSTGRES_PORT", Value: "5432"},
-	})
-
-	// Add Express backend
-	addPod(&config, "backend", "express", true, []VarPair{
-		{Key: "PORT", Value: "3000"},
-		{Key: "NODE_ENV", Value: "development"},
-		{Key: "DATABASE_URL", Value: "postgresql://postgres:postgres@postgres:5432/" + projectName},
-	})
-
-	// Add React frontend
-	addPod(&config, "frontend", "react", true, []VarPair{
-		{Key: "PORT", Value: "3000"},
-		{Key: "BACKEND_URL", Value: "http://express:3000"},
-	})
-
-	return config
+func createPERNConfig(projectName string) (Config, error) {
+	return createConfig(projectName, StackPERN)
 }
 
 func setBuildConfig(config *Config, stackType string) {
@@ -744,26 +458,27 @@ func NewCommand() *cobra.Command {
 			// Create config based on template type
 			switch templateFlag {
 			case "mern":
-				config = createMERNConfig(projectName)
+				config, _ = createMernConfig(projectName)
 			case "mean":
-				config = createMEANConfig(projectName)
+				config, _ = createMEANConfig(projectName)
 			case "mevn":
-				config = createMEVNConfig(projectName)
+				config, _ = createMEVNConfig(projectName)
 			case "pern":
-				config = createPERNConfig(projectName)
+				config, _ = createPERNConfig(projectName)
 			case "kubeflow":
-				config = templates.CreateKubeflowConfig(projectName)
+				config, _ = createKubeflowConfig(projectName)
 			case "mlflow":
-				config = createMLConfig(projectName, templateFlag)
+				config, _ = createMLConfig(projectName, templateFlag)
 			case "openai-node":
-				config = createLlamaNodeConfig(projectName)
+				config, _ = createLlamaNodeConfig(projectName)
 			case "openai-py":
-				config = createLlamaPyConfig(projectName)
+				config, _ = createLlamaPyConfig(projectName)
 			case "huggingface":
-				config = createHuggingFaceConfig(projectName)
+				config, _ = createHuggingFaceConfig(projectName)
 			default:
 				// For unknown templates, detect project type and dependencies
-				stackType, deps := detectProjectType(".")
+				deps := detectServiceDependencies(".")
+				stackType := detectStackType(deps)
 				config = createDefaultConfig(projectName, stackType, deps)
 			}
 
@@ -862,10 +577,6 @@ func detectPort(projectType string) int {
 		return 3000
 	case StackOpenAIPy:
 		return 8000
-	case StackLlamaNode:
-		return 3000
-	case StackLlamaPy:
-		return 8000
 	case StackVertexAI:
 		return 8080
 	case StackHuggingface:
@@ -896,19 +607,29 @@ func writeConfig(config Config, filename string) error {
 func detectProjectType(dir string) (string, []ServiceDependency) {
 	// Detect service dependencies from docker-compose.yml
 	deps := detectServiceDependencies(filepath.Join(dir, "docker-compose.yml"))
+	
+	// Convert Dependency to ServiceDependency
+	serviceDeps := make([]ServiceDependency, len(deps))
+	for i, dep := range deps {
+		serviceDeps[i] = ServiceDependency{
+			Name:     dep.Name,
+			Type:     dep.Type,
+			Required: dep.Required,
+		}
+	}
 
 	// Check for package.json
 	if _, err := os.ReadFile(filepath.Join(dir, "package.json")); err == nil {
-		return StackOpenAINode, deps
+		return StackOpenAINode, serviceDeps
 	}
 
 	// Check for pyproject.toml
 	if _, err := os.ReadFile(filepath.Join(dir, "pyproject.toml")); err == nil {
-		return StackOpenAIPy, deps
+		return StackOpenAIPy, serviceDeps
 	}
 
 	// Default to Node.js if no specific markers found
-	return StackOpenAINode, deps
+	return StackOpenAINode, serviceDeps
 }
 
 type PackageJSON struct {
@@ -921,9 +642,70 @@ type PyProject struct {
 	} `toml:"project"`
 }
 
-type ServiceDependency struct {
-	Name     string
-	Type     string
-	Image    string
-	Required bool
+type DockerCompose struct {
+	Services map[string]struct {
+		Image       string            `yaml:"image"`
+		Build       string            `yaml:"build"`
+		Environment []string          `yaml:"environment"`
+		Env         map[string]string `yaml:"env"`
+	} `yaml:"services"`
+}
+
+func detectStackType(deps []Dependency) string {
+	hasReact := false
+	hasExpress := false
+	hasMongo := false
+	hasPostgres := false
+	hasAngular := false
+	hasVue := false
+	hasNextJS := false
+	hasLlama := false
+	hasAnthropic := false
+
+	for _, dep := range deps {
+		switch dep.Type {
+		case "react", "react-dom":
+			hasReact = true
+		case "express":
+			hasExpress = true
+		case "mongodb", "mongoose":
+			hasMongo = true
+		case "pg", "postgres":
+			hasPostgres = true
+		case "@angular/core":
+			hasAngular = true
+		case "vue":
+			hasVue = true
+		case "next":
+			hasNextJS = true
+		case "llama":
+			hasLlama = true
+		case "@anthropic-ai/sdk":
+			hasAnthropic = true
+		}
+	}
+
+	// Determine stack type based on combinations
+	switch {
+	case hasReact && hasExpress && hasMongo:
+		return StackMERN
+	case hasAngular && hasExpress && hasMongo:
+		return StackMEAN
+	case hasVue && hasExpress && hasMongo:
+		return StackMEVN
+	case hasReact && hasExpress && hasPostgres:
+		return StackPERN
+	case hasNextJS:
+		return StackNextJS
+	case hasLlama && hasNextJS:
+		return StackLlamaJS
+	case hasLlama:
+		return StackLlamaNode
+	case hasAnthropic && hasNextJS:
+		return StackAnthropicJS
+	case hasAnthropic:
+		return StackAnthropicNode
+	default:
+		return ""
+	}
 }
