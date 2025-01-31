@@ -421,9 +421,19 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init [project-name]",
 		Short: "Initialize a new Nexlayer project",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			projectName := args[0]
+			var projectName string
+			if len(args) > 0 {
+				projectName = args[0]
+			} else {
+				// Use current directory name as project name
+				dir, err := os.Getwd()
+				if err != nil {
+					return fmt.Errorf("failed to get current directory: %w", err)
+				}
+				projectName = filepath.Base(dir)
+			}
 
 			// If no template specified, show interactive prompt
 			if templateFlag == "" {
