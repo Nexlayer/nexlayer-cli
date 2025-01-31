@@ -6,7 +6,7 @@
 [![GoDoc](https://godoc.org/github.com/Nexlayer/nexlayer-cli?status.svg)](https://godoc.org/github.com/Nexlayer/nexlayer-cli)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Deploy AI applications in seconds**
+**Deploy full-stack AI-powered applications in seconds**
 
 [Quick Start](#quick-start) • [Templates](#templates) • [Examples](#stack-examples) • [Docs](https://docs.nexlayer.com)
 
@@ -34,9 +34,15 @@
 
 2. **Initialize a New Project**
    ```bash
-   nexlayer init myapp
+   nexlayer init
    ```
-   This automatically detects your stack, creates a `nexlayer.yaml` configuration file, and prepares the project for deployment.
+   Run this command in your project directory. It will use the directory name as your project name and create a `nexlayer.yaml` configuration file.
+
+   You can also specify a custom project name if desired:
+   ```bash
+   nexlayer init custom-name
+   ```
+   Replace `custom-name` with whatever name you want to give your project (e.g., `my-api`, `chat-app`, etc.).
 
 3. **Deploy Your App**
    ```bash
@@ -52,12 +58,12 @@
 
 ## Hello World in 30 Seconds
 
-Want to see how easy it is? Deploy a modern FastAPI app with just four commands:
+Want to see how easy it is? Deploy a modern FastAPI app with just three commands:
 
 ```bash
-mkdir hello-world
-cd hello-world
-nexlayer init hello-world -t fastapi
+mkdir my-fastapi-app
+cd my-fastapi-app
+nexlayer init -t fastapi
 nexlayer deploy
 ```
 
@@ -146,7 +152,7 @@ Want to try other stacks? Replace `fastapi` with:
 
 Nexlayer provides a variety of templates to help you get started quickly. Templates are organized into three categories:
 
-### Web Applications
+### Traditional Full-Stack Web Applications
 Traditional web application stacks:
 - `mern`: MongoDB, Express, React, Node.js
 - `mean`: MongoDB, Express, Angular, Node.js
@@ -669,6 +675,32 @@ Nexlayer does not provide model performance monitoring, but you can integrate wi
 | Experiment Tracking | MLflow | Logs & versions model experiments |
 
 > 📝 Nexlayer handles logs; you can integrate with any third-party tool for model performance tracking.
+
+## CLI Performance & Features
+
+### High-Performance Design
+The Nexlayer CLI is built for speed and reliability:
+- **Lazy Loading**: Configuration is loaded only when needed
+- **Structured Logging**: High-performance logging with detailed debugging capabilities
+- **Smart Timeouts**: Automatic timeouts for long-running commands
+- **Environment Variables**: Override any config setting with environment variables
+- **Multiple Config Locations**: Searches for config in:
+  - `$HOME/.config/nexlayer/config.yaml`
+  - `./config.yaml` (current directory)
+
+### JSON Output
+All commands support JSON output for easy parsing:
+```bash
+nexlayer deploy --json
+nexlayer status --json
+```
+
+### Error Handling
+Comprehensive error reporting with:
+- Structured error messages
+- Stack traces in development
+- JSON-formatted errors (with --json flag)
+- Detailed logging for debugging
 
 ## Local Development
 
