@@ -60,42 +60,46 @@ func getDefaultImage(podType string, tag string) string {
 }
 
 func newGenerateCommand() *cobra.Command {
-	return &cobra.Command{
+	var configFile string
+	cmd := &cobra.Command{
 		Use:   "generate",
 		Short: "Generate docker-compose.yml from nexlayer.yaml",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Find nexlayer.yaml in current directory
-			files, err := filepath.Glob("*.yaml")
-			if err != nil {
-				return err
-			}
+			// Use specified file or find nexlayer.yaml in current directory
+			if configFile == "" {
+				files, err := filepath.Glob("*.yaml")
+				if err != nil {
+					return fmt.Errorf("failed to search for yaml files: %w", err)
+				}
 
-			var nexlayerFile string
-			for _, f := range files {
-				if f != "docker-compose.yaml" && f != "docker-compose.yml" {
-					nexlayerFile = f
-					break
+				for _, f := range files {
+					if f != "docker-compose.yaml" && f != "docker-compose.yml" {
+						configFile = f
+						break
+					}
+				}
+
+				if configFile == "" {
+					return fmt.Errorf("no nexlayer.yaml file found in current directory")
 				}
 			}
 
-			if nexlayerFile == "" {
-				return fmt.Errorf("no nexlayer.yaml file found in current directory")
-			}
-
 			// Read nexlayer.yaml
-			data, err := os.ReadFile(nexlayerFile)
+			data, err := os.ReadFile(configFile)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to read config file %s: %w", configFile, err)
 			}
 
 			var config struct {
 				Application struct {
 					Template struct {
-						Pods []struct {
+						Name           string `yaml:"name"`
+						DeploymentName string `yaml:"deploymentname"`
+						Pods          []struct {
 							Type       string `yaml:"type"`
 							Name       string `yaml:"name"`
 							Tag        string `yaml:"tag"`
-							ExposeHttp bool   `yaml:"exposeHttp"`
+							ExposeHttp bool   `yaml:"exposehttp"`
 							Vars       []struct {
 								Key   string `yaml:"key"`
 								Value string `yaml:"value"`
@@ -106,24 +110,23 @@ func newGenerateCommand() *cobra.Command {
 			}
 
 			if err := yaml.Unmarshal(data, &config); err != nil {
-				return err
+				return fmt.Errorf("failed to parse config file: %w", err)
 			}
 
-			// Create docker-compose.yml
+			// Create docker-compose config
 			compose := DockerCompose{
 				Version:  "3.8",
 				Services: make(map[string]Service),
 				Networks: map[string]interface{}{
-					"nexlayer": nil,
+					"app-network": nil,
 				},
 			}
 
-			// Convert pods to services
+			// Add services for each pod
 			for _, pod := range config.Application.Template.Pods {
 				service := Service{
-					Image:       getDefaultImage(pod.Type, pod.Tag),
-					Networks:    []string{"nexlayer"},
-					Environment: make([]string, 0),
+					Image:    getDefaultImage(pod.Type, pod.Tag),
+					Networks: []string{"app-network"},
 				}
 
 				// Add environment variables
@@ -131,13 +134,15 @@ func newGenerateCommand() *cobra.Command {
 					service.Environment = append(service.Environment, fmt.Sprintf("%s=%s", v.Key, v.Value))
 				}
 
-				// Add ports if service exposes HTTP
+				// Add ports for HTTP-exposed services
 				if pod.ExposeHttp {
-					for _, v := range pod.Vars {
-						if v.Key == "PORT" {
-							service.Ports = append(service.Ports, fmt.Sprintf("%s:%s", v.Value, v.Value))
-							break
-						}
+					switch pod.Type {
+					case "frontend":
+						service.Ports = []string{"3000:3000"}
+					case "backend":
+						service.Ports = []string{"5000:5000"}
+					case "nginx":
+						service.Ports = []string{"80:80"}
 					}
 				}
 
@@ -147,12 +152,20 @@ func newGenerateCommand() *cobra.Command {
 			// Write docker-compose.yml
 			output, err := yaml.Marshal(compose)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to generate docker-compose.yml: %w", err)
 			}
 
-			return os.WriteFile("docker-compose.yml", output, 0644)
+			if err := os.WriteFile("docker-compose.yml", output, 0644); err != nil {
+				return fmt.Errorf("failed to write docker-compose.yml: %w", err)
+			}
+
+			fmt.Println("Successfully generated docker-compose.yml")
+			return nil
 		},
 	}
+
+	cmd.Flags().StringVarP(&configFile, "file", "f", "", "Path to nexlayer.yaml file")
+	return cmd
 }
 
 func newUpCommand() *cobra.Command {

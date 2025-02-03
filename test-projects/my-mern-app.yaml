@@ -1,0 +1,26 @@
+application:
+    template:
+        name: my-mern-app
+        deploymentname: my-mern-app
+        registrylogin:
+            registry: ghcr.io
+            username: <Github username>
+            personalaccesstoken: <Github Packages Read-Only PAT>
+        pods:
+            - type: mongodb
+              name: database
+              tag: ""
+              exposehttp: false
+              vars:
+                - key: MONGO_INITDB_ROOT_USERNAME
+                  value: root
+                - key: MONGO_INITDB_ROOT_PASSWORD
+                  value: '{{password}}'
+            - type: express
+              name: backend
+              tag: ""
+              exposehttp: true
+              vars: []
+        build:
+            command: ""
+            output: ""

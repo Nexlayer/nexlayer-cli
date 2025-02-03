@@ -59,7 +59,97 @@ var Registry = map[string]Config{
 	},
 }
 
+type TemplateCategory struct {
+	Name        string
+	Description string
+	Templates   []Template
+}
+
+type Template struct {
+	ID          string
+	Name        string
+	Description string
+	Type        string
+}
+
 func GetTemplate(name string) (Config, bool) {
 	cfg, exists := Registry[name]
 	return cfg, exists
+}
+
+func GetCategories() []TemplateCategory {
+	return []TemplateCategory{
+		{
+			Name:        "Web Applications",
+			Description: "Templates for web applications",
+			Templates: []Template{
+				{
+					ID:          "react",
+					Name:        "React",
+					Description: "React web application",
+					Type:        "frontend",
+				},
+				{
+					ID:          "vue",
+					Name:        "Vue.js",
+					Description: "Vue.js web application",
+					Type:        "frontend",
+				},
+				{
+					ID:          "angular",
+					Name:        "Angular",
+					Description: "Angular web application",
+					Type:        "frontend",
+				},
+			},
+		},
+		{
+			Name:        "Backend Services",
+			Description: "Templates for backend services",
+			Templates: []Template{
+				{
+					ID:          "express",
+					Name:        "Express.js",
+					Description: "Express.js backend service",
+					Type:        "backend",
+				},
+				{
+					ID:          "fastapi",
+					Name:        "FastAPI",
+					Description: "FastAPI backend service",
+					Type:        "backend",
+				},
+				{
+					ID:          "django",
+					Name:        "Django",
+					Description: "Django backend service",
+					Type:        "backend",
+				},
+			},
+		},
+		{
+			Name:        "Machine Learning",
+			Description: "Templates for machine learning applications",
+			Templates: []Template{
+				{
+					ID:          "kubeflow",
+					Name:        "Kubeflow",
+					Description: "Kubeflow pipeline template",
+					Type:        "llm",
+				},
+			},
+		},
+	}
+}
+
+func GetTemplateByID(id string) *Template {
+	categories := GetCategories()
+	for _, category := range categories {
+		for _, template := range category.Templates {
+			if template.ID == id {
+				return &template
+			}
+		}
+	}
+	return nil
 }

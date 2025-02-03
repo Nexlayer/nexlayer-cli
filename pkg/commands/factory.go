@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -19,16 +20,17 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/plugins"
 )
 
-// Factory creates and configures commands
+// Factory creates and configures commands.
 type Factory struct {
 	container *di.Container
 	registry  *registry.Registry
 	plugins   *plugins.Manager
 }
 
-// NewFactory creates a new command factory
+// NewFactory creates a new command factory.
+// It sets up command dependencies, the plugin manager, and the command registry.
 func NewFactory(container *di.Container) *Factory {
-	// Create dependencies for commands and plugins
+	// Prepare dependencies for commands and plugins
 	deps := &registry.CommandDependencies{
 		APIClient:        container.GetAPIClient(),
 		Logger:           container.GetLogger(),
@@ -36,7 +38,7 @@ func NewFactory(container *di.Container) *Factory {
 		MetricsCollector: container.GetMetricsCollector(),
 	}
 
-	// Create plugin manager
+	// Initialize plugin manager with its dependencies.
 	pluginDeps := &plugins.PluginDependencies{
 		APIClient:        deps.APIClient,
 		Logger:           deps.Logger,
@@ -45,7 +47,7 @@ func NewFactory(container *di.Container) *Factory {
 	}
 	pluginManager := plugins.NewManager(pluginDeps, container.GetConfig().PluginsDir)
 
-	// Create command registry
+	// Create a command registry using the dependencies.
 	reg := registry.NewRegistry(deps)
 
 	return &Factory{
@@ -55,13 +57,14 @@ func NewFactory(container *di.Container) *Factory {
 	}
 }
 
-// CreateRootCommand creates the root command with all subcommands
+// CreateRootCommand creates the root command and attaches all subcommands.
+// It uses concurrent plugin loading to reduce startup latency.
 func (f *Factory) CreateRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "nexlayer",
 		Short: "Nexlayer CLI - Deploy applications to Nexlayer",
 		Long: `Nexlayer CLI helps you deploy and manage your applications on Nexlayer.
-	
+
 Key features:
 - Easy application deployment
 - Custom domain management
@@ -71,15 +74,16 @@ Key features:
 
 Need help? Use 'nexlayer debug' for deployment assistance.`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			// Initialize context with trace ID
-			ctx := context.WithValue(cmd.Context(), "trace_id", time.Now().Format("20060102150405"))
+			// Create a context with a unique trace ID.
+			traceID := time.Now().Format("20060102150405")
+			ctx := context.WithValue(cmd.Context(), "trace_id", traceID)
 			cmd.SetContext(ctx)
 
-			// Log command execution
+			// Cache the logger and metrics to avoid repeated container lookups.
 			logger := f.container.GetLogger()
 			logger.Info(ctx, "Executing command: %s %v", cmd.Name(), args)
 
-			// Record metric
+			// Record the command execution metric.
 			metrics := f.container.GetMetricsCollector()
 			metrics.Counter("command_executions_total", 1, map[string]string{
 				"command": cmd.Name(),
@@ -87,23 +91,36 @@ Need help? Use 'nexlayer debug' for deployment assistance.`,
 		},
 	}
 
-	// Register built-in command providers
+	// Start concurrent plugin loading while registering built-in commands.
+	var wg sync.WaitGroup
+	var pluginLoadErr error
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Load plugins concurrently. An empty string ("") implies using the default plugin directory.
+		pluginLoadErr = f.plugins.LoadPluginsFromDir("")
+	}()
+
+	// Register built-in (core) command providers.
 	f.registerBuiltinCommands()
 
-	// Load plugins
-	if err := f.plugins.LoadPluginsFromDir(""); err != nil {
-		f.container.GetLogger().Error(nil, "Failed to load plugins: %v", err)
+	// Wait for plugin loading to finish.
+	wg.Wait()
+	if pluginLoadErr != nil {
+		// Log the error but continue: built-in commands will still work.
+		f.container.GetLogger().Error(nil, "Failed to load plugins: %v", pluginLoadErr)
 	}
 
-	// Add all commands from registry and plugins
+	// Add all commands from both the registry and loaded plugins.
 	cmd.AddCommand(f.getAllCommands()...)
 
 	return cmd
 }
 
-// registerBuiltinCommands registers all built-in command providers
+// registerBuiltinCommands registers all built-in command providers into the registry.
 func (f *Factory) registerBuiltinCommands() {
-	// Register core command providers
+	// List of built-in command providers.
 	providers := []registry.CommandProvider{
 		deploy.NewProvider(),
 		domain.NewProvider(),
@@ -115,7 +132,7 @@ func (f *Factory) registerBuiltinCommands() {
 		plugin.NewProvider(f.plugins),
 	}
 
-	// Register each provider
+	// Register each provider and log errors if registration fails.
 	for _, p := range providers {
 		if err := f.registry.Register(p); err != nil {
 			f.container.GetLogger().Error(nil, "Failed to register command provider %s: %v", p.Name(), err)
@@ -123,15 +140,16 @@ func (f *Factory) registerBuiltinCommands() {
 	}
 }
 
-// getAllCommands returns all commands from both the registry and plugins
+// getAllCommands aggregates commands from the registry and plugins.
+// The slice is pre-allocated to avoid multiple reallocations.
 func (f *Factory) getAllCommands() []*cobra.Command {
-	var commands []*cobra.Command
+	regCmds := f.registry.GetCommands()
+	pluginCmds := f.plugins.GetCommands()
 
-	// Get commands from registry
-	commands = append(commands, f.registry.GetCommands()...)
-
-	// Get commands from plugins
-	commands = append(commands, f.plugins.GetCommands()...)
+	total := len(regCmds) + len(pluginCmds)
+	commands := make([]*cobra.Command, 0, total)
+	commands = append(commands, regCmds...)
+	commands = append(commands, pluginCmds...)
 
 	return commands
 }

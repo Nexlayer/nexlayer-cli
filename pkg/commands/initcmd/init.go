@@ -1,17 +1,19 @@
 package initcmd
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
-
+	
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
+	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/template"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/types"
 	"github.com/pterm/pterm"
-	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v3"
+	"encoding/json"
+	"path/filepath"
+	"strings"
 )
 
 const (
@@ -225,16 +227,30 @@ func createDefaultConfig(projectName, stackType string, deps []Dependency) Confi
 	config.Application.Template.DeploymentName = projectName
 	config.Application.Template.RegistryLogin = defaultRegistryLogin()
 
-	// Add pods based on detected dependencies
+	// Add pods based on detected dependencies and stack type
 	for _, dep := range deps {
 		switch dep.Type {
 		case "frontend":
-			addPod(&config, "react", "frontend", true, []types.VarPair{
+			// Customize frontend based on stack type
+			podType := "react" // default
+			if strings.Contains(stackType, "vue") {
+				podType = "vue"
+			} else if strings.Contains(stackType, "angular") {
+				podType = "angular"
+			}
+			addPod(&config, podType, "frontend", true, []types.VarPair{
 				{Key: "NODE_ENV", Value: "development"},
 				{Key: "PORT", Value: "3000"},
 			})
 		case "backend":
-			addPod(&config, "express", "backend", true, []types.VarPair{
+			// Customize backend based on stack type
+			podType := "express" // default
+			if strings.Contains(stackType, "fastapi") {
+				podType = "fastapi"
+			} else if strings.Contains(stackType, "django") {
+				podType = "django"
+			}
+			addPod(&config, podType, "backend", true, []types.VarPair{
 				{Key: "NODE_ENV", Value: "development"},
 				{Key: "PORT", Value: "5000"},
 			})
@@ -414,7 +430,67 @@ func setBuildConfig(config *Config, stackType string) {
 	}
 }
 
-// NewCommand creates a new init command
+type initCommand struct {
+	projectName  string
+	templateType string
+	registry     string
+	username     string
+	token        string
+}
+
+func (c *initCommand) generateTemplate(ctx context.Context) error {
+	// Use AI provider for template generation if available
+	aiReq := ai.TemplateRequest{
+		ProjectName:  c.projectName,
+		TemplateType: c.templateType,
+		RequiredFields: map[string]interface{}{
+			"registryLogin": map[string]string{
+				"registry":            c.registry,
+				"username":           c.username,
+				"personalAccessToken": c.token,
+			},
+		},
+	}
+
+	template, err := ai.GenerateTemplate(ctx, aiReq)
+	if err != nil {
+		// Fallback to standard template if AI generation fails
+		return c.generateStandardTemplate()
+	}
+
+	// Write the template to deployment.yaml
+	return c.writeTemplate(template)
+}
+
+func (c *initCommand) generateStandardTemplate() error {
+	// Implementation of standard template generation
+	template := fmt.Sprintf(`application:
+  template:
+    name: "%s"
+    deploymentName: "%s"
+    registryLogin:
+      registry: "%s"
+      username: "%s"
+      personalAccessToken: "%s"
+    pods:
+      - type: backend
+        name: api
+        tag: "node:18"
+        vars:
+          - key: PORT
+            value: "3000"
+          - key: NODE_ENV
+            value: "development"
+    exposeHttp: true`, c.projectName, c.projectName, c.registry, c.username, c.token)
+
+	return c.writeTemplate(template)
+}
+
+func (c *initCommand) writeTemplate(template string) error {
+	// Write the template to deployment.yaml
+	return os.WriteFile("deployment.yaml", []byte(template), 0644)
+}
+
 func NewCommand() *cobra.Command {
 	var templateFlag string
 
