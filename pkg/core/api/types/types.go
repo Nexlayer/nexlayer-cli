@@ -29,21 +29,40 @@ type CreateAppRequest struct {
 	Name string `json:"name"`
 }
 
-// DeployRequest represents a deployment request
-type DeployRequest struct {
-	YAML          string `json:"yaml"`
-	ApplicationID string `json:"application_id"`
+// NexlayerYAML represents a complete Nexlayer deployment template
+type NexlayerYAML struct {
+	Application struct {
+		Template struct {
+			Name           string `yaml:"name"`
+			DeploymentName string `yaml:"deploymentName"`
+			RegistryLogin  struct {
+				Registry            string `yaml:"registry"`
+				Username            string `yaml:"username"`
+				PersonalAccessToken string `yaml:"personalAccessToken"`
+			} `yaml:"registryLogin"`
+			Pods []struct {
+				Type       string `yaml:"type"`
+				Name       string `yaml:"name"`
+				Tag        string `yaml:"tag"`
+				ExposeHTTP bool   `yaml:"exposeHttp,omitempty"`
+				Vars       []struct {
+					Key   string `yaml:"key"`
+					Value string `yaml:"value"`
+				} `yaml:"vars,omitempty"`
+			} `yaml:"pods"`
+		} `yaml:"template"`
+	} `yaml:"application"`
 }
 
 // StartDeploymentResponse represents the response from starting a deployment
 type StartDeploymentResponse struct {
+	Message   string `json:"message"`
 	Namespace string `json:"namespace"`
 	URL       string `json:"url"`
 }
 
 // SaveCustomDomainResponse represents the response from saving a custom domain
 type SaveCustomDomainResponse struct {
-	Success bool   `json:"success"`
 	Message string `json:"message"`
 }
 

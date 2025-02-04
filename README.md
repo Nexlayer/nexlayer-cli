@@ -209,33 +209,37 @@ nexlayer templates list
 ### Template Structure
 All templates follow this structure:
 ```yaml
-application:
-  template:
-    name: "project-name"
-    deploymentName: "project-name"
-    registryLogin:
-      registry: ghcr.io
-      username: <username>
-      personalAccessToken: <token>
-    pods:
-      - type: backend|frontend|database|nginx|llm
-        name: <pod-name>
-        tag: <image-tag>
-        vars:
-          - key: VAR_NAME
-            value: VALUE
+name: "project-name"           # Name of your application
+description: "stack-type"     # Type of stack (e.g., llm-express, mern, etc.)
+deploymentName: "deployment"  # Unique name for this deployment
+
+images:                        # List of containers to deploy
+  - name: "container-name"    # Name of the container
+    repositoryImage: "image"  # Full repository image path
+    imageTag: "tag"          # Image tag to use
+    cpuLimit: "2"            # CPU limit in cores
+    memoryLimit: "1Gi"       # Memory limit (supports Gi, Mi)
+    ports:                    # Port mappings
+      - container: 3000       # Container port
+        service: 80          # Service port
+        name: "port-name"    # Port name
+    envs:                     # Environment variables
+      - key: "VAR_NAME"
+        value: "VALUE"
 ```
 
-### Supported Pod Types
-- Frontend: `react`, `angular`, `vue`
-- Backend: `express`, `django`, `fastapi`
-- Database: `mongodb`, `postgres`, `redis`, `neo4j`
-- Others: `nginx` (load balancing/static assets), `llm` (custom workloads)
+### Resource Configuration
+- CPU limits are specified in cores (e.g., "0.5", "1", "2")
+- Memory limits use Kubernetes format (e.g., "512Mi", "1Gi", "2Gi")
+- Ports can be mapped from container to service with custom names
 
-### Standard Environment Variables
-- Database: `DATABASE_CONNECTION_STRING`
-- Frontend/Backend: `FRONTEND_CONNECTION_URL`, `BACKEND_CONNECTION_URL`
-- LLM: `LLM_CONNECTION_URL`
+### Environment Variables
+- Use `CANDIDATE_DEPENDENCY_URL_[N]` for service discovery
+- Common variables:
+  - `NODE_ENV`: Runtime environment
+  - `REACT_APP_*`: React application variables
+  - `DATABASE_URL`: Database connection string
+  - `API_URL`: Backend API URL
 
 ## Stack Examples
 
@@ -243,20 +247,35 @@ Here are some example configurations for popular stacks:
 
 #### MEAN Stack
 ```yaml
-application:
-  template:
-    name: mean-app
-    deploymentName: my-mean-app
-    pods:
-      - type: database
+name: mean-app
+description: mean
+deploymentName: my-mean-app
+
+images:
+  - name: mongodb
+    repositoryImage: us-east1-docker.pkg.dev/nexlayer/3rd-party/mongodb
+    imageTag: latest
+    cpuLimit: "0.5"
+    memoryLimit: 512Mi
+    ports:
+      - container: 27017
+        service: 27017
         name: mongodb
-        tag: mongodb:latest
-        vars:
-          - key: MONGODB_PORT
-            value: "27017"
-      - type: backend
+
+  - name: express
+    repositoryImage: us-east1-docker.pkg.dev/nexlayer/3rd-party/node
+    imageTag: 18
+    cpuLimit: "1"
+    memoryLimit: 1Gi
+    envs:
+      - key: MONGODB_URL
+        value: mongodb://CANDIDATE_DEPENDENCY_URL_0:27017
+      - key: NODE_ENV
+        value: production
+    ports:
+      - container: 3000
+        service: 80
         name: express
-        tag: node:18
         exposeHttp: true
         vars:
           - key: PORT

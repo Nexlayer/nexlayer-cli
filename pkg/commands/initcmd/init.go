@@ -438,8 +438,91 @@ type initCommand struct {
 	token        string
 }
 
+// checkExistingTemplate checks if a deployment.yaml exists and validates its structure
+func (c *initCommand) checkExistingTemplate() (*Config, error) {
+	filename := "deployment.yaml"
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return nil, nil // No existing template
+	}
+
+	// Read existing template
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("error reading existing template: %v", err)
+	}
+
+	// Parse existing template
+	var config Config
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("error parsing existing template: %v", err)
+	}
+
+	// Validate template structure
+	if config.Application.Template.Name == "" ||
+		config.Application.Template.DeploymentName == "" ||
+		config.Application.Template.RegistryLogin.Registry == "" {
+		return nil, fmt.Errorf("existing template is missing required fields")
+	}
+
+	return &config, nil
+}
+
+// mergeTemplates merges an existing template with new configuration
+func (c *initCommand) mergeTemplates(existing *Config, new *Config) *Config {
+	// Keep existing pods and add any new ones that don't exist
+	podMap := make(map[string]bool)
+	for _, pod := range existing.Application.Template.Pods {
+		podMap[pod.Name] = true
+	}
+
+	// Add new pods that don't exist in the existing template
+	for _, pod := range new.Application.Template.Pods {
+		if !podMap[pod.Name] {
+			existing.Application.Template.Pods = append(existing.Application.Template.Pods, pod)
+		}
+	}
+
+	// Update registry login if not present
+	if existing.Application.Template.RegistryLogin.Registry == "" {
+		existing.Application.Template.RegistryLogin = new.Application.Template.RegistryLogin
+	}
+
+	return existing
+}
+
 func (c *initCommand) generateTemplate(ctx context.Context) error {
-	// Use AI provider for template generation if available
+	// Check for existing template
+	existing, err := c.checkExistingTemplate()
+	if err != nil {
+		return fmt.Errorf("error checking existing template: %v", err)
+	}
+
+	// If no existing template, generate a new one
+	if existing == nil {
+		// Use AI provider for template generation if available
+		aiReq := ai.TemplateRequest{
+			ProjectName:  c.projectName,
+			TemplateType: c.templateType,
+			RequiredFields: map[string]interface{}{
+				"registryLogin": map[string]string{
+					"registry":            c.registry,
+					"username":           c.username,
+					"personalAccessToken": c.token,
+				},
+			},
+		}
+
+		template, err := ai.GenerateTemplate(ctx, aiReq)
+		if err != nil {
+			// Fallback to standard template if AI generation fails
+			return c.generateStandardTemplate()
+		}
+
+		// Write the template to deployment.yaml
+		return c.writeTemplate(template)
+	}
+
+	// Generate new template for merging
 	aiReq := ai.TemplateRequest{
 		ProjectName:  c.projectName,
 		TemplateType: c.templateType,
@@ -454,12 +537,27 @@ func (c *initCommand) generateTemplate(ctx context.Context) error {
 
 	template, err := ai.GenerateTemplate(ctx, aiReq)
 	if err != nil {
-		// Fallback to standard template if AI generation fails
-		return c.generateStandardTemplate()
+		// If AI generation fails, keep existing template
+		return nil
 	}
 
-	// Write the template to deployment.yaml
-	return c.writeTemplate(template)
+	// Parse new template
+	var newConfig Config
+	if err := yaml.Unmarshal([]byte(template), &newConfig); err != nil {
+		return fmt.Errorf("error parsing new template: %v", err)
+	}
+
+	// Merge templates
+	merged := c.mergeTemplates(existing, &newConfig)
+
+	// Convert merged config back to YAML
+	mergedYAML, err := yaml.Marshal(merged)
+	if err != nil {
+		return fmt.Errorf("error marshaling merged template: %v", err)
+	}
+
+	// Write the merged template
+	return c.writeTemplate(string(mergedYAML))
 }
 
 func (c *initCommand) generateStandardTemplate() error {

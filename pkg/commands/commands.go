@@ -31,7 +31,7 @@ Need help? Use 'nexlayer debug' for deployment assistance.`,
 	cmd.AddCommand(deploy.NewCommand(client))
 	cmd.AddCommand(status.NewCommand(client))
 	cmd.AddCommand(domain.NewCommand(client))
-	cmd.AddCommand(ai.NewCommand())
+	cmd.AddCommand(ai.NewAICommand())
 
 	return cmd
 }

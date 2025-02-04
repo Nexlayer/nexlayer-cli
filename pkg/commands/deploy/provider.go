@@ -3,7 +3,6 @@ package deploy
 import (
 	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/registry"
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 )
 
 type Provider struct{}
@@ -26,11 +25,7 @@ func (p *Provider) Dependencies() []string {
 }
 
 func (p *Provider) Commands(deps *registry.CommandDependencies) []*cobra.Command {
-	if apiClient, ok := deps.APIClient.(*api.Client); ok {
-		return []*cobra.Command{
-			NewCommand(apiClient),
-		}
+	return []*cobra.Command{
+		NewCommand(deps.APIClient),
 	}
-	deps.Logger.Error(nil, "Invalid API client type for deploy command")
-	return nil
 }

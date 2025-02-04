@@ -2,6 +2,7 @@ package observability
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -24,12 +25,37 @@ const (
 
 // Logger provides structured logging capabilities
 type Logger struct {
-	level  LogLevel
-	writer io.Writer
+	level    LogLevel
+	writer   io.Writer
+	jsonMode bool
+	maxSize  int64      // maximum size of log file in bytes
+	maxAge   int        // maximum number of days to retain old log files
+	rotate   *time.Time // next rotation time
+}
+
+// LoggerOption allows configuring the logger with functional options
+type LoggerOption func(*Logger)
+
+// WithJSON enables JSON-formatted logging
+func WithJSON() LoggerOption {
+	return func(l *Logger) {
+		l.jsonMode = true
+	}
+}
+
+// WithRotation enables log rotation with specified max size and age
+func WithRotation(maxSizeMB int64, maxAgeDays int) LoggerOption {
+	return func(l *Logger) {
+		l.maxSize = maxSizeMB * 1024 * 1024
+		l.maxAge = maxAgeDays
+		now := time.Now()
+		next := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+		l.rotate = &next
+	}
 }
 
 // NewLogger creates a new logger instance
-func NewLogger(level LogLevel) *Logger {
+func NewLogger(level LogLevel, opts ...LoggerOption) *Logger {
 	// Create logs directory if it doesn't exist
 	logDir := filepath.Join(os.Getenv("HOME"), ".nexlayer", "logs")
 	if err := os.MkdirAll(logDir, 0755); err != nil {
@@ -45,16 +71,30 @@ func NewLogger(level LogLevel) *Logger {
 		return &Logger{level: level, writer: os.Stdout}
 	}
 
-	// Use MultiWriter to write to both file and stdout
-	return &Logger{
-		level:  level,
-		writer: io.MultiWriter(f, os.Stdout),
+	// Create logger with defaults
+	logger := &Logger{
+		level:    level,
+		writer:   io.MultiWriter(f, os.Stdout),
+		maxSize:  50 * 1024 * 1024, // 50MB default
+		maxAge:   7,               // 7 days default
 	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(logger)
+	}
+
+	return logger
 }
 
 func (l *Logger) log(ctx context.Context, level LogLevel, msg string, args ...interface{}) {
 	if level < l.level {
 		return
+	}
+
+	// Check if rotation is needed
+	if l.rotate != nil && time.Now().After(*l.rotate) {
+		l.rotateLogFile()
 	}
 
 	// Get caller information
@@ -66,34 +106,74 @@ func (l *Logger) log(ctx context.Context, level LogLevel, msg string, args ...in
 	// Format message
 	message := fmt.Sprintf(msg, args...)
 
-	// Get trace ID from context if available
-	var traceID string
+	// Get correlation IDs from context
+	var traceID, requestID, sessionID string
 	if ctx != nil {
 		if id, ok := ctx.Value("trace_id").(string); ok {
 			traceID = id
 		}
+		if id, ok := ctx.Value("request_id").(string); ok {
+			requestID = id
+		}
+		if id, ok := ctx.Value("session_id").(string); ok {
+			sessionID = id
+		}
 	}
 
-	// Format log entry
-	var levelStr string
-	switch level {
-	case DEBUG:
-		levelStr = color.BlueString("DEBUG")
-	case INFO:
-		levelStr = color.GreenString("INFO")
-	case WARN:
-		levelStr = color.YellowString("WARN")
-	case ERROR:
-		levelStr = color.RedString("ERROR")
-	}
+	// Create log entry
+	if l.jsonMode {
+		// JSON format
+		entry := map[string]interface{}{
+			"timestamp": timestamp,
+			"level":     level.String(),
+			"file":      filepath.Base(file),
+			"line":      line,
+			"message":   message,
+		}
+		if traceID != "" {
+			entry["trace_id"] = traceID
+		}
+		if requestID != "" {
+			entry["request_id"] = requestID
+		}
+		if sessionID != "" {
+			entry["session_id"] = sessionID
+		}
 
-	logEntry := fmt.Sprintf("[%s] %s %s:%d", timestamp, levelStr, filepath.Base(file), line)
-	if traceID != "" {
-		logEntry += fmt.Sprintf(" [%s]", traceID)
-	}
-	logEntry += fmt.Sprintf(" %s\n", message)
+		jsonBytes, err := json.Marshal(entry)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error marshaling log entry: %v\n", err)
+			return
+		}
+		fmt.Fprintf(l.writer, "%s\n", jsonBytes)
+	} else {
+		// Human-readable format
+		var levelStr string
+		switch level {
+		case DEBUG:
+			levelStr = color.BlueString("DEBUG")
+		case INFO:
+			levelStr = color.GreenString("INFO")
+		case WARN:
+			levelStr = color.YellowString("WARN")
+		case ERROR:
+			levelStr = color.RedString("ERROR")
+		}
 
-	fmt.Fprint(l.writer, logEntry)
+		logEntry := fmt.Sprintf("[%s] %s %s:%d", timestamp, levelStr, filepath.Base(file), line)
+		if traceID != "" {
+			logEntry += fmt.Sprintf(" [trace:%s]", traceID)
+		}
+		if requestID != "" {
+			logEntry += fmt.Sprintf(" [req:%s]", requestID)
+		}
+		if sessionID != "" {
+			logEntry += fmt.Sprintf(" [sess:%s]", sessionID)
+		}
+		logEntry += fmt.Sprintf(" %s\n", message)
+
+		fmt.Fprint(l.writer, logEntry)
+	}
 }
 
 func (l *Logger) Debug(ctx context.Context, msg string, args ...interface{}) {
@@ -110,4 +190,99 @@ func (l *Logger) Warn(ctx context.Context, msg string, args ...interface{}) {
 
 func (l *Logger) Error(ctx context.Context, msg string, args ...interface{}) {
 	l.log(ctx, ERROR, msg, args...)
+}
+
+// String returns the string representation of a LogLevel
+func (level LogLevel) String() string {
+	switch level {
+	case DEBUG:
+		return "DEBUG"
+	case INFO:
+		return "INFO"
+	case WARN:
+		return "WARN"
+	case ERROR:
+		return "ERROR"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+// rotateLogFile handles log file rotation
+func (l *Logger) rotateLogFile() {
+	// Get current log file info
+	if fw, ok := l.writer.(*os.File); ok {
+		info, err := fw.Stat()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error getting log file info: %v\n", err)
+			return
+		}
+
+		// Check if size exceeds max size
+		if info.Size() >= l.maxSize {
+			// Close current file
+			fw.Close()
+
+			// Create archive directory
+			logDir := filepath.Dir(fw.Name())
+			archiveDir := filepath.Join(logDir, "archive")
+			if err := os.MkdirAll(archiveDir, 0755); err != nil {
+				fmt.Fprintf(os.Stderr, "Error creating archive directory: %v\n", err)
+				return
+			}
+
+			// Move current log to archive with timestamp
+			timestamp := time.Now().Format("2006-01-02-15-04-05")
+			archivePath := filepath.Join(archiveDir, fmt.Sprintf("nexlayer-%s.log", timestamp))
+			if err := os.Rename(fw.Name(), archivePath); err != nil {
+				fmt.Fprintf(os.Stderr, "Error archiving log file: %v\n", err)
+				return
+			}
+
+			// Create new log file
+			newFile, err := os.OpenFile(fw.Name(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error creating new log file: %v\n", err)
+				return
+			}
+
+			// Update writer
+			l.writer = io.MultiWriter(newFile, os.Stdout)
+
+			// Clean up old archives
+			l.cleanOldArchives(archiveDir)
+		}
+	}
+
+	// Set next rotation time
+	now := time.Now()
+	next := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+	l.rotate = &next
+}
+
+// cleanOldArchives removes log archives older than maxAge days
+func (l *Logger) cleanOldArchives(archiveDir string) {
+	cutoff := time.Now().AddDate(0, 0, -l.maxAge)
+
+	entries, err := os.ReadDir(archiveDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading archive directory: %v\n", err)
+		return
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			info, err := entry.Info()
+			if err != nil {
+				continue
+			}
+
+			if info.ModTime().Before(cutoff) {
+				path := filepath.Join(archiveDir, entry.Name())
+				if err := os.Remove(path); err != nil {
+					fmt.Fprintf(os.Stderr, "Error removing old log file %s: %v\n", path, err)
+				}
+			}
+		}
+	}
 }
