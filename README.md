@@ -57,14 +57,6 @@
 - Send Feedback: `nexlayer feedback "Your feedback message"` to help us improve.
 - (Everything else can be fine-tuned in `nexlayer.yaml` or by choosing a template.)
 
-### Environment Variables
-The CLI uses these environment variables to enhance your experience:
-
-- `NEXLAYER_IDE`: Your IDE or editor (e.g., "Windsurf", "VSCode")
-- `NEXLAYER_AI_MODEL`: AI model you're using (e.g., "Claude 3.5 sonnet")
-
-When set, these variables enable automatic feedback after deployments, helping us understand your development environment and improve the platform.
-
 ## Hello World in 30 Seconds
 
 Want to see how easy it is? Deploy a modern FastAPI app with just three commands:
