@@ -103,32 +103,32 @@ func GetPreferredProvider(ctx context.Context, requiredCaps Capability) *AIProvi
 	return nil
 }
 
-// Provider implements the registry.CommandProvider interface
-type Provider struct{}
+// CommandProvider implements the registry.CommandProvider interface
+type CommandProvider struct{}
 
 // NewProvider creates a new AI command provider
-func NewProvider() *Provider {
-	return &Provider{}
+func NewProvider() *CommandProvider {
+	return &CommandProvider{}
 }
 
 // Name returns the unique name of this command provider
-func (p *Provider) Name() string {
+func (p *CommandProvider) Name() string {
 	return "ai"
 }
 
 // Description returns a description of what commands this provider offers
-func (p *Provider) Description() string {
+func (p *CommandProvider) Description() string {
 	return "AI-powered features for generating and optimizing deployment templates"
 }
 
 // Dependencies returns a list of other provider names that this provider depends on
-func (p *Provider) Dependencies() []string {
+func (p *CommandProvider) Dependencies() []string {
 	return nil
 }
 
 // Commands returns the AI-related commands
-func (p *Provider) Commands(deps *registry.CommandDependencies) []*cobra.Command {
+func (p *CommandProvider) Commands(deps *registry.CommandDependencies) []*cobra.Command {
 	return []*cobra.Command{
-		// TODO: Add AI-related commands here
+		NewAICommand(),
 	}
 }
