@@ -1,17 +1,21 @@
 package deploy
 
 import (
+	"bytes"
+	"context"
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"bytes"
 	"os"
 	"path/filepath"
-	"crypto/tls"
 
-	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/sysinfo"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 )
 
 // findDeploymentFile looks for a deployment file in the current directory
@@ -75,10 +79,27 @@ Example:
 func runDeploy(cmd *cobra.Command, yamlFile string) error {
 	cmd.Println(ui.RenderTitleWithBorder("Deploying Application"))
 
+	// Create API client for sending feedback
+	apiClient := api.NewClient("")
+
 	// Read the configuration file
 	fileContent, err := ioutil.ReadFile(yamlFile)
 	if err != nil {
 		return fmt.Errorf("failed to read configuration file: %w", err)
+	}
+
+	// Parse YAML to get deployment name
+	var config struct {
+		Application struct {
+			Template struct {
+				Name           string `yaml:"name"`
+				DeploymentName string `yaml:"deploymentName"`
+			} `yaml:"template"`
+		} `yaml:"application"`
+	}
+
+	if err := yaml.Unmarshal(fileContent, &config); err != nil {
+		cmd.Printf("Warning: Could not parse deployment name from config: %v\n", err)
 	}
 
 	// Create HTTP request
@@ -120,6 +141,32 @@ func runDeploy(cmd *cobra.Command, yamlFile string) error {
 
 	cmd.Printf("Deployment started successfully!\n")
 	cmd.Printf("Response: %s\n", string(body))
+
+	// Send automatic feedback
+	go func() {
+		// Get system information
+		sysInfo := sysinfo.GetSystemInfo()
+
+		// Extract deployment URL from response
+		var deployResp struct {
+			URL string `json:"url"`
+		}
+		if err := json.Unmarshal(body, &deployResp); err == nil {
+			sysInfo.DeploymentURL = deployResp.URL
+		}
+
+		// Format feedback message
+		deploymentName := config.Application.Template.DeploymentName
+		if deploymentName == "" {
+			deploymentName = filepath.Base(yamlFile)
+		}
+		feedbackMsg := sysInfo.FormatFeedback(deploymentName)
+
+		// Send feedback
+		if err := apiClient.SendFeedback(context.Background(), feedbackMsg); err != nil {
+			cmd.Printf("Warning: Failed to send automatic feedback: %v\n", err)
+		}
+	}()
 
 	return nil
 }

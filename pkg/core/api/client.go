@@ -3,14 +3,16 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/types"
-	"gopkg.in/yaml.v3"
 )
 
 // APIClient defines the interface for interacting with the Nexlayer API.
@@ -34,6 +36,15 @@ type APIClient interface {
 	// GetDeploymentInfo retrieves detailed information about a specific deployment.
 	// Requires both the namespace and application ID to uniquely identify the deployment.
 	GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*types.DeploymentInfo, error)
+
+	// GetLogs retrieves logs for a specific deployment.
+	// If follow is true, streams logs in real-time.
+	// tail specifies the number of lines to return from the end of the logs.
+	GetLogs(ctx context.Context, namespace string, appID string, follow bool, tail int) ([]string, error)
+
+	// SendFeedback sends user feedback to Nexlayer.
+	// The feedback text will be used to improve the service.
+	SendFeedback(ctx context.Context, text string) error
 }
 
 // Client represents an API client for interacting with the Nexlayer API.
@@ -47,13 +58,41 @@ type Client struct {
 
 // NewClient creates a new Nexlayer API client.
 // If baseURL is empty, defaults to the staging environment at app.staging.nexlayer.io.
+// GetLogs retrieves logs for a specific deployment
+func (c *Client) GetLogs(ctx context.Context, namespace string, appID string, follow bool, tail int) ([]string, error) {
+	url := fmt.Sprintf("%s/api/v1/deployments/%s/%s/logs?follow=%v&tail=%d", c.baseURL, namespace, appID, follow, tail)
+	resp, err := c.get(ctx, url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get logs: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var logs []string
+	if err := json.NewDecoder(resp.Body).Decode(&logs); err != nil {
+		return nil, fmt.Errorf("failed to decode logs response: %w", err)
+	}
+
+	return logs, nil
+}
+
 func NewClient(baseURL string) *Client {
 	if baseURL == "" {
-		baseURL = "https://app.staging.nexlayer.io"
+		baseURL = "https://api.staging.nexlayer.io"
 	}
+
+	transport := &http.Transport{
+		MaxIdleConns:        10,
+		IdleConnTimeout:     30 * time.Second,
+		DisableCompression: true,
+		TLSClientConfig:    &tls.Config{InsecureSkipVerify: strings.Contains(baseURL, "staging")},
+	}
+
 	return &Client{
-		baseURL:    baseURL,
-		httpClient: &http.Client{},
+		baseURL: baseURL,
+		httpClient: &http.Client{
+			Timeout:   30 * time.Second,
+			Transport: transport,
+		},
 	}
 }
 
@@ -69,23 +108,10 @@ func (c *Client) SetToken(token string) {
 // - Each pod must have: type, name, tag, and optional vars
 // If appID is empty, creates a new deployment from the template.
 func (c *Client) StartDeployment(ctx context.Context, appID string, yamlFile string) (*types.StartDeploymentResponse, error) {
-	// Read and validate YAML file
+	// Read YAML file
 	data, err := os.ReadFile(yamlFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read template file: %w", err)
-	}
-
-	// Validate template structure (basic check)
-	var template types.NexlayerYAML
-	if err := yaml.Unmarshal(data, &template); err != nil {
-		return nil, fmt.Errorf("invalid template format: %w", err)
-	}
-
-	// Validate required fields
-	if template.Application.Template.Name == "" ||
-		template.Application.Template.DeploymentName == "" ||
-		template.Application.Template.RegistryLogin.Registry == "" {
-		return nil, fmt.Errorf("missing required fields in template")
 	}
 
 	// Make request
@@ -94,14 +120,30 @@ func (c *Client) StartDeployment(ctx context.Context, appID string, yamlFile str
 		url = fmt.Sprintf("%s/%s", url, appID)
 	}
 
-	// Send as text/x-yaml content type
+	// Send as YAML
 	resp, err := c.postYAML(ctx, url, data)
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
+
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Print status code and response body for debugging
+	fmt.Printf("Status Code: %d\n", resp.StatusCode)
+	fmt.Printf("Response Body: %s\n", string(respBody))
+
+	// Check for error response
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("server error: %s - %s", resp.Status, string(respBody))
+	}
 
 	var result types.StartDeploymentResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -191,10 +233,15 @@ func (c *Client) get(ctx context.Context, url string) (*http.Response, error) {
 }
 
 func (c *Client) post(ctx context.Context, url string, body []byte) (*http.Response, error) {
+	fmt.Printf("POST Request URL: %s\n", url)
+	fmt.Printf("POST Request Body: %s\n", string(body))
+
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+
+	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	if c.token != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
@@ -236,4 +283,27 @@ func (c *Client) postYAML(ctx context.Context, url string, body []byte) (*http.R
 	}
 
 	return resp, nil
+}
+
+// SendFeedback sends user feedback to Nexlayer.
+// The feedback text will be used to improve the service.
+func (c *Client) SendFeedback(ctx context.Context, text string) error {
+	url := fmt.Sprintf("%s/feedback", c.baseURL)
+	fmt.Printf("Sending feedback to: %s\n", url)
+
+	feedback := map[string]string{"text": text}
+	body, err := json.Marshal(feedback)
+	if err != nil {
+		return fmt.Errorf("failed to marshal feedback: %w", err)
+	}
+
+	resp, err := c.post(ctx, url, body)
+	if err != nil {
+		fmt.Printf("Error sending feedback: %v\n", err)
+		return fmt.Errorf("failed to send feedback: %w", err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("Feedback sent successfully\n")
+	return nil
 }

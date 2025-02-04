@@ -6,13 +6,16 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
 	initcmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/initcmd"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/compose"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/deploy"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/domain"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/feedback"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/status"
 	"github.com/Nexlayer/nexlayer-cli/pkg/observability"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -42,7 +45,7 @@ func init() {
 
 func NewRootCommand() *cobra.Command {
 	// Create API client
-	apiClient := api.NewClient("https://api.nexlayer.dev")
+	apiClient := api.NewClient("https://app.staging.nexlayer.io")
 
 	cmd := &cobra.Command{
 		Use:   "nexlayer",
@@ -53,10 +56,8 @@ func NewRootCommand() *cobra.Command {
 				lazyInitConfig()
 			}
 
-			// Add timeout context for long-running commands
-			ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Second)
-			defer cancel()
-			cmd.SetContext(ctx)
+			// Use background context for now
+			cmd.SetContext(context.Background())
 		},
 	}
 
@@ -68,6 +69,10 @@ func NewRootCommand() *cobra.Command {
 	cmd.AddCommand(ai.NewAICommand())
 	cmd.AddCommand(compose.NewCommand())
 	cmd.AddCommand(deploy.NewCommand(apiClient))
+	cmd.AddCommand(domain.NewCommand(apiClient))
+	cmd.AddCommand(feedback.NewCommand(apiClient))
+	cmd.AddCommand(list.NewCommand(apiClient))
+	cmd.AddCommand(status.NewCommand(apiClient))
 
 	return cmd
 }

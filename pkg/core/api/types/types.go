@@ -30,26 +30,32 @@ type CreateAppRequest struct {
 }
 
 // NexlayerYAML represents a complete Nexlayer deployment template
+// Port represents a container port configuration
+type Port struct {
+	ContainerPort int    `yaml:"containerPort"`
+	ServicePort   int    `yaml:"servicePort"`
+	Name          string `yaml:"name"`
+}
+
+// Pod represents a pod configuration in the template
+type Pod struct {
+	Type  string `yaml:"type"`
+	Name  string `yaml:"name"`
+	Image string `yaml:"image"`
+	Vars  []struct {
+		Key   string `yaml:"key"`
+		Value string `yaml:"value"`
+	} `yaml:"vars,omitempty"`
+	Ports []Port `yaml:"ports,omitempty"`
+}
+
+// NexlayerYAML represents the structure of a Nexlayer deployment template
 type NexlayerYAML struct {
 	Application struct {
 		Template struct {
 			Name           string `yaml:"name"`
 			DeploymentName string `yaml:"deploymentName"`
-			RegistryLogin  struct {
-				Registry            string `yaml:"registry"`
-				Username            string `yaml:"username"`
-				PersonalAccessToken string `yaml:"personalAccessToken"`
-			} `yaml:"registryLogin"`
-			Pods []struct {
-				Type       string `yaml:"type"`
-				Name       string `yaml:"name"`
-				Tag        string `yaml:"tag"`
-				ExposeHTTP bool   `yaml:"exposeHttp,omitempty"`
-				Vars       []struct {
-					Key   string `yaml:"key"`
-					Value string `yaml:"value"`
-				} `yaml:"vars,omitempty"`
-			} `yaml:"pods"`
+			Pods          []Pod  `yaml:"pods"`
 		} `yaml:"template"`
 	} `yaml:"application"`
 }
@@ -102,6 +108,11 @@ type Domain struct {
 type ErrorResponse struct {
 	Message string `json:"message"`
 	Code    string `json:"code"`
+}
+
+// FeedbackRequest represents a user feedback submission
+type FeedbackRequest struct {
+	Text string `json:"text"`
 }
 
 // Config represents the client configuration
