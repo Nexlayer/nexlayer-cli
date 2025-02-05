@@ -150,6 +150,43 @@ Leverage AI for template generation, debugging, and scaling recommendations.
 
 ---
 
+## Plugins
+
+Nexlayer CLI supports a powerful plugin system that extends its functionality. Plugins can add new commands, provide AI-powered recommendations, and enhance your deployment workflow.
+
+### Available Plugins
+
+#### Smart Deployments Plugin
+Provides AI-powered recommendations for optimizing your deployments:
+
+```bash
+# Get deployment optimization recommendations
+nexlayer recommend deploy
+
+# Get resource scaling recommendations
+nexlayer recommend scale
+
+# Get performance tuning suggestions
+nexlayer recommend performance
+
+# Run a pre-deployment audit
+nexlayer recommend audit
+```
+
+Add the `--json` flag to any command to get machine-readable output.
+
+### Creating Plugins
+
+To create a new plugin:
+
+1. Implement the `Plugin` interface in your Go code
+2. Build your plugin as a shared object (.so file)
+3. Place the .so file in the plugins directory
+
+See our [Plugin Development Guide](#) for detailed instructions.
+
+---
+
 ## Documentation & Support
 
 - [Nexlayer Documentation](#)
