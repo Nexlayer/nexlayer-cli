@@ -1,8 +1,8 @@
 package ui
 
-// Manager defines the interface for UI operations
+// Manager defines the interface for UI operations.
 type Manager interface {
-	// Rendering methods
+	// Rendering methods.
 	RenderTitle(title string, subtitle ...string) string
 	RenderTitleWithBorder(title string) string
 	RenderError(msg string) string
@@ -11,13 +11,13 @@ type Manager interface {
 	RenderInfo(msg string) string
 	RenderTable(headers []string, rows [][]string) string
 
-	// Progress tracking
+	// Progress tracking.
 	StartProgress(msg string) ProgressTracker
 	UpdateProgress(progress float64, msg string)
 	CompleteProgress()
 }
 
-// ProgressTracker tracks progress of long-running operations
+// ProgressTracker tracks progress for long-running operations.
 type ProgressTracker interface {
 	Update(progress float64, msg string)
 	Complete()
@@ -27,7 +27,7 @@ type manager struct {
 	currentProgress ProgressTracker
 }
 
-// NewManager creates a new UI manager
+// NewManager creates and returns a new UI manager instance.
 func NewManager() Manager {
 	return &manager{}
 }
