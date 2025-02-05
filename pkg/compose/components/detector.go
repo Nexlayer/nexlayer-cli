@@ -36,9 +36,11 @@ func (d *DefaultDetector) DetectAndConfigure(pod Pod) (DetectedComponent, error)
 }
 
 // detectFromDirectory detects component type from directory contents
-func (d *DefaultDetector) detectFromDirectory(dir string) string {
-	// Add directory-based detection logic here
-	// For now, return empty string to indicate no detection
+func (d *DefaultDetector) detectFromDirectory(_ string) string {
+	// TODO: Implement directory-based detection logic that will:
+	// 1. Scan for package.json, requirements.txt, go.mod, etc.
+	// 2. Analyze file contents to determine component type
+	// 3. Return appropriate component type string
 	return ""
 }
 
