@@ -1,3 +1,4 @@
+// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
 package api
 
 import (
@@ -51,9 +52,9 @@ type APIClient interface {
 // The Nexlayer API enables rapid deployment of full-stack AI-powered applications
 // by providing a simple template-based interface that abstracts away deployment complexity.
 type Client struct {
-	baseURL    string      // Base URL of the Nexlayer API
+	baseURL    string       // Base URL of the Nexlayer API
 	httpClient *http.Client // HTTP client for making API requests
-	token      string      // Authentication token for API requests
+	token      string       // Authentication token for API requests
 }
 
 // NewClient creates a new Nexlayer API client.
@@ -81,8 +82,8 @@ func NewClient(baseURL string) *Client {
 	}
 
 	transport := &http.Transport{
-		MaxIdleConns:        10,
-		IdleConnTimeout:     30 * time.Second,
+		MaxIdleConns:       10,
+		IdleConnTimeout:    30 * time.Second,
 		DisableCompression: true,
 		TLSClientConfig:    &tls.Config{InsecureSkipVerify: strings.Contains(baseURL, "staging")},
 	}

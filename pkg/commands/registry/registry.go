@@ -1,3 +1,4 @@
+// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
 package registry
 
 import (
@@ -5,10 +6,10 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/observability"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
+	"github.com/spf13/cobra"
 )
 
 // CommandDependencies contains dependencies that can be injected into commands

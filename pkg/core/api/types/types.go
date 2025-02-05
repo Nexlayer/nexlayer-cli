@@ -1,3 +1,4 @@
+// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
 package types
 
 import "time"
@@ -55,7 +56,7 @@ type NexlayerYAML struct {
 		Template struct {
 			Name           string `yaml:"name"`
 			DeploymentName string `yaml:"deploymentName"`
-			Pods          []Pod  `yaml:"pods"`
+			Pods           []Pod  `yaml:"pods"`
 		} `yaml:"template"`
 	} `yaml:"application"`
 }

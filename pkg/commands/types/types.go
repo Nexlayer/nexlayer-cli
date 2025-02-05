@@ -1,3 +1,4 @@
+// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
 package types
 
 type Application struct {
@@ -8,13 +9,13 @@ type Template struct {
 	Name           string
 	DeploymentName string
 	RegistryLogin  RegistryAuth
-	Pods          []PodConfig
-	Build         BuildConfig
+	Pods           []PodConfig
+	Build          BuildConfig
 }
 
 type RegistryAuth struct {
 	Registry            string
-	Username           string
+	Username            string
 	PersonalAccessToken string
 }
 

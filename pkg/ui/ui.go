@@ -1,3 +1,11 @@
+// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
+// Copyright (c) 2025 Nexlayer. All rights reserved.
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
+
+// Package ui provides utilities for rendering styled text and UI elements in the CLI.
+// It uses lipgloss and color packages to create a consistent and visually appealing
+// command-line interface with support for colors, borders, and formatted tables.
 package ui
 
 import (

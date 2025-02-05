@@ -1,3 +1,4 @@
+// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
 // Package errors defines an error type for handling deployment errors.
 package errors
 
@@ -20,10 +21,10 @@ type ValidationContext struct {
 
 // DeploymentError represents an error that occurred during deployment
 type DeploymentError struct {
-	Message     string
-	Cause       error
-	ErrorType   string
-	Context     *ValidationContext
+	Message   string
+	Cause     error
+	ErrorType string
+	Context   *ValidationContext
 }
 
 // NewDeploymentError creates a new deployment error
@@ -69,11 +70,11 @@ func (e *DeploymentError) MarshalJSON() ([]byte, error) {
 		"type":    e.ErrorType,
 		"message": e.Message,
 	}
-	
+
 	if e.Context != nil {
 		errorContext["validation_context"] = e.Context
 	}
-	
+
 	if e.Cause != nil {
 		errorContext["cause"] = e.Cause.Error()
 	}

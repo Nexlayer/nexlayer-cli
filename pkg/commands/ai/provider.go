@@ -1,3 +1,4 @@
+// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
 package ai
 
 import (
@@ -6,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/registry"
+	"github.com/spf13/cobra"
 )
 
 // Capability represents an AI provider's capabilities
@@ -31,8 +32,8 @@ type AIProvider struct {
 // providerCache caches the detected provider
 type providerCache struct {
 	sync.RWMutex
-	provider    *AIProvider
-	expiration  time.Time
+	provider   *AIProvider
+	expiration time.Time
 }
 
 const cachePeriod = 5 * time.Minute

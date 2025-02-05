@@ -1,9 +1,10 @@
+// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
 package debug
 
 import (
-	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/registry"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
+	"github.com/spf13/cobra"
 )
 
 type Provider struct{}

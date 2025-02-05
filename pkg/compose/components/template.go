@@ -1,10 +1,11 @@
+// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
 package components
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"os"
 	"path/filepath"
-	"gopkg.in/yaml.v2"
 )
 
 // Package components provides structures and functions for handling Nexlayer components.
@@ -26,6 +27,14 @@ type Template struct {
 // and constructs a Template struct. It then marshals the struct to YAML format.
 // Returns the YAML string or an error if generation fails.
 func GenerateTemplate(projectName string, detector ComponentDetector) (string, error) {
+	// Validate input parameters
+	if projectName == "" {
+		return "", fmt.Errorf("project name cannot be empty")
+	}
+	if detector == nil {
+		return "", fmt.Errorf("component detector cannot be nil")
+	}
+
 	// Create basic template structure
 	template := Template{
 		Name:           projectName,
@@ -57,11 +66,11 @@ func GenerateTemplate(projectName string, detector ComponentDetector) (string, e
 			}
 
 			pod := Pod{
-				Name: filepath.Base(file),
-				Type: detected.Type,
+				Name:  filepath.Base(file),
+				Type:  detected.Type,
 				Image: detected.Config.Image,
 			}
-			
+
 			if pod.Type != "" {
 				template.Pods = append(template.Pods, pod)
 			}

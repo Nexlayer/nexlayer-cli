@@ -1,3 +1,4 @@
+// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
 package components
 
 import (
@@ -21,6 +22,20 @@ func NewComponentDetector() ComponentDetector {
 // It sets default ports and images based on the component type.
 // Returns the detected component configuration or an error.
 func (d *DefaultDetector) DetectAndConfigure(pod Pod) (DetectedComponent, error) {
+	// Validate input
+	if pod.Name == "" {
+		return DetectedComponent{}, fmt.Errorf("pod name cannot be empty")
+	}
+
+	// If type is not specified, try to detect it from directory contents
+	if pod.Type == "" {
+		detectedType := d.detectFromDirectory(pod.Name)
+		if detectedType == "" {
+			return DetectedComponent{}, fmt.Errorf("could not detect component type for %s", pod.Name)
+		}
+		pod.Type = detectedType
+	}
+
 	detected := DetectedComponent{
 		Type: pod.Type,
 		Config: ComponentConfig{
@@ -66,62 +81,65 @@ func (d *DefaultDetector) getDefaultImage(componentType string) string {
 		return fmt.Sprintf("%s/%s:latest", registry, componentType)
 	}
 
+	// Return official Docker images based on component type
 	switch componentType {
 	// Databases
 	case "postgres":
-		return fmt.Sprintf("%s/postgres:latest", DefaultRegistry)
+		return "docker.io/library/postgres:latest"
 	case "redis":
-		return fmt.Sprintf("%s/redis:7", DefaultRegistry)
+		return "docker.io/library/redis:7"
 	case "mongodb":
-		return fmt.Sprintf("%s/mongodb:latest", DefaultRegistry)
+		return "docker.io/library/mongo:latest"
 	case "mysql":
-		return fmt.Sprintf("%s/mysql:8", DefaultRegistry)
+		return "docker.io/library/mysql:8"
 	case "clickhouse":
-		return fmt.Sprintf("%s/clickhouse:latest", DefaultRegistry)
+		return "docker.io/clickhouse/clickhouse-server:latest"
 
 	// Message Queues
 	case "rabbitmq":
-		return fmt.Sprintf("%s/rabbitmq:3-management", DefaultRegistry)
+		return "docker.io/library/rabbitmq:3-management"
 	case "kafka":
-		return fmt.Sprintf("%s/kafka:latest", DefaultRegistry)
+		return "docker.io/confluentinc/cp-kafka:latest"
 
 	// Storage
 	case "minio":
-		return fmt.Sprintf("%s/minio:latest", DefaultRegistry)
+		return "docker.io/minio/minio:latest"
 	case "elasticsearch":
-		return fmt.Sprintf("%s/elasticsearch:8", DefaultRegistry)
+		return "docker.io/elasticsearch:8"
 
 	// Web Servers
 	case "nginx":
-		return fmt.Sprintf("%s/nginx:latest", DefaultRegistry)
+		return "docker.io/library/nginx:latest"
 	case "traefik":
-		return fmt.Sprintf("%s/traefik:v2.10", DefaultRegistry)
+		return "docker.io/library/traefik:v2.10"
 
 	// Language Runtimes
 	case "node":
-		return fmt.Sprintf("%s/node:18-alpine", DefaultRegistry)
+		return "docker.io/library/node:18-alpine"
 	case "python":
-		return fmt.Sprintf("%s/python:3.11-slim", DefaultRegistry)
+		return "docker.io/library/python:3.11-slim"
 	case "golang":
-		return fmt.Sprintf("%s/golang:1.21-alpine", DefaultRegistry)
+		return "docker.io/library/golang:1.21-alpine"
 	case "java":
-		return fmt.Sprintf("%s/java:17-slim", DefaultRegistry)
+		return "docker.io/library/openjdk:17-slim"
 
 	// AI/ML Services
 	case "jupyter":
-		return fmt.Sprintf("%s/jupyter:latest", DefaultRegistry)
+		return "docker.io/jupyter/minimal-notebook:latest"
 
-	// Frontend Frameworks
+	// Frontend Frameworks (all use Node.js)
 	case "react", "angular", "vue":
-		return fmt.Sprintf("%s/node:18-alpine", DefaultRegistry)
+		return "docker.io/library/node:18-alpine"
 
 	// Backend Frameworks
 	case "express":
-		return fmt.Sprintf("%s/node:18-alpine", DefaultRegistry)
+		return "docker.io/library/node:18-alpine"
 	case "django", "fastapi":
-		return fmt.Sprintf("%s/python:3.11-slim", DefaultRegistry)
+		return "docker.io/library/python:3.11-slim"
 
+	// Default case - use Nexlayer's registry
 	default:
 		return fmt.Sprintf("%s/%s:latest", DefaultRegistry, componentType)
 	}
+
 }
