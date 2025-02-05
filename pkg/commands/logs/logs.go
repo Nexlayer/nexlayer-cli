@@ -11,7 +11,11 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 )
 
+// Package logs provides functionality to view application logs.
+
 // NewCommand creates a new logs command.
+// It sets up flags for application ID, follow mode, tail count, and JSON output.
+// Returns a configured cobra.Command instance.
 func NewCommand(client *api.Client) *cobra.Command {
 	var appID string
 	var follow bool
@@ -43,7 +47,9 @@ Examples:
 }
 
 // runLogs retrieves and prints logs.
-// When jsonOutput is true, logs and errors are printed as structured JSON objects.
+// It uses the API client to fetch logs based on namespace, appID, and other flags.
+// Logs are printed in either plain text or JSON format based on the jsonOutput flag.
+// Returns an error if log retrieval fails.
 func runLogs(cmd *cobra.Command, client *api.Client, namespace, appID string, follow bool, tail int, jsonOutput bool) error {
 	// For human-friendly output, render a title.
 	if !jsonOutput {

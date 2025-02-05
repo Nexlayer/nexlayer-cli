@@ -7,14 +7,24 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// Package components provides structures and functions for handling Nexlayer components.
+
 // Template represents the nexlayer.yaml template
+// It contains the name, deployment name, and a list of pods.
+// Name is the name of the template.
+// DeploymentName is the name used for deployment.
+// Pods is a list of Pod structures representing application components.
 type Template struct {
 	Name           string `yaml:"name"`
 	DeploymentName string `yaml:"deploymentName"`
 	Pods           []Pod  `yaml:"pods"`
 }
 
-// GenerateTemplate creates a nexlayer.yaml template for the given project
+// GenerateTemplate creates a nexlayer.yaml template for the given project.
+// It takes the project name and a ComponentDetector as parameters.
+// The function scans the current directory for components, detects their types,
+// and constructs a Template struct. It then marshals the struct to YAML format.
+// Returns the YAML string or an error if generation fails.
 func GenerateTemplate(projectName string, detector ComponentDetector) (string, error) {
 	// Create basic template structure
 	template := Template{

@@ -21,17 +21,25 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Package cmd provides the command-line interface for the Nexlayer CLI.
+
 var (
 	// logger is the global structured logger instance
+	// It is used for logging messages with different severity levels.
 	logger *observability.Logger
 	// configOnce ensures thread-safe lazy loading of config
+	// It is used to initialize configuration only once.
 	configOnce sync.Once
 	// rootCmd is the primary cobra command
+	// It serves as the entry point for all CLI commands.
 	rootCmd *cobra.Command
 	// jsonOutput toggles JSON-formatted error output
+	// It is used to output errors in a structured JSON format.
 	jsonOutput bool
 )
 
+// init initializes the logger and sets default configuration values.
+// It creates the root command and registers all subcommands.
 func init() {
 	// Initialize the logger first with JSON mode and rotation settings.
 	logger = observability.NewLogger(
@@ -47,6 +55,9 @@ func init() {
 	rootCmd = NewRootCommand()
 }
 
+// NewRootCommand creates and returns the root command for the CLI.
+// It sets up the API client, adds global flags, and registers subcommands.
+// Returns the configured cobra.Command instance.
 func NewRootCommand() *cobra.Command {
 	// Retrieve API URL from configuration (allows override via config/env)
 	apiURL := viper.GetString("nexlayer.api_url")
@@ -82,6 +93,8 @@ func NewRootCommand() *cobra.Command {
 	return cmd
 }
 
+// Execute runs the root command.
+// It handles errors by reporting them and exiting the application.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		reportError(err)
@@ -90,6 +103,7 @@ func Execute() {
 }
 
 // reportError handles error output with either JSON or structured logging.
+// It formats errors based on the jsonOutput flag and logs them.
 func reportError(err error) {
 	if jsonOutput {
 		jsonErr := map[string]interface{}{
@@ -110,6 +124,8 @@ func reportError(err error) {
 	}
 }
 
+// lazyInitConfig loads configuration files and environment variables.
+// It searches for config files in predefined locations and enables env var overrides.
 func lazyInitConfig() {
 	configOnce.Do(func() {
 		// Search for configuration files in multiple locations.
