@@ -31,31 +31,27 @@ type Application struct {
 
 // Template represents the template configuration
 type Template struct {
-	Name           string       `yaml:"name"`
-	DeploymentName string       `yaml:"deploymentName"`
-	RegistryLogin  RegistryAuth `yaml:"registryLogin"`
-	Pods           []PodConfig  `yaml:"pods"`
+	Name           string      `yaml:"name"`
+	DeploymentName string      `yaml:"deploymentName"`
+	Pods           []PodConfig `yaml:"pods"`
 }
 
 // Port represents a port mapping
 type Port struct {
-	Container int    `yaml:"container"`
-	Service   int    `yaml:"service"`
-	Name      string `yaml:"name"`
+	ContainerPort int    `yaml:"containerPort"`
+	ServicePort   int    `yaml:"servicePort"`
+	Name          string `yaml:"name"`
 }
 
 // PodConfig represents a pod configuration
 type PodConfig struct {
-	Type            string    `yaml:"type"`
-	Name            string    `yaml:"name"`
-	Tag             string    `yaml:"tag"`
-	Vars            []VarPair `yaml:"vars"`
-	Ports           []Port    `yaml:"ports,omitempty"`
-	ExposeHttp      bool      `yaml:"exposeHttp"`
-	RepositoryImage string    `yaml:"repositoryImage,omitempty"`
-	ImageTag        string    `yaml:"imageTag,omitempty"`
-	CPULimit        string    `yaml:"cpuLimit,omitempty"`
-	MemoryLimit     string    `yaml:"memoryLimit,omitempty"`
+	Type       string    `yaml:"type"`
+	Name       string    `yaml:"name"`
+	Image      string    `yaml:"image"`
+	Command    []string  `yaml:"command,omitempty"`
+	Vars       []VarPair `yaml:"vars,omitempty"`
+	Ports      []Port    `yaml:"ports,omitempty"`
+	ExposeOn80 bool      `yaml:"exposeOn80"`
 }
 
 // VarPair represents a key-value pair for environment variables
@@ -64,12 +60,6 @@ type VarPair struct {
 	Value string `yaml:"value"`
 }
 
-// RegistryAuth represents registry authentication configuration
-type RegistryAuth struct {
-	Registry            string `yaml:"registry"`
-	Username            string `yaml:"username"`
-	PersonalAccessToken string `yaml:"personalAccessToken"`
-}
 
 // llmYamlPrompt defines the detailed instructions for the AI LLM to generate a Nexlayer template.
 // It includes the overall template structure, pods configuration, supported pod types,
@@ -82,21 +72,21 @@ application:
   template:
     name: Application name (e.g., "%s")
     deploymentName: The deployment name (e.g., "%s")
-    registryLogin:
-      registry: Registry URL (e.g., "ghcr.io")
-      username: Registry username
-      personalAccessToken: Registry access token
     pods: List of pod configurations
 
 Pod Configuration:
 Each pod in the pods array must include:
 - type: Component type (frontend, backend, database, nginx, llm)
 - name: Descriptive pod name
-- tag: Docker image tag
+- image: Full image URL including registry and tag
 - vars: Environment variables array, each with:
     - key: Environment variable name
     - value: Environment variable value
-- exposeHttp: Boolean to indicate if the pod should be exposed via HTTP
+- ports: Port configurations array, each with:
+    - containerPort: Port inside container
+    - servicePort: Port exposed to service
+    - name: Port name
+- exposeOn80: Boolean to indicate if the pod should be exposed on port 80
 
 Supported Pod Types:
 - Frontend: react, angular, vue
@@ -133,11 +123,6 @@ func GenerateTemplate(ctx context.Context, req TemplateRequest) (string, error) 
 			Template: Template{
 				Name:           req.ProjectName,
 				DeploymentName: req.ProjectName,
-				RegistryLogin: RegistryAuth{
-					Registry:            req.RequiredFields["registryLogin"].(map[string]string)["registry"],
-					Username:            req.RequiredFields["registryLogin"].(map[string]string)["username"],
-					PersonalAccessToken: req.RequiredFields["registryLogin"].(map[string]string)["personalAccessToken"],
-				},
 			},
 		},
 	}
@@ -149,28 +134,26 @@ func GenerateTemplate(ctx context.Context, req TemplateRequest) (string, error) 
 			{
 				Type:       "llm",
 				Name:       "ollama",
-				Tag:        "latest",
-				ExposeHttp: true,
-				MemoryLimit:    "1Gi",
+				Image:      "us-east1-docker.pkg.dev/capture-by-auditdeploy/nexlayer-3rd-party/00219bb4-61ac-4fb5-b648-f23cfcb2ad59/ollama:latest",
+				ExposeOn80: false,
 				Ports: []Port{
 					{
-						Container: 11434,
-						Service:   11434,
-						Name:      "ollama",
+						ContainerPort: 11434,
+						ServicePort:   11434,
+						Name:          "ollama",
 					},
 				},
 			},
 			{
-				Name:           req.ProjectName,
-				RepositoryImage: fmt.Sprintf("us-east1-docker.pkg.dev/nexlayer/apps/%s", req.ProjectName),
-				ImageTag:       "latest",
-				CPULimit:       "1",
-				MemoryLimit:    "512Mi",
+				Type:       "express",
+				Name:       req.ProjectName,
+				Image:      fmt.Sprintf("us-east1-docker.pkg.dev/capture-by-auditdeploy/nexlayer-3rd-party/00219bb4-61ac-4fb5-b648-f23cfcb2ad59/%s:latest", req.ProjectName),
+				ExposeOn80: true,
 				Ports: []Port{
 					{
-						Container: 3000,
-						Service:   80,
-						Name:      req.ProjectName,
+						ContainerPort: 3000,
+						ServicePort:   80,
+						Name:          "web",
 					},
 				},
 				Vars: []VarPair{
@@ -231,10 +214,6 @@ func generateDefaultTemplate(appName string, components []string) (string, error
 			Template: Template{
 				Name:           appName,
 				DeploymentName: appName,
-				RegistryLogin: RegistryAuth{
-					Registry: "ghcr.io",
-					// Username and PersonalAccessToken will be filled by the user
-				},
 			},
 		},
 	}
@@ -244,16 +223,16 @@ func generateDefaultTemplate(appName string, components []string) (string, error
 		pod := PodConfig{
 			Type:       comp,
 			Name:       fmt.Sprintf("%s-service", comp),
-			Tag:        defaultTagForType(comp),
-			ExposeHttp: isExposeByDefault(comp),
+			Image:      fmt.Sprintf("us-east1-docker.pkg.dev/capture-by-auditdeploy/nexlayer-3rd-party/00219bb4-61ac-4fb5-b648-f23cfcb2ad59/%s:%s", comp, defaultTagForType(comp)),
+			ExposeOn80: isExposeByDefault(comp),
 		}
 
 		// Add default ports and environment variables based on component type
 		switch comp {
 		case "react", "vue", "angular":
 			pod.Ports = []Port{{
-				Container: 3000,
-				Service:   80,
+				ContainerPort: 3000,
+				ServicePort:   80,
 				Name:      "web",
 			}}
 			pod.Vars = []VarPair{{
@@ -262,8 +241,8 @@ func generateDefaultTemplate(appName string, components []string) (string, error
 			}}
 		case "express", "fastapi", "django":
 			pod.Ports = []Port{{
-				Container: 8000,
-				Service:   8000,
+				ContainerPort: 8000,
+				ServicePort:   8000,
 				Name:      "api",
 			}}
 			pod.Vars = []VarPair{{
@@ -272,8 +251,8 @@ func generateDefaultTemplate(appName string, components []string) (string, error
 			}}
 		case "mongodb", "postgres", "redis":
 			pod.Ports = []Port{{
-				Container: 27017,
-				Service:   27017,
+				ContainerPort: 27017,
+				ServicePort:   27017,
 				Name:      "db",
 			}}
 			pod.Vars = []VarPair{{
@@ -548,10 +527,6 @@ func mockGenerateYAML(appName string, components []string) string {
 			Template: Template{
 				Name:           appName,
 				DeploymentName: appName,
-				RegistryLogin: RegistryAuth{
-					Registry: "ghcr.io",
-					// Username and PersonalAccessToken will be filled by the user
-				},
 			},
 		},
 	}
@@ -561,8 +536,8 @@ func mockGenerateYAML(appName string, components []string) string {
 		pod := PodConfig{
 			Type:       comp,
 			Name:       fmt.Sprintf("%s-service", comp),
-			Tag:        "latest",
-			ExposeHttp: isExposeByDefault(comp),
+			Image:      fmt.Sprintf("us-east1-docker.pkg.dev/capture-by-auditdeploy/nexlayer-3rd-party/00219bb4-61ac-4fb5-b648-f23cfcb2ad59/%s:latest", comp),
+			ExposeOn80: isExposeByDefault(comp),
 		}
 
 		// Add default environment variables
@@ -626,9 +601,7 @@ func validateAndFixYAML(yamlStr string) (string, error) {
 	if template.Application.Template.DeploymentName == "" {
 		return "", fmt.Errorf("missing required field: application.template.deploymentName")
 	}
-	if template.Application.Template.RegistryLogin.Registry == "" {
-		return "", fmt.Errorf("missing required field: application.template.registryLogin.registry")
-	}
+	// Registry login validation removed
 	if len(template.Application.Template.Pods) == 0 {
 		return "", fmt.Errorf("template must contain at least one pod")
 	}
@@ -642,8 +615,8 @@ func validateAndFixYAML(yamlStr string) (string, error) {
 		if pod.Name == "" {
 			return "", fmt.Errorf("pod[%d]: missing name", i)
 		}
-		if pod.Tag == "" {
-			template.Application.Template.Pods[i].Tag = "latest" // Set default tag
+		if pod.Image == "" {
+			return "", fmt.Errorf("pod[%d]: missing image", i)
 		}
 		
 		// Validate pod type
