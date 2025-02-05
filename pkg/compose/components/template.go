@@ -1,20 +1,19 @@
-// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
+// template.go
+// Copyright (c) 2025 Nexlayer. All rights reserved.
+// Use of this source code is governed by an MIT-style license that can be found in the LICENSE file.
+
 package components
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v2"
 )
 
-// Package components provides structures and functions for handling Nexlayer components.
-
-// Template represents the nexlayer.yaml template
-// It contains the name, deployment name, and a list of pods.
-// Name is the name of the template.
-// DeploymentName is the name used for deployment.
-// Pods is a list of Pod structures representing application components.
+// Template represents the structure of the Nexlayer deployment template.
+// It includes the template name, deployment name, and a list of pods.
 type Template struct {
 	Name           string `yaml:"name"`
 	DeploymentName string `yaml:"deploymentName"`
@@ -22,12 +21,11 @@ type Template struct {
 }
 
 // GenerateTemplate creates a nexlayer.yaml template for the given project.
-// It takes the project name and a ComponentDetector as parameters.
-// The function scans the current directory for components, detects their types,
-// and constructs a Template struct. It then marshals the struct to YAML format.
-// Returns the YAML string or an error if generation fails.
+// It uses the provided ComponentDetector to scan the current directory for components,
+// constructs a Template struct, and marshals it into YAML format.
+// Returns the YAML string or an error if template generation fails.
 func GenerateTemplate(projectName string, detector ComponentDetector) (string, error) {
-	// Validate input parameters
+	// Validate input parameters.
 	if projectName == "" {
 		return "", fmt.Errorf("project name cannot be empty")
 	}
@@ -35,20 +33,20 @@ func GenerateTemplate(projectName string, detector ComponentDetector) (string, e
 		return "", fmt.Errorf("component detector cannot be nil")
 	}
 
-	// Create basic template structure
+	// Create a basic template with the project name.
 	template := Template{
 		Name:           projectName,
 		DeploymentName: projectName,
 		Pods:           []Pod{},
 	}
 
-	// Analyze current directory for components
+	// Scan the current directory for components.
 	files, err := filepath.Glob("*")
 	if err != nil {
 		return "", fmt.Errorf("failed to scan directory: %w", err)
 	}
 
-	// Detect components based on files
+	// For each directory, attempt to detect a component.
 	for _, file := range files {
 		info, err := os.Stat(file)
 		if err != nil {
@@ -56,12 +54,12 @@ func GenerateTemplate(projectName string, detector ComponentDetector) (string, e
 		}
 
 		if info.IsDir() {
-			// Try to detect component type from directory
-			// Try to detect component type
+			// Detect component type based on the directory name.
 			detected, err := detector.DetectAndConfigure(Pod{
 				Name: filepath.Base(file),
 			})
 			if err != nil {
+				// Skip directories that do not yield a valid component.
 				continue
 			}
 
@@ -77,7 +75,7 @@ func GenerateTemplate(projectName string, detector ComponentDetector) (string, e
 		}
 	}
 
-	// Convert template to YAML
+	// Marshal the Template struct into YAML.
 	yamlData, err := yaml.Marshal(template)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate YAML: %w", err)
