@@ -24,48 +24,47 @@ type NexlayerYAML struct {
 	Application Application `yaml:"application"`
 }
 
-// Application represents the application configuration
+// Application represents the application configuration.
 type Application struct {
 	Template Template `yaml:"template"`
 }
 
-// Template represents the template configuration
+// Template represents the template configuration.
 type Template struct {
 	Name           string      `yaml:"name"`
 	DeploymentName string      `yaml:"deploymentName"`
 	Pods           []PodConfig `yaml:"pods"`
 }
 
-// Port represents a port mapping
+// Port represents a port mapping.
 type Port struct {
 	ContainerPort int    `yaml:"containerPort"`
 	ServicePort   int    `yaml:"servicePort"`
 	Name          string `yaml:"name"`
 }
 
-// PodConfig represents a pod configuration
+// PodConfig represents a pod configuration.
 type PodConfig struct {
 	Type       string    `yaml:"type"`
 	Name       string    `yaml:"name"`
-	Image      string    `yaml:"image"`
+	Image      string    `yaml:"image"` // Full image URL including tag
 	Command    []string  `yaml:"command,omitempty"`
 	Vars       []VarPair `yaml:"vars,omitempty"`
 	Ports      []Port    `yaml:"ports,omitempty"`
 	ExposeOn80 bool      `yaml:"exposeOn80"`
 }
 
-// VarPair represents a key-value pair for environment variables
+// VarPair represents a key-value pair for environment variables.
 type VarPair struct {
 	Key   string `yaml:"key"`
 	Value string `yaml:"value"`
 }
 
-
-// llmYamlPrompt defines the detailed instructions for the AI LLM to generate a Nexlayer template.
-// It includes the overall template structure, pods configuration, supported pod types,
-// and the predefined Nexlayer-provided environment variables.
+// llmYamlPrompt defines detailed instructions for the AI LLM to generate a Nexlayer template.
+// It includes overall template structure, pods configuration (with supported types),
+// standard environment variables, and port examples.
 const llmYamlPrompt = `You are an expert cloud automation engineer assistant for the Nexlayer AI Cloud Platform.
-Generate a deployment template YAML that deploys instantly and flawlessly to Nexlayer platform that follows Nexlayer templating system architecture and design.
+Generate a deployment template YAML that deploys instantly and flawlessly to Nexlayer Cloud.
 
 Overall Template Structure:
 application:
@@ -79,10 +78,8 @@ Each pod in the pods array must include:
 - type: Component type (frontend, backend, database, nginx, llm)
 - name: Descriptive pod name
 - image: Full image URL including registry and tag
-- vars: Environment variables array, each with:
-    - key: Environment variable name
-    - value: Environment variable value
-- ports: Port configurations array, each with:
+- vars: Environment variables array (each with key and value)
+- ports: Port configurations array with:
     - containerPort: Port inside container
     - servicePort: Port exposed to service
     - name: Port name
@@ -95,16 +92,16 @@ Supported Pod Types:
 - Others: nginx (load balancing/static assets), llm (custom workloads)
 
 Standard Environment Variables:
-- Database: DATABASE_CONNECTION_STRING
-- Frontend/Backend: FRONTEND_CONNECTION_URL, BACKEND_CONNECTION_URL
-- LLM: LLM_CONNECTION_URL
-- Others: PORT, NODE_ENV
+- DATABASE_CONNECTION_STRING (for databases)
+- FRONTEND_CONNECTION_URL, BACKEND_CONNECTION_URL (for frontend/backend)
+- LLM_CONNECTION_URL (for llm)
+- Additional common variables: PORT, NODE_ENV
 
 Example Port Configurations:
-- Frontend: container:3000, service:80
-- Backend: container:8000, service:8000
-- Database: container:27017, service:27017 (mongodb)
-- LLM: container:11434, service:11434 (ollama)
+- Frontend: containerPort: 3000, servicePort: 80
+- Backend: containerPort: 8000, servicePort: 8000
+- Database (mongodb): containerPort: 27017, servicePort: 27017
+- LLM (ollama): containerPort: 11434, servicePort: 11434
 
 Using the above structure, generate a valid Nexlayer deployment template YAML for the project "%s", stack type "%s", and components: %s.
 Output only the YAML content without any extra commentary.`
@@ -127,14 +124,13 @@ func GenerateTemplate(ctx context.Context, req TemplateRequest) (string, error) 
 		},
 	}
 
-	// Add default pods based on template type.
-	switch req.TemplateType {
-	case "llm-express":
+	// (Additional pod configuration based on req.TemplateType can be added here)
+	if req.TemplateType == "llm-express" {
 		template.Application.Template.Pods = []PodConfig{
 			{
 				Type:       "llm",
 				Name:       "ollama",
-				Image:      "us-east1-docker.pkg.dev/capture-by-auditdeploy/nexlayer-3rd-party/00219bb4-61ac-4fb5-b648-f23cfcb2ad59/ollama:latest",
+				Image:      "us-east1-docker.pkg.dev/capture-by-auditdeploy/nexlayer-3rd-party/00219bb4-61ac-4fb5-b648-f23cfcb2ad59/ollama:dolphin-phi",
 				ExposeOn80: false,
 				Ports: []Port{
 					{
@@ -145,7 +141,7 @@ func GenerateTemplate(ctx context.Context, req TemplateRequest) (string, error) 
 				},
 			},
 			{
-				Type:       "express",
+				Type:       "frontend",
 				Name:       req.ProjectName,
 				Image:      fmt.Sprintf("us-east1-docker.pkg.dev/capture-by-auditdeploy/nexlayer-3rd-party/00219bb4-61ac-4fb5-b648-f23cfcb2ad59/%s:latest", req.ProjectName),
 				ExposeOn80: true,
@@ -179,7 +175,7 @@ func GenerateTemplate(ctx context.Context, req TemplateRequest) (string, error) 
 	return string(data), nil
 }
 
-// GenerateYAML generates a Nexlayer deployment template using available AI assistants.
+// GenerateYAML generates a Nexlayer deployment template using available AI assistance.
 func GenerateYAML(appName string, _ string, components []string) (string, error) {
 	// Get the preferred AI provider (for deployment assistance).
 	provider := GetPreferredProvider(context.Background(), CapDeploymentAssistance)
@@ -193,7 +189,7 @@ func GenerateYAML(appName string, _ string, components []string) (string, error)
 	fmt.Printf("✨ Using %s for template assistance\n", provider.Name)
 	fmt.Println("💡 Your AI assistant will help you customize this template")
 
-	// In a real integration, you would now call provider.Endpoint with the prompt.
+	// In a real integration, you would call provider.Endpoint with the prompt.
 	// Here, we simulate the AI response using our mock.
 	rawYAML := mockGenerateYAML(appName, components)
 
@@ -204,7 +200,7 @@ func GenerateYAML(appName string, _ string, components []string) (string, error)
 // generateDefaultTemplate creates a basic template based on detected components.
 func generateDefaultTemplate(appName string, components []string) (string, error) {
 	comments := fmt.Sprintf(`# Nexlayer Deployment Template for %s
-# Generated with AI assistance
+# Generated with AI assistance.
 # Customize this template using your IDE's AI assistant.
 #
 `, appName)
@@ -227,13 +223,13 @@ func generateDefaultTemplate(appName string, components []string) (string, error
 			ExposeOn80: isExposeByDefault(comp),
 		}
 
-		// Add default ports and environment variables based on component type
+		// Add default environment variables based on component type.
 		switch comp {
 		case "react", "vue", "angular":
 			pod.Ports = []Port{{
 				ContainerPort: 3000,
 				ServicePort:   80,
-				Name:      "web",
+				Name:          "web",
 			}}
 			pod.Vars = []VarPair{{
 				Key:   "NODE_ENV",
@@ -243,7 +239,7 @@ func generateDefaultTemplate(appName string, components []string) (string, error
 			pod.Ports = []Port{{
 				ContainerPort: 8000,
 				ServicePort:   8000,
-				Name:      "api",
+				Name:          "api",
 			}}
 			pod.Vars = []VarPair{{
 				Key:   "NODE_ENV",
@@ -253,7 +249,7 @@ func generateDefaultTemplate(appName string, components []string) (string, error
 			pod.Ports = []Port{{
 				ContainerPort: 27017,
 				ServicePort:   27017,
-				Name:      "db",
+				Name:          "db",
 			}}
 			pod.Vars = []VarPair{{
 				Key:   "DATABASE_CONNECTION_STRING",
@@ -295,6 +291,7 @@ func newGenerateCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			appName := args[0]
+			// Detect project stack and components based on current directory.
 			stackType, components := detectStack(".")
 			yamlOut, err := GenerateYAML(appName, stackType, components)
 			if err != nil {
@@ -324,7 +321,7 @@ func newDetectCommand() *cobra.Command {
 	}
 }
 
-// Helper functions (keeping your existing implementations)
+// Helper functions
 
 func getBuildCommand(stackType string) string {
 	switch strings.ToLower(stackType) {
@@ -349,7 +346,7 @@ func isExposeByDefault(podType string) bool {
 func defaultTagForType(podType string) string {
 	switch strings.ToLower(podType) {
 	case "react", "angular", "vue", "express":
-		return "node:18"
+		return "latest" // Use "latest" for non-specific image tags.
 	case "django", "fastapi":
 		return "python:3.10"
 	case "postgres":
@@ -385,7 +382,6 @@ func detectStack(dir string) (string, []string) {
 			DevDependencies map[string]string `json:"devDependencies"`
 		}
 		if err := json.Unmarshal(data, &pkg); err == nil {
-			// Detect frontend frameworks.
 			if _, hasReact := pkg.Dependencies["react"]; hasReact {
 				components = append(components, "react")
 			}
@@ -395,11 +391,9 @@ func detectStack(dir string) (string, []string) {
 			if _, hasAngular := pkg.Dependencies["@angular/core"]; hasAngular {
 				components = append(components, "angular")
 			}
-			// Detect backend frameworks.
 			if _, hasExpress := pkg.Dependencies["express"]; hasExpress {
 				components = append(components, "express")
 			}
-			// Detect ML/LLM frameworks.
 			if _, hasLangchain := pkg.Dependencies["langchain"]; hasLangchain {
 				components = append(components, "llm")
 			}
@@ -415,14 +409,12 @@ func detectStack(dir string) (string, []string) {
 	// Check for requirements.txt (Python projects)
 	if data, err := os.ReadFile(filepath.Join(dir, "requirements.txt")); err == nil {
 		content := string(data)
-		// Detect Python frameworks.
 		if strings.Contains(content, "fastapi") {
 			components = append(components, "fastapi")
 		}
 		if strings.Contains(content, "django") {
 			components = append(components, "django")
 		}
-		// Detect ML/LLM frameworks.
 		if strings.Contains(content, "tensorflow") || strings.Contains(content, "torch") {
 			components = append(components, "ml")
 		}
@@ -448,7 +440,7 @@ func detectStack(dir string) (string, []string) {
 		}
 	}
 
-	// Determine stack type based on detected components.
+	// Determine stack type based on components.
 	stackType := "unknown"
 	if containsAny(components, "react", "vue", "angular") {
 		if containsAny(components, "express") {
@@ -479,7 +471,7 @@ func containsAny(slice []string, values ...string) bool {
 	return false
 }
 
-// NewAICommand creates a new AI command for template generation
+// NewAICommand creates a new AI command for template generation.
 func NewAICommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ai [flags]",
@@ -521,7 +513,7 @@ Example:
 }
 
 func mockGenerateYAML(appName string, components []string) string {
-	// Create a basic template
+	// Create a basic template using the Nexlayer Cloud standard template.
 	template := NexlayerYAML{
 		Application: Application{
 			Template: Template{
@@ -531,7 +523,7 @@ func mockGenerateYAML(appName string, components []string) string {
 		},
 	}
 
-	// Add pods based on components
+	// Add pods based on the provided components.
 	for _, comp := range components {
 		pod := PodConfig{
 			Type:       comp,
@@ -540,47 +532,28 @@ func mockGenerateYAML(appName string, components []string) string {
 			ExposeOn80: isExposeByDefault(comp),
 		}
 
-		// Add default environment variables
+		// Add default environment variables based on component type.
 		switch comp {
 		case "react", "vue", "angular":
 			pod.Vars = []VarPair{
-				{
-					Key:   "NODE_ENV",
-					Value: "production",
-				},
-				{
-					Key:   "PORT",
-					Value: "3000",
-				},
+				{Key: "NODE_ENV", Value: "production"},
+				{Key: "PORT", Value: "3000"},
 			}
 		case "express", "fastapi", "django":
 			pod.Vars = []VarPair{
-				{
-					Key:   "NODE_ENV",
-					Value: "production",
-				},
-				{
-					Key:   "PORT",
-					Value: "8000",
-				},
+				{Key: "NODE_ENV", Value: "production"},
+				{Key: "PORT", Value: "8000"},
 			}
 		case "mongodb":
 			pod.Vars = []VarPair{
-				{
-					Key:   "MONGO_INITDB_DATABASE",
-					Value: "app",
-				},
-				{
-					Key:   "DATABASE_CONNECTION_STRING",
-					Value: "mongodb://localhost:27017/app",
-				},
+				{Key: "MONGO_INITDB_DATABASE", Value: "app"},
+				{Key: "DATABASE_CONNECTION_STRING", Value: "mongodb://localhost:27017/app"},
 			}
 		}
 
 		template.Application.Template.Pods = append(template.Application.Template.Pods, pod)
 	}
 
-	// Marshal to YAML
 	data, _ := yaml.Marshal(&template)
 	return string(data)
 }
@@ -588,27 +561,22 @@ func mockGenerateYAML(appName string, components []string) string {
 // validateAndFixYAML validates the generated YAML against Nexlayer requirements
 // and fixes common issues.
 func validateAndFixYAML(yamlStr string) (string, error) {
-	// Parse YAML
 	var template NexlayerYAML
 	if err := yaml.Unmarshal([]byte(yamlStr), &template); err != nil {
 		return "", fmt.Errorf("invalid YAML: %v", err)
 	}
 
-	// Validation checks
 	if template.Application.Template.Name == "" {
 		return "", fmt.Errorf("missing required field: application.template.name")
 	}
 	if template.Application.Template.DeploymentName == "" {
 		return "", fmt.Errorf("missing required field: application.template.deploymentName")
 	}
-	// Registry login validation removed
 	if len(template.Application.Template.Pods) == 0 {
 		return "", fmt.Errorf("template must contain at least one pod")
 	}
 
-	// Validate each pod
 	for i, pod := range template.Application.Template.Pods {
-		// Ensure required fields
 		if pod.Type == "" {
 			return "", fmt.Errorf("pod[%d]: missing type", i)
 		}
@@ -618,8 +586,7 @@ func validateAndFixYAML(yamlStr string) (string, error) {
 		if pod.Image == "" {
 			return "", fmt.Errorf("pod[%d]: missing image", i)
 		}
-		
-		// Validate pod type
+
 		validTypes := []string{"frontend", "backend", "database", "nginx", "llm"}
 		validType := false
 		for _, t := range validTypes {
@@ -632,12 +599,10 @@ func validateAndFixYAML(yamlStr string) (string, error) {
 			return "", fmt.Errorf("pod[%d]: invalid type '%s'. Must be one of: %v", i, pod.Type, validTypes)
 		}
 
-		// Validate environment variables
 		if pod.Vars == nil {
 			template.Application.Template.Pods[i].Vars = []VarPair{}
 		}
-		
-		// Add standard environment variables if missing
+
 		switch pod.Type {
 		case "database":
 			hasConnStr := false
@@ -648,10 +613,8 @@ func validateAndFixYAML(yamlStr string) (string, error) {
 				}
 			}
 			if !hasConnStr {
-				template.Application.Template.Pods[i].Vars = append(
-					template.Application.Template.Pods[i].Vars,
-					VarPair{Key: "DATABASE_CONNECTION_STRING", Value: "auto-generated"},
-				)
+				template.Application.Template.Pods[i].Vars = append(template.Application.Template.Pods[i].Vars,
+					VarPair{Key: "DATABASE_CONNECTION_STRING", Value: "auto-generated"})
 			}
 		case "frontend":
 			hasBackendUrl := false
@@ -662,10 +625,8 @@ func validateAndFixYAML(yamlStr string) (string, error) {
 				}
 			}
 			if !hasBackendUrl {
-				template.Application.Template.Pods[i].Vars = append(
-					template.Application.Template.Pods[i].Vars,
-					VarPair{Key: "BACKEND_CONNECTION_URL", Value: "auto-generated"},
-				)
+				template.Application.Template.Pods[i].Vars = append(template.Application.Template.Pods[i].Vars,
+					VarPair{Key: "BACKEND_CONNECTION_URL", Value: "auto-generated"})
 			}
 		case "backend":
 			hasFrontendUrl := false
@@ -676,15 +637,12 @@ func validateAndFixYAML(yamlStr string) (string, error) {
 				}
 			}
 			if !hasFrontendUrl {
-				template.Application.Template.Pods[i].Vars = append(
-					template.Application.Template.Pods[i].Vars,
-					VarPair{Key: "FRONTEND_CONNECTION_URL", Value: "auto-generated"},
-				)
+				template.Application.Template.Pods[i].Vars = append(template.Application.Template.Pods[i].Vars,
+					VarPair{Key: "FRONTEND_CONNECTION_URL", Value: "auto-generated"})
 			}
 		}
 	}
 
-	// Marshal back to YAML
 	data, err := yaml.Marshal(&template)
 	if err != nil {
 		return "", fmt.Errorf("error marshaling YAML: %v", err)
