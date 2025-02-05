@@ -31,6 +31,17 @@ func NewCommand() *cobra.Command {
 				projectName = filepath.Base(dir)
 			}
 
+			// Check if nexlayer.yaml already exists
+			configFile := "nexlayer.yaml"
+			if _, err := os.Stat(configFile); err == nil {
+				// File exists, create backup
+				backupFile := configFile + ".backup"
+				if err := os.Rename(configFile, backupFile); err != nil {
+					return fmt.Errorf("failed to backup existing config: %w", err)
+				}
+				cmd.Printf("Backed up existing %s to %s\n", configFile, backupFile)
+			}
+
 			// Create a progress bar for user feedback.
 			progress, _ := pterm.DefaultProgressbar.WithTotal(100).Start()
 			progress.Title = "Analyzing project"

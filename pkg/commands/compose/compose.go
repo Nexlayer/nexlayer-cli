@@ -101,12 +101,12 @@ func configureService(pod components.Pod, detector components.ComponentDetector)
 			fmt.Sprintf("%s:%s:%s", vol.Source, vol.Target, vol.Type))
 	}
 
-	if detected.Config.Healthcheck != nil {
+	if detected.Config.HealthCheck != nil {
 		service.Healthcheck = map[string]interface{}{
-			"test":     detected.Config.Healthcheck.Test,
-			"interval": detected.Config.Healthcheck.Interval,
-			"timeout":  detected.Config.Healthcheck.Timeout,
-			"retries":  detected.Config.Healthcheck.Retries,
+			"test":     detected.Config.HealthCheck.Command,
+			"interval": detected.Config.HealthCheck.Interval,
+			"timeout":  detected.Config.HealthCheck.Timeout,
+			"retries":  detected.Config.HealthCheck.Retries,
 		}
 	}
 
