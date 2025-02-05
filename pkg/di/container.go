@@ -13,11 +13,10 @@ import (
 type Container struct {
 	mu sync.RWMutex
 
-	config           *config.Config
-	apiClient        api.APIClient
-	uiManager        ui.Manager
-	logger           *observability.Logger
-	metricsCollector *observability.MetricsCollector
+	config    *config.Config
+	apiClient api.APIClient
+	uiManager ui.Manager
+	logger    *observability.Logger
 }
 
 // NewContainer creates a new dependency injection container

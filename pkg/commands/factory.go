@@ -32,18 +32,16 @@ type Factory struct {
 func NewFactory(container *di.Container) *Factory {
 	// Prepare dependencies for commands and plugins
 	deps := &registry.CommandDependencies{
-		APIClient:        container.GetAPIClient(),
-		Logger:           container.GetLogger(),
-		UIManager:        container.GetUIManager(),
-		MetricsCollector: container.GetMetricsCollector(),
+		APIClient: container.GetAPIClient(),
+		Logger:    container.GetLogger(),
+		UIManager: container.GetUIManager(),
 	}
 
 	// Initialize plugin manager with its dependencies.
 	pluginDeps := &plugins.PluginDependencies{
-		APIClient:        deps.APIClient,
-		Logger:           deps.Logger,
-		UIManager:        deps.UIManager,
-		MetricsCollector: deps.MetricsCollector,
+		APIClient: deps.APIClient,
+		Logger:    deps.Logger,
+		UIManager: deps.UIManager,
 	}
 	pluginManager := plugins.NewManager(pluginDeps, container.GetConfig().PluginsDir)
 

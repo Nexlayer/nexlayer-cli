@@ -13,10 +13,9 @@ import (
 
 // CommandDependencies contains dependencies that can be injected into commands
 type CommandDependencies struct {
-	APIClient        api.APIClient
-	Logger           *observability.Logger
-	UIManager        ui.Manager
-	MetricsCollector *observability.MetricsCollector
+	APIClient api.APIClient
+	Logger    *observability.Logger
+	UIManager ui.Manager
 }
 
 // CommandProvider defines an interface for modules that provide commands
