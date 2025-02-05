@@ -2,7 +2,7 @@
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/Nexlayer/nexlayer-cli/main/assets/logo.png" alt="Nexlayer Logo" width="200"/>
-  <h1>Deploy full-stack AI-powered applications in seconds</h1>
+  <h1>Deploy Full-Stack AI-Powered Applications in Seconds</h1>
   <p>
     <a href="https://goreportcard.com/report/github.com/Nexlayer/nexlayer-cli">
       <img src="https://goreportcard.com/badge/github.com/Nexlayer/nexlayer-cli" alt="Go Report Card">
@@ -18,35 +18,50 @@
 
 ---
 
-## 🚀 Quick Start
+## Table of Contents
+- [Quick Start](#quick-start)
+- [Features](#features)
+- [Templates](#templates)
+  - [AI/LLM](#aillm)
+  - [Traditional Web Applications](#traditional-web-applications)
+  - [Machine Learning](#machine-learning)
+- [Commands Overview](#commands-overview)
+- [Documentation & Support](#documentation--support)
+- [Local Development](#local-development)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## Quick Start
 
 Get up and running in **3 seconds** with these three simple commands:
 
-### 1. Install the CLI
+### Install the CLI
 ```bash
 go install github.com/Nexlayer/nexlayer-cli@latest
 ```
-> **Tip:** Make sure `$GOPATH/bin` is in your `PATH`.
+> **Tip:** Ensure `$GOPATH/bin` is in your `PATH`.
 
-### 2. Initialize Your Project
+### Initialize Your Project
 ```bash
 nexlayer init
 ```
-This creates a `nexlayer.yaml` file in your project folder using AI-powered detection.
+This command creates a `nexlayer.yaml` file in your project folder using AI-powered detection.
 
-### 3. Deploy Your App
+### Deploy Your App
 ```bash
 nexlayer deploy
 ```
 Watch your full-stack AI app go live instantly!
 
-> **Bonus:** To see a demo, check out our demo video/GIF.
+> **Bonus:** To see a demo, check out our demo video.
 
 ---
 
-## 💡 Features
+## Features
 
-- **AI-Powered Template Generation:** Auto-detect your project and generate the perfect configuration with minimal effort.
+- **AI-Powered Template Generation:** Automatically detect your project and generate the perfect configuration with minimal effort.
 - **One-Command Deployment:** Deploy your app with a single command.
 - **Real-Time Logs & Status:** Monitor your deployment status and view logs easily.
 - **Custom Domain & Feedback:** Attach custom domains and send feedback to help us improve.
@@ -54,12 +69,11 @@ Watch your full-stack AI app go live instantly!
 
 ---
 
-## 📦 Templates
+## Templates
 
 Nexlayer offers a variety of ready-to-use templates:
 
 ### AI/LLM
-AI and Large Language Model templates:
 - `langchain-nextjs`: LangChain.js with Next.js
 - `langchain-fastapi`: LangChain Python with FastAPI
 - `openai-node`: OpenAI with Express and React
@@ -71,13 +85,11 @@ AI and Large Language Model templates:
 - `anthropic-py`: Anthropic Claude with FastAPI
 - `anthropic-js`: Anthropic Claude with Next.js
 
-
 ### Traditional Web Applications
 - `mern`: MongoDB, Express, React, Node.js
 - `mean`: MongoDB, Express, Angular, Node.js
 - `mevn`: MongoDB, Express, Vue.js, Node.js
 - `pern`: PostgreSQL, Express, React, Node.js
-
 
 ### Machine Learning
 - `kubeflow`: ML pipeline with Kubeflow
@@ -94,40 +106,40 @@ nexlayer init my-project -t fastapi
 
 ---
 
-## 🛠️ Commands Overview
+## Commands Overview
 
-### Initialization:
+### Initialization
 ```bash
 nexlayer init
 ```
 Automatically generate a deployment template (`nexlayer.yaml`).
 
-### Deployment:
+### Deployment
 ```bash
 nexlayer deploy
 ```
 Deploy your application using the generated template.
 
-### Status & Logs:
+### Status & Logs
 ```bash
 nexlayer status
 nexlayer logs -f [podName]
 ```
 Monitor your deployment and view real-time logs.
 
-### Domain Management:
+### Domain Management
 ```bash
 nexlayer domain add yourdomain.com
 ```
 Add a custom domain to your app.
 
-### Feedback:
+### Feedback
 ```bash
 nexlayer feedback "Your feedback message"
 ```
 Help us improve by sending your feedback.
 
-### AI Assistance:
+### AI Assistance
 ```bash
 nexlayer ai generate
 nexlayer ai detect
@@ -138,13 +150,14 @@ Leverage AI for template generation, debugging, and scaling recommendations.
 
 ---
 
-## 📖 Documentation & Support
-- [Nexlayer Docs](#)
+## Documentation & Support
+
+- [Nexlayer Documentation](#)
 - [GitHub Issues](#)
 
 ---
 
-## ⚙️ Local Development
+## Local Development
 
 For testing locally, use Docker Compose:
 
@@ -177,10 +190,19 @@ nexlayer compose down
 
 ---
 
-## 📄 License
-MIT
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](#) for more information.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ---
 
 **Happy Deploying! 🚀**
+
 Deploy full-stack AI-powered applications effortlessly with Nexlayer CLI!
+
