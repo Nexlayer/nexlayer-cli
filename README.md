@@ -41,15 +41,19 @@ Get up and running in **3 seconds** with these three simple commands:
 ```bash
 go install github.com/Nexlayer/nexlayer-cli@latest
 ```
-> **Tip:** Ensure `$GOPATH/bin` is in your `PATH`.
+> **Tip:** Ensure `$GOPATH/bin` is in your `PATH` so that the nexlayer command is recognized.
 
 ### Initialize Your Project
+Navigate to your project directory where you want to deploy your full-stack AI-powered application, then run:
+
 ```bash
 nexlayer init
 ```
-This command creates a `nexlayer.yaml` file in your project folder using AI-powered detection.
+This command uses AI-powered detection to analyze your project and automatically generates a  `nexlayer.yaml` configuration file. This file defines your application stack, pods, and environment variables according to Nexlayer Cloud’s templating system—so you're ready for deployment.
 
 ### Deploy Your App
+Once your project is initialized and the configuration file is in place, deploy your app with:
+
 ```bash
 nexlayer deploy
 ```
