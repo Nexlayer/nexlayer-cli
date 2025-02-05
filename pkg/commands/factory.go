@@ -30,7 +30,7 @@ type Factory struct {
 // NewFactory creates a new command factory.
 // It sets up command dependencies, the plugin manager, and the command registry.
 func NewFactory(container *di.Container) *Factory {
-	// Prepare dependencies for commands and plugins
+	// Prepare dependencies for commands and plugins.
 	deps := &registry.CommandDependencies{
 		APIClient: container.GetAPIClient(),
 		Logger:    container.GetLogger(),
@@ -61,42 +61,35 @@ func (f *Factory) CreateRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "nexlayer",
 		Short: "Nexlayer CLI - Deploy applications to Nexlayer",
-		Long: `Nexlayer CLI helps you deploy and manage your applications on Nexlayer.
+		Long: `Nexlayer CLI simplifies the deployment and management of your applications on the Nexlayer Cloud platform.
 
 Key features:
-- Easy application deployment
+- Seamless application deployment
 - Custom domain management
-- Deployment status monitoring
-- Deployment assistance
-- Plugin system for extensibility
+- Real-time deployment status monitoring
+- AI-assisted configuration and debugging
+- Extensible plugin system
 
-Need help? Use 'nexlayer debug' for deployment assistance.`,
+For detailed help, use 'nexlayer debug'.`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			// Create a context with a unique trace ID.
+			// Create a unique trace ID for this command execution.
 			traceID := time.Now().Format("20060102150405")
 			ctx := context.WithValue(cmd.Context(), "trace_id", traceID)
 			cmd.SetContext(ctx)
 
-			// Cache the logger and metrics to avoid repeated container lookups.
+			// Log command execution.
 			logger := f.container.GetLogger()
 			logger.Info(ctx, "Executing command: %s %v", cmd.Name(), args)
-
-			// Record the command execution metric.
-			metrics := f.container.GetMetricsCollector()
-			metrics.Counter("command_executions_total", 1, map[string]string{
-				"command": cmd.Name(),
-			})
 		},
 	}
 
-	// Start concurrent plugin loading while registering built-in commands.
+	// Load plugins concurrently.
 	var wg sync.WaitGroup
 	var pluginLoadErr error
-
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		// Load plugins concurrently. An empty string ("") implies using the default plugin directory.
+		// An empty string ("") indicates using the default plugin directory.
 		pluginLoadErr = f.plugins.LoadPluginsFromDir("")
 	}()
 
@@ -106,11 +99,11 @@ Need help? Use 'nexlayer debug' for deployment assistance.`,
 	// Wait for plugin loading to finish.
 	wg.Wait()
 	if pluginLoadErr != nil {
-		// Log the error but continue: built-in commands will still work.
+		// Log the error but continue; built-in commands remain available.
 		f.container.GetLogger().Error(nil, "Failed to load plugins: %v", pluginLoadErr)
 	}
 
-	// Add all commands from both the registry and loaded plugins.
+	// Add all commands from both the registry and the loaded plugins.
 	cmd.AddCommand(f.getAllCommands()...)
 
 	return cmd
