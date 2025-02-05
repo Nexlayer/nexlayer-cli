@@ -23,8 +23,9 @@ func NewCommand(client *api.Client) *cobra.Command {
 		Short: "View application logs",
 		Long: `View logs from your application deployments.
 
-Example:
-  nexlayer logs my-namespace --app my-app --follow`,
+Examples:
+  nexlayer logs my-namespace --app my-app --follow
+  nexlayer logs my-namespace --app my-app --tail 200 --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runLogs(cmd, client, args[0], appID, follow, tail, jsonOutput)
@@ -41,18 +42,18 @@ Example:
 	return cmd
 }
 
-// runLogs fetches and outputs logs. If jsonOutput is true, then errors and log lines are printed
-// as JSON objects (which include additional metadata) so that both humans and AI agents can understand them.
+// runLogs retrieves and prints logs.
+// When jsonOutput is true, logs and errors are printed as structured JSON objects.
 func runLogs(cmd *cobra.Command, client *api.Client, namespace, appID string, follow bool, tail int, jsonOutput bool) error {
-	// Render a title for human-friendly output.
+	// For human-friendly output, render a title.
 	if !jsonOutput {
 		cmd.Println(ui.RenderTitleWithBorder("Application Logs"))
 	}
 
-	// Retrieve logs from the API client.
+	// Retrieve logs using the API client.
 	logs, err := client.GetLogs(cmd.Context(), namespace, appID, follow, tail)
 	if err != nil {
-		// If JSON output is requested, print a structured error log.
+		// Output structured error in JSON if requested.
 		if jsonOutput {
 			errorObj := map[string]interface{}{
 				"timestamp": time.Now().Format(time.RFC3339),
@@ -64,19 +65,15 @@ func runLogs(cmd *cobra.Command, client *api.Client, namespace, appID string, fo
 			if jsonBytes, jerr := json.Marshal(errorObj); jerr == nil {
 				fmt.Println(string(jsonBytes))
 			} else {
-				// Fallback to plain text if JSON marshaling fails.
 				fmt.Printf("failed to get logs: %v\n", err)
 			}
-			// Return nil so that the error is already output in JSON.
 			return nil
 		}
-		// For human-friendly output, return the wrapped error.
 		return fmt.Errorf("failed to get logs: %w", err)
 	}
 
 	// Print each log line.
 	if jsonOutput {
-		// For machine readability, output each log line as a JSON object.
 		for _, line := range logs {
 			logObj := map[string]interface{}{
 				"timestamp": time.Now().Format(time.RFC3339),
@@ -87,12 +84,10 @@ func runLogs(cmd *cobra.Command, client *api.Client, namespace, appID string, fo
 			if jsonBytes, err := json.Marshal(logObj); err == nil {
 				fmt.Println(string(jsonBytes))
 			} else {
-				// Fallback: output plain text if JSON marshaling fails.
 				fmt.Println(line)
 			}
 		}
 	} else {
-		// Human-friendly output: simply print each log line.
 		for _, line := range logs {
 			fmt.Println(line)
 		}

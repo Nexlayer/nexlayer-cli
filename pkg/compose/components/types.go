@@ -1,5 +1,22 @@
 package components
 
+// Pod represents a deployment pod configuration
+type Pod struct {
+	Type       string    `yaml:"type"`
+	Name       string    `yaml:"name"`
+	Image      string    `yaml:"image"` // Full image URL including registry and tag
+	Command    []string  `yaml:"command,omitempty"`
+	Vars       []EnvVar  `yaml:"vars,omitempty"`
+	Ports      []Port    `yaml:"ports,omitempty"`
+	ExposeOn80 bool      `yaml:"exposeOn80"`
+}
+
+// ComponentDetector interface for detecting and configuring components
+type ComponentDetector interface {
+	DetectAndConfigure(pod Pod) (DetectedComponent, error)
+}
+
+
 // ComponentConfig holds the configuration for a specific component type
 type ComponentConfig struct {
 	Image         string            // Default Docker image

@@ -2,11 +2,15 @@ package components
 
 import "fmt"
 
+const (
+	NexlayerRegistry = "us-east1-docker.pkg.dev/nexlayer/components"
+)
+
 var (
 	// ComponentRegistry maps component types to their configurations
 	ComponentRegistry = map[string]ComponentConfig{
 		"langfuse-ui": {
-			Image: "docker.io/langfuse/langfuse:3",
+			Image: fmt.Sprintf("%s/langfuse:3", NexlayerRegistry),
 			Ports: []Port{
 				{Container: 3000, Host: 3000, Protocol: "tcp", Name: "http"},
 			},
@@ -17,7 +21,7 @@ var (
 			},
 		},
 		"langfuse-worker": {
-			Image: "docker.io/langfuse/langfuse-worker:3",
+			Image: fmt.Sprintf("%s/langfuse-worker:3", NexlayerRegistry),
 			Ports: []Port{
 				{Container: 3030, Host: 3030, Protocol: "tcp", Name: "http"},
 			},
@@ -30,7 +34,7 @@ var (
 			},
 		},
 		"postgres": {
-			Image: "docker.io/library/postgres:latest",
+			Image: fmt.Sprintf("%s/postgres:latest", NexlayerRegistry),
 			Ports: []Port{
 				{Container: 5432, Host: 5432, Protocol: "tcp", Name: "postgres"},
 			},
@@ -47,7 +51,7 @@ var (
 			},
 		},
 		"redis": {
-			Image: "docker.io/library/redis:7",
+			Image: fmt.Sprintf("%s/redis:7", NexlayerRegistry),
 			Ports: []Port{
 				{Container: 6379, Host: 6379, Protocol: "tcp", Name: "redis"},
 			},
@@ -63,7 +67,7 @@ var (
 			},
 		},
 		"clickhouse": {
-			Image: "docker.io/clickhouse/clickhouse-server:latest",
+			Image: fmt.Sprintf("%s/clickhouse:latest", NexlayerRegistry),
 			Ports: []Port{
 				{Container: 8123, Host: 8123, Protocol: "tcp", Name: "http"},
 				{Container: 9000, Host: 9000, Protocol: "tcp", Name: "native"},
@@ -81,7 +85,7 @@ var (
 			},
 		},
 		"minio": {
-			Image: "docker.io/minio/minio:latest",
+			Image: fmt.Sprintf("%s/minio:latest", NexlayerRegistry),
 			Ports: []Port{
 				{Container: 9000, Host: 9090, Protocol: "tcp", Name: "api"},
 				{Container: 9001, Host: 9091, Protocol: "tcp", Name: "console"},

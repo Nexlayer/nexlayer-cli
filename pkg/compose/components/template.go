@@ -15,7 +15,7 @@ type Template struct {
 }
 
 // GenerateTemplate creates a nexlayer.yaml template for the given project
-func GenerateTemplate(projectName string, detector *ComponentDetector) (string, error) {
+func GenerateTemplate(projectName string, detector ComponentDetector) (string, error) {
 	// Create basic template structure
 	template := Template{
 		Name:           projectName,
@@ -38,9 +38,18 @@ func GenerateTemplate(projectName string, detector *ComponentDetector) (string, 
 
 		if info.IsDir() {
 			// Try to detect component type from directory
+			// Try to detect component type
+			detected, err := detector.DetectAndConfigure(Pod{
+				Name: filepath.Base(file),
+			})
+			if err != nil {
+				continue
+			}
+
 			pod := Pod{
 				Name: filepath.Base(file),
-				Type: detector.detectFromDirectory(file),
+				Type: detected.Type,
+				Image: detected.Config.Image,
 			}
 			
 			if pod.Type != "" {

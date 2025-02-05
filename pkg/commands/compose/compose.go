@@ -53,20 +53,17 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-func configureService(pod components.Pod, detector *components.ComponentDetector) (Service, error) {
+func configureService(pod components.Pod, detector components.ComponentDetector) (Service, error) {
 	service := Service{
 		Networks: []string{"app-network"},
 	}
 
 	if pod.Image != "" {
 		service.Image = pod.Image
-	} else if pod.Tag != "" {
-		service.Image = pod.Tag
 	} else {
 		detected, err := detector.DetectAndConfigure(components.Pod{
 			Type:       pod.Type,
 			Name:       pod.Name,
-			Tag:        pod.Tag,
 			ExposeOn80: pod.ExposeOn80,
 			Vars:       pod.Vars,
 		})
