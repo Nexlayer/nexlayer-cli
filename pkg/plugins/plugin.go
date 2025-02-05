@@ -1,170 +1,166 @@
 package plugins
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"plugin"
 	"sync"
 
-	"github.com/spf13/cobra"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/observability"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
+	"github.com/spf13/cobra"
 )
 
-// Plugin represents a Nexlayer plugin with enhanced capabilities
+// Plugin is the interface that all Nexlayer plugins must implement.
 type Plugin interface {
-	// Name returns the name of the plugin
+	// Name returns the plugin's name.
 	Name() string
-
-	// Description returns a description of what the plugin does
+	// Description returns a description of what the plugin does.
 	Description() string
-
-	// Version returns the plugin version
+	// Version returns the plugin version.
 	Version() string
-
-	// Commands returns any additional CLI commands provided by the plugin
+	// Commands returns any additional CLI commands provided by the plugin.
 	Commands() []*cobra.Command
-
-	// Init initializes the plugin with dependencies
+	// Init initializes the plugin with dependencies.
 	Init(deps *PluginDependencies) error
-
-	// Run executes the plugin with the given options
+	// Run executes the plugin with the given options.
 	Run(opts map[string]interface{}) error
 }
 
-// PluginDependencies contains all dependencies available to plugins
+// PluginDependencies contains dependencies available to plugins.
 type PluginDependencies struct {
-	APIClient        api.APIClient
-	Logger           *observability.Logger
-	UIManager        ui.Manager
-	MetricsCollector *observability.MetricsCollector
+	APIClient api.APIClient
+	Logger    *observability.Logger
+	UIManager ui.Manager
 }
 
-// Manager handles plugin loading, initialization and execution
+// Manager handles plugin loading, initialization, and execution.
 type Manager struct {
 	mu            sync.RWMutex
 	plugins       map[string]Plugin
+	loadedPlugins map[string]bool
 	dependencies  *PluginDependencies
 	pluginsDir    string
-	loadedPlugins map[string]bool
 }
 
-// NewManager creates a new plugin manager
+// NewManager creates a new plugin manager.
 func NewManager(deps *PluginDependencies, pluginsDir string) *Manager {
 	return &Manager{
 		plugins:       make(map[string]Plugin),
+		loadedPlugins: make(map[string]bool),
 		dependencies:  deps,
 		pluginsDir:    pluginsDir,
-		loadedPlugins: make(map[string]bool),
 	}
 }
 
-// LoadPlugin loads a plugin from the given path
+// LoadPlugin loads a plugin from the specified path.
 func (m *Manager) LoadPlugin(path string) error {
+	// Use a write lock to prevent concurrent writes.
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Check if plugin is already loaded
 	if m.loadedPlugins[path] {
+		// Plugin already loaded; skip.
 		return nil
 	}
 
-	// Open the plugin
+	// Open the plugin file.
 	plug, err := plugin.Open(path)
 	if err != nil {
 		return fmt.Errorf("failed to open plugin %s: %w", path, err)
 	}
 
-	// Look up the Plugin symbol
+	// Look up the "Plugin" symbol.
 	sym, err := plug.Lookup("Plugin")
 	if err != nil {
 		return fmt.Errorf("plugin %s does not export 'Plugin' symbol: %w", path, err)
 	}
 
-	// Assert that the symbol is a Plugin
-	plugin, ok := sym.(Plugin)
+	// Assert that the symbol implements the Plugin interface.
+	p, ok := sym.(Plugin)
 	if !ok {
 		return fmt.Errorf("plugin %s does not implement Plugin interface", path)
 	}
 
-	// Initialize plugin with dependencies
-	if err := plugin.Init(m.dependencies); err != nil {
+	// Initialize the plugin with our dependencies.
+	if err := p.Init(m.dependencies); err != nil {
 		return fmt.Errorf("failed to initialize plugin %s: %w", path, err)
 	}
 
-	// Store the plugin
-	m.plugins[plugin.Name()] = plugin
+	// Save the plugin.
+	m.plugins[p.Name()] = p
 	m.loadedPlugins[path] = true
-
 	return nil
 }
 
-// LoadPluginsFromDir loads all plugins from the given directory
+// LoadPluginsFromDir loads all plugins (files with .so extension) from the given directory.
 func (m *Manager) LoadPluginsFromDir(dir string) error {
 	if dir == "" {
 		dir = m.pluginsDir
 	}
 
-	// Walk through the plugins directory
-	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("failed to read plugins directory: %w", err)
+	}
 
-		// Only load .so files
-		if !info.IsDir() && filepath.Ext(path) == ".so" {
+	// Iterate over all directory entries.
+	for _, entry := range entries {
+		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".so" {
+			path := filepath.Join(dir, entry.Name())
 			if err := m.LoadPlugin(path); err != nil {
-				// Log error but continue loading other plugins
+				// Log the error but continue loading remaining plugins.
 				if m.dependencies != nil && m.dependencies.Logger != nil {
-					m.dependencies.Logger.Error(nil, "Failed to load plugin %s: %v", path, err)
+					m.dependencies.Logger.Error(context.TODO(), "Failed to load plugin %s: %v", path, err)
 				}
 			}
 		}
-		return nil
-	})
+	}
+
+	return nil
 }
 
-// GetPlugin returns a plugin by name
+// GetPlugin returns a plugin by name.
 func (m *Manager) GetPlugin(name string) (Plugin, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	plugin, ok := m.plugins[name]
-	return plugin, ok
+	p, ok := m.plugins[name]
+	return p, ok
 }
 
-// ListPlugins returns a list of loaded plugin names and versions
+// ListPlugins returns a map of loaded plugin names and their versions.
 func (m *Manager) ListPlugins() map[string]string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	plugins := make(map[string]string)
-	for name, plugin := range m.plugins {
-		plugins[name] = plugin.Version()
+	result := make(map[string]string, len(m.plugins))
+	for name, p := range m.plugins {
+		result[name] = p.Version()
 	}
-	return plugins
+	return result
 }
 
-// GetCommands returns all commands from all loaded plugins
+// GetCommands aggregates and returns all commands provided by loaded plugins.
 func (m *Manager) GetCommands() []*cobra.Command {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	var commands []*cobra.Command
+	var cmds []*cobra.Command
 	for _, p := range m.plugins {
-		commands = append(commands, p.Commands()...)
+		cmds = append(cmds, p.Commands()...)
 	}
-	return commands
+	return cmds
 }
 
-// RunPlugin runs a plugin by name with the given options
+// RunPlugin executes a plugin by name with the provided options.
 func (m *Manager) RunPlugin(name string, opts map[string]interface{}) error {
 	m.mu.RLock()
-	plugin, ok := m.plugins[name]
+	p, ok := m.plugins[name]
 	m.mu.RUnlock()
 
 	if !ok {
 		return fmt.Errorf("plugin %s not found", name)
 	}
-
-	return plugin.Run(opts)
+	return p.Run(opts)
 }
