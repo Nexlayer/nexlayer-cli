@@ -1,7 +1,7 @@
 # Nexlayer CLI
 
 <div align="center">
-  <img src="assets/logo.svg" alt="Nexlayer Logo" width="200"/>
+  <img src="assets/logo.svg" alt="Nexlayer Logo" width="400"/>
   <h1>Deploy Full-Stack AI-Powered Applications in Seconds</h1>
   <p>
     <a href="https://goreportcard.com/report/github.com/Nexlayer/nexlayer-cli">
