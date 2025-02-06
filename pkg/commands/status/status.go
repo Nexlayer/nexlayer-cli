@@ -53,7 +53,7 @@ func getDeploymentInfo(ctx context.Context, client *api.Client, namespace, appID
 
 	// Add access URL
 	fmt.Printf("\n%s\n", bold("Access:"))
-	fmt.Printf("  URL: https://%s.%s\n", namespace, "nexlayer.io")
+	fmt.Printf("  URL: https://%s.alpha.nexlayer.ai\n", namespace)
 
 	return nil
 }
