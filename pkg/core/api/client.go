@@ -61,7 +61,7 @@ type Client struct {
 // If baseURL is empty, defaults to the staging environment at app.staging.nexlayer.io.
 // GetLogs retrieves logs for a specific deployment
 func (c *Client) GetLogs(ctx context.Context, namespace string, appID string, follow bool, tail int) ([]string, error) {
-	url := fmt.Sprintf("%s/api/v1/deployments/%s/%s/logs?follow=%v&tail=%d", c.baseURL, namespace, appID, follow, tail)
+	url := fmt.Sprintf("%s/getDeploymentLogs/%s/%s?follow=%v&tail=%d", c.baseURL, namespace, appID, follow, tail)
 	resp, err := c.get(ctx, url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get logs: %w", err)
@@ -78,7 +78,7 @@ func (c *Client) GetLogs(ctx context.Context, namespace string, appID string, fo
 
 func NewClient(baseURL string) *Client {
 	if baseURL == "" {
-		baseURL = "https://api.staging.nexlayer.io"
+		baseURL = "https://app.staging.nexlayer.io"
 	}
 
 	transport := &http.Transport{
@@ -181,10 +181,9 @@ func (c *Client) GetDeployments(ctx context.Context, appID string) ([]types.Depl
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
-	var result struct {
-		Deployments []types.Deployment `json:"deployments"`
-	}
+	var result types.GetDeploymentsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -199,10 +198,9 @@ func (c *Client) GetDeploymentInfo(ctx context.Context, namespace string, appID 
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
-	var result struct {
-		Deployment types.DeploymentInfo `json:"deployment"`
-	}
+	var result types.GetDeploymentInfoResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}

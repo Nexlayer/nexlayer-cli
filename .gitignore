@@ -86,3 +86,7 @@ test/**/venv/
 test/**/__pycache__/
 test/**/build/
 test/**/dist/
+
+# AI training data
+ai_training/*.json
+ai_training/*.yaml

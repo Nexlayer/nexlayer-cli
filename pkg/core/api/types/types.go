@@ -63,30 +63,40 @@ type NexlayerYAML struct {
 
 // StartDeploymentResponse represents the response from starting a deployment
 type StartDeploymentResponse struct {
-	Message   string `json:"message"`
-	Namespace string `json:"namespace"`
-	URL       string `json:"url"`
+	Message   string `json:"message" example:"Deployment started successfully"`
+	Namespace string `json:"namespace" example:"fantastic-fox"`
+	URL       string `json:"url" example:"https://fantastic-fox-my-mern-app.alpha.nexlayer.ai"`
 }
 
 // SaveCustomDomainResponse represents the response from saving a custom domain
 type SaveCustomDomainResponse struct {
-	Message string `json:"message"`
+	Message string `json:"message" example:"Custom domain saved successfully"`
 }
 
 // Deployment represents a deployment in the system
 type Deployment struct {
-	Namespace        string `json:"namespace"`
-	TemplateName     string `json:"templateName"`
-	TemplateID       string `json:"templateId"`
-	DeploymentStatus string `json:"deploymentStatus"`
+	Namespace        string `json:"namespace" example:"ecstatic-frog"`
+	TemplateID       string `json:"templateID" example:"0001"`
+	TemplateName     string `json:"templateName" example:"K-d chat"`
+	DeploymentStatus string `json:"deploymentStatus" example:"running"`
 }
 
 // DeploymentInfo represents detailed information about a deployment
 type DeploymentInfo struct {
-	Namespace        string `json:"namespace"`
-	TemplateName     string `json:"templateName"`
-	TemplateID       string `json:"templateId"`
-	DeploymentStatus string `json:"deploymentStatus"`
+	Namespace        string `json:"namespace" example:"ecstatic-frog"`
+	TemplateID       string `json:"templateID" example:"0001"`
+	TemplateName     string `json:"templateName" example:"K-d chat"`
+	DeploymentStatus string `json:"deploymentStatus" example:"running"`
+}
+
+// GetDeploymentsResponse represents the response from getting all deployments
+type GetDeploymentsResponse struct {
+	Deployments []Deployment `json:"deployments"`
+}
+
+// GetDeploymentInfoResponse represents the response from getting deployment info
+type GetDeploymentInfoResponse struct {
+	Deployment DeploymentInfo `json:"deployment"`
 }
 
 // DeployResponse represents a deployment response
@@ -113,7 +123,7 @@ type ErrorResponse struct {
 
 // FeedbackRequest represents a user feedback submission
 type FeedbackRequest struct {
-	Text string `json:"text"`
+	Text string `json:"text" example:"Sample text"`
 }
 
 // Config represents the client configuration
