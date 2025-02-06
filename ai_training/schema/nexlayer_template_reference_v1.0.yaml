@@ -1,0 +1,244 @@
+# Copyright (c) 2025 Nexlayer. All rights reserved.
+# Use of this source code is governed by an MIT-style license that can be found in the LICENSE file.
+#
+# Nexlayer Template Reference
+# This document serves as the central specification for Nexlayer YAML templates.
+# It defines the structure, supported values, and best practices for creating deployment templates.
+# These templates are used to deploy applications on the Nexlayer Cloud Platform (powered by GKE)
+# with fully automated networking, DNS, and routing.
+#
+# Key Principles:
+# - Simplicity: Each template consists of a minimal, clear structure focused on pods.
+# - Security: Sensitive credentials must be placed in a dedicated "secrets" section.
+# - Dynamic Networking: Use the "expose" and "path" fields to configure external routing via Kubernetes Ingress.
+#   DNS names are dynamically generated based on pod names and namespaces.
+# - Standardization: Use standard Docker Hub images and specific image tags for stability.
+# - Continuous Learning: This reference is continuously updated based on deployment feedback to train our AI
+#   assistant to generate the correct YAML automatically.
+#
+version: "1.0"
+
+schema:
+  application:
+    template:
+      required:
+        - name            # Template name (e.g., "MyApp")
+        - deploymentName  # Kubernetes deployment name (e.g., "my-app")
+      optional:
+        - description     # Brief description of the template
+        - version         # Template version
+        - registryLogin   # Credentials for pulling private images
+    pods:
+      required:
+        - type            # Component type (e.g., "frontend", "backend")
+        - name            # Unique pod name (used for internal DNS)
+        - image           # Full image URL (from Docker Hub) including tag
+      optional:
+        - vars            # Non-sensitive environment variables
+        - ports           # Port configurations
+        - volumes         # Volume mounts
+        - resources       # Resource requests/limits
+
+componentTypes:
+  frontend:
+    supported:
+      react:
+        image: "docker.io/library/node:18-alpine"
+        defaultPorts:
+          - containerPort: 3000
+            servicePort: 80
+            name: "web"
+        env:
+          - key: NODE_ENV
+            value: "production"
+          - key: REACT_APP_API_URL
+            value: "http://CANDIDATE_DEPENDENCY_URL_0"
+      nextjs:
+        image: "docker.io/library/node:18-alpine"
+        defaultPorts:
+          - containerPort: 3000
+            servicePort: 80
+            name: "web"
+        env:
+          - key: NODE_ENV
+            value: "production"
+      vue:
+        image: "docker.io/library/node:18-alpine"
+        defaultPorts:
+          - containerPort: 8080
+            servicePort: 80
+            name: "web"
+  backend:
+    supported:
+      fastapi:
+        image: "docker.io/library/python:3.11-slim"
+        defaultPorts:
+          - containerPort: 8000
+            servicePort: 8000
+            name: "api"
+        env:
+          - key: PORT
+            value: "8000"
+      express:
+        image: "docker.io/library/node:18-alpine"
+        defaultPorts:
+          - containerPort: 3000
+            servicePort: 3000
+            name: "api"
+      django:
+        image: "docker.io/library/python:3.11-slim"
+        defaultPorts:
+          - containerPort: 8000
+            servicePort: 8000
+            name: "api"
+  database:
+    supported:
+      postgres:
+        image: "docker.io/library/postgres:latest"
+        defaultPorts:
+          - containerPort: 5432
+            servicePort: 5432
+            name: "postgres"
+        env:
+          - key: POSTGRES_USER
+            value: "postgres"
+          - key: POSTGRES_PASSWORD
+            value: "REQUIRED"
+      mongodb:
+        image: "docker.io/library/mongo:latest"
+        defaultPorts:
+          - containerPort: 27017
+            servicePort: 27017
+            name: "mongodb"
+        env:
+          - key: MONGO_INITDB_ROOT_USERNAME
+            value: "REQUIRED"
+          - key: MONGO_INITDB_ROOT_PASSWORD
+            value: "REQUIRED"
+      redis:
+        image: "docker.io/library/redis:7"
+        defaultPorts:
+          - containerPort: 6379
+            servicePort: 6379
+            name: "redis"
+  llm:
+    supported:
+      ollama:
+        image: "docker.io/ollama/ollama:latest"
+        defaultPorts:
+          - containerPort: 11434
+            servicePort: 11434
+            name: "ollama"
+      langfuse:
+        image: "docker.io/langfuse/langfuse:3"
+        defaultPorts:
+          - containerPort: 3000
+            servicePort: 3000
+            name: "langfuse"
+
+examples:
+  ai_stack:
+    application:
+      template:
+        name: "AIApp"
+        deploymentName: "ai-app"
+    pods:
+      - name: "ollama"
+        image: "docker.io/ollama/ollama:latest"
+        expose: false
+        ports:
+          - containerPort: 11434
+            servicePort: 11434
+            name: "ollama"
+      - name: "web-ui"
+        image: "${REGISTRY}/web-ui:v1"
+        expose: true
+        path: "/"         # Routes external traffic to this pod.
+        ports:
+          - containerPort: 3000
+            servicePort: 80
+            name: "web"
+        vars:
+          - key: REACT_APP_API_URL
+            value: "http://ollama:11434"
+  full_stack:
+    application:
+      template:
+        name: "FullStackApp"
+        deploymentName: "fullstack-app"
+    pods:
+      - name: "web-ui"
+        image: "${REGISTRY}/web-ui:v1"
+        expose: true
+        path: "/"         # Expose frontend at the root path.
+        ports:
+          - containerPort: 3000
+            servicePort: 80
+            name: "web"
+        vars:
+          - key: REACT_APP_API_URL
+            value: "http://api:3000"
+      - name: "api"
+        image: "${REGISTRY}/api:v1"
+        expose: false
+        ports:
+          - containerPort: 8000
+            servicePort: 8000
+            name: "api"
+        vars:
+          - key: DATABASE_URL
+            value: "postgresql://postgres-db:5432/mydb"
+      - name: "postgres-db"
+        image: "docker.io/library/postgres:latest"
+        expose: false
+        ports:
+          - containerPort: 5432
+            servicePort: 5432
+            name: "postgres"
+        secrets:
+          - key: POSTGRES_USER
+            value: "postgres"
+          - key: POSTGRES_PASSWORD
+            value: "REQUIRED"
+
+bestPractices:
+  ports:
+    - "Use descriptive port names that reflect the service (e.g., 'web', 'api', 'db')"
+    - "Ensure port names are unique within each pod"
+    - "Service ports must be unique across all pods"
+    - "Follow standard port conventions (80 for HTTP, 443 for HTTPS)"
+  environment:
+    - "Use CANDIDATE_DEPENDENCY_URL_X for internal service URLs"
+    - "Store sensitive data in the 'secrets' section"
+    - "Use clear and descriptive variable names"
+    - "Document all required environment variables"
+  routing:
+    - "For externally accessible pods, set 'expose: true' and define the 'path' (e.g., '/' for the main UI, '/api' for backend)"
+    - "Leverage Kubernetes Ingress for dynamic DNS and routing"
+  security:
+    - "Never store secrets in template files"
+    - "Use non-root users within containers"
+    - "Set proper resource limits and network policies"
+
+validation:
+  required:
+    - "Template must include application.template.name and deploymentName"
+    - "Each pod must have a unique 'name' and a valid 'image'"
+    - "Port names must be unique within a pod"
+    - "Service ports must be unique across all pods"
+  recommended:
+    - "Include resource limits for all pods"
+    - "Configure health checks"
+    - "Set appropriate environment variables"
+    - "Use specific image tags (avoid 'latest')"
+
+trainingNotes:
+  instructions: >
+    This YAML reference is the authoritative source for generating Nexlayer YAML templates.
+    The AI agent must strictly adhere to these specifications to ensure accurate and production-ready deployments.
+    Do not hallucinate or generate extra fields. Use only the specified fields and follow the schema exactly.
+    Update this reference as new learnings from deployments and user feedback are obtained.
+  versioning: "Update this document whenever significant changes to the Nexlayer template structure occur."
+  errorPrevention: >
+    Ensure that all generated templates include required fields and validate against this schema.
+    If a field is missing or invalid, the AI must flag it and provide a clear error message.

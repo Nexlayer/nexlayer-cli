@@ -19,6 +19,7 @@ import (
 type SmartDeploymentsPlugin struct {
 	logger    *observability.Logger
 	apiClient api.APIClient
+	spec      *TemplateSpec
 }
 
 // Name returns the plugin's name.
@@ -40,6 +41,13 @@ func (p *SmartDeploymentsPlugin) Version() string {
 func (p *SmartDeploymentsPlugin) Init(deps *PluginDependencies) error {
 	p.logger = deps.Logger
 	p.apiClient = deps.APIClient
+
+	// Load the template specification
+	spec, err := LoadTemplateSpec()
+	if err != nil {
+		return fmt.Errorf("failed to load template specification: %w", err)
+	}
+	p.spec = spec
 	return nil
 }
 
