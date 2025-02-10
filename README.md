@@ -2,7 +2,7 @@
 
 <div align="center">
   <img src="assets/logo.svg" alt="Nexlayer Logo" width="400"/>
-  <h1>Deploy Full-Stack AI-Powered Applications in Seconds</h1>
+  <h1>Deploy Full-Stack Applications in Seconds</h1>
   <p>
     <a href="https://goreportcard.com/report/github.com/Nexlayer/nexlayer-cli">
       <img src="https://goreportcard.com/badge/github.com/Nexlayer/nexlayer-cli" alt="Go Report Card">
@@ -22,9 +22,6 @@
 - [Quick Start](#quick-start)
 - [Features](#features)
 - [Templates](#templates)
-  - [AI/LLM](#aillm)
-  - [Traditional Web Applications](#traditional-web-applications)
-  - [Machine Learning](#machine-learning)
 - [Commands Overview](#commands-overview)
 - [Documentation & Support](#documentation--support)
 - [Local Development](#local-development)
@@ -44,9 +41,14 @@ go install github.com/Nexlayer/nexlayer-cli@latest
 > **Tip:** Ensure `$GOPATH/bin` is in your `PATH` so that the nexlayer command is recognized.
 
 ### Initialize Your Project
-Navigate to your project directory where you want to deploy your full-stack AI-powered application, then run:
+Create a new project or initialize an existing one:
 
 ```bash
+# Create a new project
+nexlayer init my-app
+
+# Initialize an existing project
+cd my-existing-app
 nexlayer init
 ```
 This command uses AI-powered detection to analyze your project and automatically generates a  `nexlayer.yaml` configuration file. This file defines your application stack, pods, and environment variables according to Nexlayer Cloud’s templating system—so you're ready for deployment.
@@ -65,7 +67,9 @@ Watch your full-stack AI app go live instantly!
 
 ## Features
 
-- **AI-Powered Template Generation:** Automatically detect your project and generate the perfect configuration with minimal effort.
+- **Smart Project Templates:** Start with production-ready templates for full-stack or backend-only applications.
+- **Intelligent Project Detection:** Automatically analyze existing projects and generate the perfect configuration.
+- **Project Synchronization:** Keep your configuration in sync with project changes using `nexlayer sync`.
 - **One-Command Deployment:** Deploy your app with a single command.
 - **Real-Time Logs & Status:** Monitor your deployment status and view logs easily.
 - **Custom Domain & Feedback:** Attach custom domains and send feedback to help us improve.
@@ -75,37 +79,27 @@ Watch your full-stack AI app go live instantly!
 
 ## Templates
 
-Nexlayer offers a variety of ready-to-use templates:
+Nexlayer offers production-ready templates to help you get started quickly:
 
-### AI/LLM
-- `langchain-nextjs`: LangChain.js with Next.js
-- `langchain-fastapi`: LangChain Python with FastAPI
-- `openai-node`: OpenAI with Express and React
-- `openai-py`: OpenAI with FastAPI and Vue
-- `llama-node`: Llama.cpp with Next.js
-- `llama-py`: Llama.cpp with FastAPI
-- `vertex-ai`: Google Vertex AI with Flask
-- `huggingface`: Hugging Face with FastAPI
-- `anthropic-py`: Anthropic Claude with FastAPI
-- `anthropic-js`: Anthropic Claude with Next.js
+### Full Stack App
+A complete web application stack with:
+- React frontend with modern tooling and best practices
+- FastAPI backend for high-performance API development
+- PostgreSQL database for reliable data storage
+- Pre-configured Docker setup for development and production
+- Environment variables and configuration management
 
-### Traditional Web Applications
-- `mern`: MongoDB, Express, React, Node.js
-- `mean`: MongoDB, Express, Angular, Node.js
-- `mevn`: MongoDB, Express, Vue.js, Node.js
-- `pern`: PostgreSQL, Express, React, Node.js
+### Backend Only
+A backend-focused setup featuring:
+- FastAPI for building high-performance APIs
+- PostgreSQL database with SQLAlchemy ORM
+- Database migrations and environment management
+- Production-ready Docker configuration
+- Health checks and monitoring setup
 
-### Machine Learning
-- `kubeflow`: ML pipeline with Kubeflow
-- `mlflow`: MLflow with tracking server
-
-> **Tip:** Use interactive mode:
+> **Tip:** Use the interactive template selector:
 ```bash
-nexlayer init my-project
-```
-Or directly specify a template:
-```bash
-nexlayer init my-project -t fastapi
+nexlayer init my-app
 ```
 
 ---
@@ -126,10 +120,16 @@ Deploy your application using the generated template.
 
 ### Status & Logs
 ```bash
+# View deployment status
 nexlayer status
+
+# View real-time logs
 nexlayer logs -f [podName]
+
+# Keep configuration in sync with project
+nexlayer sync
 ```
-Monitor your deployment and view real-time logs.
+Monitor your deployment, view real-time logs, and keep your configuration up to date.
 
 ### Domain Management
 ```bash
@@ -233,7 +233,7 @@ nexlayer compose down
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](#) for more information.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ---
 
@@ -246,4 +246,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 **Happy Deploying! 🚀**
 
 Deploy full-stack AI-powered applications effortlessly with Nexlayer CLI!
-
