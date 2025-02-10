@@ -29,6 +29,18 @@ type AIProvider struct {
 	Capabilities Capability
 }
 
+// GenerateText generates text using the AI provider
+func (p *AIProvider) GenerateText(ctx context.Context, prompt string) (string, error) {
+	// TODO: Implement provider-specific text generation
+	// For now, return a basic template
+	return `application:
+  name: "generated-app"
+  pods:
+    - name: "app"
+      image: "nginx:latest"
+      servicePorts: [80]`, nil
+}
+
 // providerCache caches the detected provider
 type providerCache struct {
 	sync.RWMutex
@@ -57,6 +69,13 @@ var (
 		Capabilities: CapCodeGeneration | CapCodeCompletion,
 	}
 
+	ZedEditor = AIProvider{
+		Name:         "Zed Editor",
+		Description:  "Zed's built-in AI assistant",
+		EnvVarKey:    "ZED_AI_ACTIVE",
+		Capabilities: CapCodeGeneration | CapCodeCompletion | CapDeploymentAssistance,
+	}
+
 	CursorAI = AIProvider{
 		Name:         "Cursor AI",
 		Description:  "Cursor's AI code assistant",
@@ -75,6 +94,7 @@ var (
 	AllProviders = []AIProvider{
 		WindsurfEditor,
 		GitHubCopilot,
+		ZedEditor,
 		CursorAI,
 		VSCodeAI,
 	}
@@ -130,6 +150,6 @@ func (p *CommandProvider) Dependencies() []string {
 // Commands returns the AI-related commands
 func (p *CommandProvider) Commands(deps *registry.CommandDependencies) []*cobra.Command {
 	return []*cobra.Command{
-		NewAICommand(),
+		NewCommand(),
 	}
 }

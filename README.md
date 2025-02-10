@@ -20,6 +20,7 @@
 
 ## Table of Contents
 - [Quick Start](#quick-start)
+- [Getting Started with Nexlayer CLI](#getting-started-with-nexlayer-cli)
 - [Features](#features)
 - [Templates](#templates)
 - [Commands Overview](#commands-overview)
@@ -32,6 +33,7 @@
 
 ## Quick Start
 
+Install the Nexlayer CLI using Go:
 Get up and running in **3 seconds** with these three simple commands:
 
 ### Install the CLI
@@ -41,9 +43,12 @@ go install github.com/Nexlayer/nexlayer-cli@latest
 > **Tip:** Ensure `$GOPATH/bin` is in your `PATH` so that the nexlayer command is recognized.
 
 ### Initialize Your Project
-Create a new project or initialize an existing one:
-
-```bash
+**Create the Project Directory**
+- Replace `my_app_name` with your project name:
+  ```bash
+  mkdir my_app_name
+  cd my_app_name
+  ```
 # Create a new project
 nexlayer init my-app
 
@@ -65,6 +70,57 @@ Watch your full-stack AI app go live instantly!
 
 ---
 
+## Getting Started with Nexlayer CLI
+
+### Installation
+Nexlayer CLI requires Go 1.18+.
+
+**Video: Installation**
+
+### Environment Setup
+We recommend setting up a Go workspace for your project.
+
+**Install Nexlayer CLI**
+- **Prerequisites:** Ensure Go is installed and `$GOPATH/bin` is in your `PATH`.
+
+**Create the Project Directory**
+- Replace `my_app_name` with your project name:
+  ```bash
+  mkdir my_app_name
+  cd my_app_name
+  ```
+
+**Install Nexlayer CLI**
+- Run the following command:
+  ```bash
+  go install github.com/Nexlayer/nexlayer-cli@latest
+  ```
+
+### Initialize the Project
+- Use the CLI to initialize your project:
+  ```bash
+  nexlayer init
+  ```
+  - Choose from predefined templates or start with a blank setup.
+
+### Run the App
+- Deploy and run your app in development mode:
+  ```bash
+  nexlayer deploy
+  ```
+  - Your app will be accessible at the specified endpoint.
+
+**Logs and Debugging**
+- Increase log verbosity with:
+  ```bash
+  nexlayer deploy --loglevel debug
+  ```
+
+**Hot Reload**
+- Nexlayer supports hot reloading for real-time code changes.
+
+---
+
 ## Features
 
 - **Smart Project Templates:** Start with production-ready templates for full-stack or backend-only applications.
@@ -81,27 +137,36 @@ Watch your full-stack AI app go live instantly!
 
 Nexlayer offers production-ready templates to help you get started quickly:
 
-### Full Stack App
-A complete web application stack with:
-- React frontend with modern tooling and best practices
-- FastAPI backend for high-performance API development
-- PostgreSQL database for reliable data storage
-- Pre-configured Docker setup for development and production
-- Environment variables and configuration management
 
-### Backend Only
-A backend-focused setup featuring:
-- FastAPI for building high-performance APIs
-- PostgreSQL database with SQLAlchemy ORM
-- Database migrations and environment management
-- Production-ready Docker configuration
-- Health checks and monitoring setup
+### AI/LLM
+- **langchain-nextjs**: LangChain.js with Next.js
+- **langchain-fastapi**: LangChain Python with FastAPI
+- **openai-node**: OpenAI with Express and React
+- **openai-py**: OpenAI with FastAPI and Vue
+- **llama-node**: Llama.cpp with Next.js
+- **llama-py**: Llama.cpp with FastAPI
+- **vertex-ai**: Google Vertex AI with Flask
+- **huggingface**: Hugging Face with FastAPI
+- **anthropic-py**: Anthropic Claude with FastAPI
+- **anthropic-js**: Anthropic Claude with Next.js
+
+
+### Traditional Full Stack App
+- **MERN Stack**: Create a full-stack app with MongoDB, Express, React, and Node.js
+- **MEAN Stack**: Build modern web applications with MongoDB, Express, Angular, and Node.js
+- **MNFA Stack**: Create a powerful app with MongoDB, Neo4j, FastAPI, and Angular
+- **MEVN Stack**: Build full-stack applications with MongoDB, Express, Vue.js, and Node.js
+- **PERN Stack**: Build full-stack applications with PostgreSQL, Express, React, and Node.js
 
 > **Tip:** Use the interactive template selector:
 ```bash
 nexlayer init my-app
 ```
-
+**Create the Project Directory**
+- Replace `my_app_name` with your project name:
+  ```bash
+  mkdir my_app_name
+  cd my_app_name
 ---
 
 ## Commands Overview

@@ -3,6 +3,7 @@ package domain
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -43,7 +44,22 @@ Example:
 	return cmd
 }
 
+// validateDomain checks if a domain name is valid
+func validateDomain(domain string) error {
+	if domain == "" {
+		return fmt.Errorf("domain cannot be empty")
+	}
+	// Basic domain validation
+	if !strings.Contains(domain, ".") || strings.HasPrefix(domain, ".") || strings.HasSuffix(domain, ".") {
+		return fmt.Errorf("invalid domain format: %s", domain)
+	}
+	return nil
+}
+
 func runAddDomain(cmd *cobra.Command, client *api.Client, appID string, domain string) error {
+	if err := validateDomain(domain); err != nil {
+		return err
+	}
 	cmd.Println(ui.RenderTitleWithBorder("Adding Custom Domain"))
 
 	err := client.SaveCustomDomain(cmd.Context(), appID, domain)

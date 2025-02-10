@@ -4,15 +4,16 @@
 
 package components
 
-// Pod represents a deployment pod configuration as defined in Nexlayer YAML templates.
+// Pod represents a deployment pod configuration as defined in Nexlayer YAML templates v2.
 type Pod struct {
-	Type       string   `yaml:"type"`              // Component type (e.g., frontend, backend, database, nginx, llm).
-	Name       string   `yaml:"name"`              // Unique name for the pod.
-	Image      string   `yaml:"image"`             // Full Docker image URL including registry and tag.
-	Command    []string `yaml:"command,omitempty"` // Optional command to run in the container.
-	Vars       []EnvVar `yaml:"vars,omitempty"`    // Environment variables.
-	Ports      []Port   `yaml:"ports,omitempty"`   // Port mappings.
-	ExposeOn80 bool     `yaml:"exposeOn80"`        // Whether to expose this pod on port 80.
+	Name         string    `yaml:"name"`              // Pod name (lowercase alphanumeric, '-', '.')
+	Path         string    `yaml:"path,omitempty"`     // Route path for frontend (e.g., "/")
+	Image        string    `yaml:"image"`             // Docker image path (supports <% REGISTRY %>)
+	Volumes      []Volume  `yaml:"volumes,omitempty"`  // List of persistent volumes
+	Secrets      []Secret  `yaml:"secrets,omitempty"`  // List of secrets
+	Vars         []EnvVar  `yaml:"vars,omitempty"`    // Environment variables
+	ServicePorts []int     `yaml:"servicePorts"`      // List of ports to expose
+	Command      []string  `yaml:"command,omitempty"` // Optional command to run
 }
 
 // ComponentDetector is an interface for detecting and configuring components.
@@ -22,17 +23,17 @@ type ComponentDetector interface {
 
 // ComponentConfig holds the default configuration for a specific component type.
 type ComponentConfig struct {
-	Image        string       `yaml:"image"`                  // Default Docker image.
-	Ports        []Port       `yaml:"ports,omitempty"`        // Default ports to expose.
-	Environment  []EnvVar     `yaml:"environment,omitempty"`  // Default environment variables.
-	Command      []string     `yaml:"command,omitempty"`      // Default command.
-	HealthCheck  *Healthcheck `yaml:"healthCheck,omitempty"`  // Health check configuration.
-	Dependencies []string     `yaml:"dependencies,omitempty"` // Component dependencies.
-	Volumes      []Volume     `yaml:"volumes,omitempty"`      // Volume mounts.
-	RequiredVars []string     `yaml:"requiredVars,omitempty"` // Required environment variables.
+	Image        string       `yaml:"image"`                  // Docker image path (supports <% REGISTRY %>)
+	ServicePorts []int       `yaml:"servicePorts"`           // List of ports to expose
+	Environment  []EnvVar     `yaml:"environment,omitempty"`  // Environment variables
+	Command      []string     `yaml:"command,omitempty"`      // Default command
+	HealthCheck  *Healthcheck `yaml:"healthCheck,omitempty"`  // Health check configuration
+	Volumes      []Volume     `yaml:"volumes,omitempty"`      // Persistent volumes
+	Secrets      []Secret     `yaml:"secrets,omitempty"`      // Secrets configuration
+	Path         string       `yaml:"path,omitempty"`         // Route path for frontend
 }
 
-// Port represents a port mapping.
+// Port represents a port mapping (deprecated in v2, use ServicePorts instead).
 type Port struct {
 	Container int    // Port inside the container.
 	Host      int    // Port on the host.
@@ -42,9 +43,8 @@ type Port struct {
 
 // EnvVar represents an environment variable.
 type EnvVar struct {
-	Key      string // Variable name.
-	Value    string // Variable value.
-	Required bool   // Whether this variable is required.
+	Key   string `yaml:"key"`   // Variable name
+	Value string `yaml:"value"` // Variable value (supports template variables)
 }
 
 // Healthcheck represents a Docker healthcheck configuration.
@@ -57,12 +57,19 @@ type Healthcheck struct {
 	PeriodSeconds       int      `yaml:"periodSeconds,omitempty"`       // Frequency of health checks.
 }
 
-// Volume represents a volume mount configuration.
+// Volume represents a persistent volume configuration.
 type Volume struct {
-	Source     string // Host path or volume name.
-	Target     string // Container path.
-	Type       string // Type of mount: bind, volume, or tmpfs.
-	Persistent bool   // Whether the volume should persist.
+	Name      string `yaml:"name"`      // Volume name
+	Size      string `yaml:"size"`      // Volume size (e.g., "1Gi")
+	MountPath string `yaml:"mountPath"` // Container mount path
+}
+
+// Secret represents a secret configuration.
+type Secret struct {
+	Name      string `yaml:"name"`      // Secret name
+	Data      string `yaml:"data"`      // Base64/raw secret value
+	MountPath string `yaml:"mountPath"` // Secret mount directory
+	FileName  string `yaml:"fileName"`  // Secret file name
 }
 
 // DetectedComponent represents a component detected from the project directory.

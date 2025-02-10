@@ -12,12 +12,24 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// RegistryLogin represents private registry authentication details
+type RegistryLogin struct {
+	Registry           string `yaml:"registry"`
+	Username           string `yaml:"username"`
+	PersonalAccessToken string `yaml:"personalAccessToken"`
+}
+
+
+
 // Template represents the structure of the Nexlayer deployment template.
-// It includes the template name, deployment name, and a list of pods.
+// It follows the v2.0 schema specification.
 type Template struct {
-	Name           string `yaml:"name"`
-	DeploymentName string `yaml:"deploymentName"`
-	Pods           []Pod  `yaml:"pods"`
+	Application struct {
+		Name          string        `yaml:"name"`
+		URL           string        `yaml:"url,omitempty"`
+		RegistryLogin *RegistryLogin `yaml:"registryLogin,omitempty"`
+		Pods          []Pod         `yaml:"pods"`
+	} `yaml:"application"`
 }
 
 // GenerateTemplate creates a nexlayer.yaml template for the given project.
@@ -34,11 +46,8 @@ func GenerateTemplate(projectName string, detector ComponentDetector) (string, e
 	}
 
 	// Create a basic template with the project name.
-	template := Template{
-		Name:           projectName,
-		DeploymentName: projectName,
-		Pods:           []Pod{},
-	}
+	template := Template{}
+	template.Application.Name = projectName
 
 	// Scan the current directory for components.
 	files, err := filepath.Glob("*")
@@ -63,14 +72,20 @@ func GenerateTemplate(projectName string, detector ComponentDetector) (string, e
 				continue
 			}
 
+			// Create pod configuration with detected settings
 			pod := Pod{
-				Name:  filepath.Base(file),
-				Type:  detected.Type,
-				Image: detected.Config.Image,
+				Name:         filepath.Base(file),
+				Image:        detected.Config.Image,
+				Path:         detected.Config.Path,
+				ServicePorts: detected.Config.ServicePorts,
+				Volumes:      detected.Config.Volumes,
+				Secrets:      detected.Config.Secrets,
+				Vars:         detected.Config.Environment,
 			}
 
-			if pod.Type != "" {
-				template.Pods = append(template.Pods, pod)
+			// Add pod to template if it has valid configuration
+			if pod.Image != "" {
+				template.Application.Pods = append(template.Application.Pods, pod)
 			}
 		}
 	}

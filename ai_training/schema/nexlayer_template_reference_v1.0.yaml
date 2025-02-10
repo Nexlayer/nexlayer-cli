@@ -16,28 +16,34 @@
 # - Continuous Learning: This reference is continuously updated based on deployment feedback to train our AI
 #   assistant to generate the correct YAML automatically.
 #
-version: "1.0"
+version: "2.0"
 
 schema:
   application:
-    template:
-      required:
-        - name            # Template name (e.g., "MyApp")
-        - deploymentName  # Kubernetes deployment name (e.g., "my-app")
-      optional:
-        - description     # Brief description of the template
-        - version         # Template version
-        - registryLogin   # Credentials for pulling private images
-    pods:
-      required:
-        - type            # Component type (e.g., "frontend", "backend")
-        - name            # Unique pod name (used for internal DNS)
-        - image           # Full image URL (from Docker Hub) including tag
-      optional:
-        - vars            # Non-sensitive environment variables
-        - ports           # Port configurations
-        - volumes         # Volume mounts
-        - resources       # Resource requests/limits
+    name: "<string>"  # REQUIRED: The name of the deployment (must be unique)
+    url: "<string>"  # OPTIONAL: Permanent domain (only include if needed)
+    registryLogin:  # OPTIONAL: Private registry authentication details
+      registry: "<string>"  # REQUIRED for private images: The registry for images
+      username: "<string>"  # REQUIRED if using a private registry
+      personalAccessToken: "<string>"  # REQUIRED for read-only registry authentication
+    pods:  # REQUIRED: List of pods in the deployment
+      - name: "<string>"  # REQUIRED: Pod name (must start with a lowercase letter, only alphanumeric, '-', or '.')
+        path: "<string>"  # OPTIONAL: Route path for frontend (e.g., "/" for web apps)
+        image: "<string>"  # REQUIRED: Docker image path (supports "<% REGISTRY %>" for private images)
+        volumes:  # OPTIONAL: Volume mounts
+          - name: "<string>"  # REQUIRED: Name of the volume
+            size: "<string>"  # REQUIRED: Volume size (e.g., "1Gi")
+            mountPath: "<string>"  # REQUIRED: Path inside the container
+        secrets:  # OPTIONAL: Secret mounts
+          - name: "<string>"  # REQUIRED: Secret name
+            data: "<string>"  # REQUIRED: Base64-encoded or raw secret value
+            mountPath: "<string>"  # REQUIRED: Directory where the secret file will be stored
+            fileName: "<string>"  # REQUIRED: File name for the secret (e.g., "config.json")
+        vars:  # OPTIONAL: Environment variables
+          - key: "<string>"  # REQUIRED: Environment variable key
+            value: "<string>"  # REQUIRED: Value (Supports: pod references, "<% URL %>", etc.)
+        servicePorts:  # REQUIRED: List of ports to expose
+          - "<integer>"  # REQUIRED: Port to expose (e.g., 3000)
 
 componentTypes:
   frontend:
@@ -139,55 +145,66 @@ componentTypes:
 examples:
   ai_stack:
     application:
-      template:
-        name: "AIApp"
-        deploymentName: "ai-app"
-    pods:
-      - name: "ollama"
-        image: "docker.io/ollama/ollama:latest"
-        expose: false
-        ports:
-          - containerPort: 11434
-            servicePort: 11434
-            name: "ollama"
-      - name: "web-ui"
-        image: "${REGISTRY}/web-ui:v1"
-        expose: true
-        path: "/"         # Routes external traffic to this pod.
-        ports:
-          - containerPort: 3000
-            servicePort: 80
-            name: "web"
-        vars:
-          - key: REACT_APP_API_URL
-            value: "http://ollama:11434"
+      name: "ai-app"
+      url: "ai.example.com"
+      registryLogin:
+        registry: "ghcr.io"
+        username: "username"
+        personalAccessToken: "<token>"
+      pods:
+        - name: "ollama"
+          image: "<% REGISTRY %>/ollama/ollama:latest"
+          servicePorts: [11434]
+          volumes:
+            - name: "models"
+              size: "10Gi"
+              mountPath: "/models"
+          vars:
+            - key: "OLLAMA_HOST"
+              value: "0.0.0.0"
+        - name: "web-ui"
+          path: "/"
+          image: "<% REGISTRY %>/web-ui:v1"
+          servicePorts: [3000]
+          vars:
+            - key: "REACT_APP_API_URL"
+              value: "http://<% POD_NAME %>:11434"
+
   full_stack:
     application:
-      template:
-        name: "FullStackApp"
-        deploymentName: "fullstack-app"
-    pods:
-      - name: "web-ui"
-        image: "${REGISTRY}/web-ui:v1"
-        expose: true
-        path: "/"         # Expose frontend at the root path.
-        ports:
-          - containerPort: 3000
-            servicePort: 80
-            name: "web"
-        vars:
-          - key: REACT_APP_API_URL
-            value: "http://api:3000"
-      - name: "api"
-        image: "${REGISTRY}/api:v1"
-        expose: false
-        ports:
-          - containerPort: 8000
-            servicePort: 8000
-            name: "api"
-        vars:
-          - key: DATABASE_URL
-            value: "postgresql://postgres-db:5432/mydb"
+      name: "fullstack-app"
+      url: "app.example.com"
+      pods:
+        - name: "web-ui"
+          path: "/"
+          image: "<% REGISTRY %>/web-ui:v1"
+          servicePorts: [3000]
+          vars:
+            - key: "REACT_APP_API_URL"
+              value: "http://<% POD_NAME %>:8000"
+        - name: "api"
+          image: "<% REGISTRY %>/api:v1"
+          servicePorts: [8000]
+          secrets:
+            - name: "db-credentials"
+              data: "base64_encoded_data"
+              mountPath: "/app/config"
+              fileName: "db.json"
+          vars:
+            - key: "DATABASE_URL"
+              value: "postgresql://<% POD_NAME %>:5432/mydb"
+        - name: "postgres-db"
+          image: "docker.io/library/postgres:latest"
+          servicePorts: [5432]
+          volumes:
+            - name: "pgdata"
+              size: "5Gi"
+              mountPath: "/var/lib/postgresql/data"
+          secrets:
+            - name: "postgres-password"
+              data: "base64_encoded_password"
+              mountPath: "/run/secrets"
+              fileName: "postgres-password"
       - name: "postgres-db"
         image: "docker.io/library/postgres:latest"
         expose: false

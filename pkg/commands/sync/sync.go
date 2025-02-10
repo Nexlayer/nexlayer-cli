@@ -44,7 +44,15 @@ func NewCommand() *cobra.Command {
 
 			// Generate new YAML based on current project state
 			progress.Title = "Analyzing project and generating updated template"
-			newYAML, err := ai.GenerateYAML("", dir, nil) // Pass nil since we're not using the existing YAML
+			stackType, components := ai.DetectStack(dir)
+			req := ai.TemplateRequest{
+				ProjectName: "", // Empty since we're updating existing
+				TemplateType: stackType,
+				RequiredFields: map[string]interface{}{
+					"components": components,
+				},
+			}
+			newYAML, err := ai.GenerateTemplate(cmd.Context(), req)
 			if err != nil {
 				return fmt.Errorf("failed to generate template: %w", err)
 			}

@@ -92,6 +92,15 @@ type DeploymentInfo struct {
 // GetDeploymentsResponse represents the response from getting all deployments
 type GetDeploymentsResponse struct {
 	Deployments []Deployment `json:"deployments"`
+	Pagination  *Pagination  `json:"pagination,omitempty"`
+}
+
+// Pagination represents pagination information
+type Pagination struct {
+	Page       int `json:"page"`
+	PageSize   int `json:"pageSize"`
+	TotalItems int `json:"totalItems"`
+	TotalPages int `json:"totalPages"`
 }
 
 // GetDeploymentInfoResponse represents the response from getting deployment info

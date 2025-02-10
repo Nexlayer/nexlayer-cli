@@ -10,7 +10,13 @@ import (
 	"github.com/fatih/color"
 )
 
-// progressBar implements the ProgressTracker interface.
+// ProgressTracker defines the interface for tracking progress
+type ProgressTracker interface {
+	Update(progress float64, msg string)
+	Complete()
+}
+
+// progressBar implements a visual progress bar
 type progressBar struct {
 	mu      sync.Mutex
 	message string

@@ -16,49 +16,68 @@ import (
 	"github.com/fatih/color"
 )
 
-// Package ui provides utilities for rendering styled text and UI elements in the CLI.
+func init() {
+	// Force color output
+	color.NoColor = false
+}
 
 var (
-	// titleStyle defines the style for primary titles.
-	// It uses bold text with a green color.
+	// Colors
+	primaryColor = lipgloss.AdaptiveColor{Light: "#FF69B4", Dark: "#FF69B4"} // Hot pink for selected/active items
+	backgroundColor = lipgloss.AdaptiveColor{Light: "#1B1B1B", Dark: "#1B1B1B"} // Dark background
+	textColor = lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#FFFFFF"} // White text
+	accentColor = lipgloss.AdaptiveColor{Light: "#36B2B2", Dark: "#36B2B2"} // Teal for progress/success
+	errorColor = lipgloss.AdaptiveColor{Light: "#FF0000", Dark: "#FF0000"} // Red for errors
+
+	// Common styles
+	docStyle = lipgloss.NewStyle().Margin(1, 2)
+
+	// Text styles
 	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#00ff00"))
+		Bold(true).
+		Foreground(primaryColor)
 
-	// subtitleStyle defines the style for subtitles.
-	// It uses italic text with a gray color.
 	subtitleStyle = lipgloss.NewStyle().
-			Italic(true).
-			Foreground(lipgloss.Color("#888888"))
+		Italic(true).
+		Foreground(accentColor)
 
-	// errorStyle defines the style for error messages.
-	// It uses bold text with a red color.
 	errorStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#ff0000"))
+		Bold(true).
+		Foreground(errorColor)
 
-	// successStyle defines the style for success messages.
-	// It uses bold text with a green color.
 	successStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#00ff00"))
+		Bold(true).
+		Foreground(primaryColor)
 
-	// tableStyle defines the style for tables.
-	// It uses a normal border with a gray color.
+	highlightStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(primaryColor)
+
+	// Container styles
 	tableStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("#888888"))
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(accentColor)
+
+	boxStyle = lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(accentColor).
+		Padding(1).
+		Width(60)
 )
 
 // RenderTitle renders a title with an optional subtitle.
-// The title is styled using titleStyle, and the subtitle (if provided) is styled using subtitleStyle.
-// Returns the formatted title string.
-func RenderTitle(title string, subtitle ...string) string {
-	result := titleStyle.Render(title)
-	if len(subtitle) > 0 {
-		result += "\n" + subtitleStyle.Render(subtitle[0])
-	}
-	return result
+func RenderTitle(title string) string {
+	return titleStyle.Render(title)
+}
+
+// RenderHighlight renders text in the highlight style
+func RenderHighlight(text string) string {
+	return highlightStyle.Render(text)
+}
+
+// RenderBox renders text in a box
+func RenderBox(text string) string {
+	return boxStyle.Render(text)
 }
 
 // RenderTitleWithBorder renders a title enclosed in a decorative border using titleStyle.
@@ -95,44 +114,55 @@ func RenderInfo(msg string) string {
 }
 
 // RenderTable creates a textual table from headers and rows.
-// It calculates column widths, renders the header, separator, and each row.
-// Returns the formatted table string.
 func RenderTable(headers []string, rows [][]string) string {
 	if len(headers) == 0 || len(rows) == 0 {
 		return ""
 	}
 
-	// Calculate column widths.
-	widths := make([]int, len(headers))
+	// Calculate column widths
+	colWidths := make([]int, len(headers))
 	for i, h := range headers {
-		widths[i] = len(h)
+		colWidths[i] = len(h)
 	}
+
 	for _, row := range rows {
 		for i, cell := range row {
-			if len(cell) > widths[i] {
-				widths[i] = len(cell)
+			if i < len(colWidths) && len(cell) > colWidths[i] {
+				colWidths[i] = len(cell)
 			}
 		}
 	}
 
+	// Build the table
 	var sb strings.Builder
 
-	// Render header row.
+	// Header
 	for i, h := range headers {
-		fmt.Fprintf(&sb, "%-*s", widths[i]+2, h)
+		if i > 0 {
+			sb.WriteString(" | ")
+		}
+		sb.WriteString(fmt.Sprintf("%-*s", colWidths[i], h))
 	}
 	sb.WriteString("\n")
 
-	// Render separator.
-	for _, w := range widths {
-		sb.WriteString(strings.Repeat("-", w+2))
+	// Separator
+	for i, width := range colWidths {
+		if i > 0 {
+			sb.WriteString("-+-")
+		}
+		sb.WriteString(strings.Repeat("-", width))
 	}
 	sb.WriteString("\n")
 
-	// Render each row.
+	// Rows
 	for _, row := range rows {
 		for i, cell := range row {
-			fmt.Fprintf(&sb, "%-*s", widths[i]+2, cell)
+			if i > 0 {
+				sb.WriteString(" | ")
+			}
+			if i < len(colWidths) {
+				sb.WriteString(fmt.Sprintf("%-*s", colWidths[i], cell))
+			}
 		}
 		sb.WriteString("\n")
 	}

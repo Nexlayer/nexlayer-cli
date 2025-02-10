@@ -16,7 +16,7 @@ import (
 type CommandDependencies struct {
 	APIClient api.APIClient
 	Logger    *observability.Logger
-	UIManager ui.Manager
+	UIManager *ui.Manager
 }
 
 // CommandProvider defines an interface for modules that provide commands

@@ -37,7 +37,7 @@ type Plugin interface {
 type PluginDependencies struct {
 	APIClient api.APIClient
 	Logger    *observability.Logger
-	UIManager ui.Manager
+	UIManager *ui.Manager
 }
 
 // Manager is responsible for loading, initializing, and managing plugins.

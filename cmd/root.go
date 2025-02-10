@@ -43,6 +43,9 @@ var (
 // init initializes the logger and sets default configuration values.
 // It creates the root command and registers all subcommands.
 func init() {
+	// Enable colors for Windows
+	os.Setenv("TERM", "xterm-256color")
+
 	// Initialize the logger first with JSON mode and rotation settings.
 	logger = observability.NewLogger(
 		observability.INFO,
@@ -84,7 +87,7 @@ func NewRootCommand() *cobra.Command {
 
 	// Register all commands.
 	cmd.AddCommand(initcmd.NewCommand())
-	cmd.AddCommand(ai.NewAICommand())
+	cmd.AddCommand(ai.NewCommand())
 	cmd.AddCommand(compose.NewCommand())
 	cmd.AddCommand(deploy.NewCommand(apiClient))
 	cmd.AddCommand(domain.NewCommand(apiClient))

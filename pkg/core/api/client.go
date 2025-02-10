@@ -57,6 +57,16 @@ type Client struct {
 	token      string       // Authentication token for API requests
 }
 
+// handleAPIError processes API error responses and returns a formatted error
+func (c *Client) handleAPIError(resp *http.Response) error {
+	body, _ := io.ReadAll(resp.Body)
+	var errResp types.ErrorResponse
+	if err := json.Unmarshal(body, &errResp); err != nil {
+		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+	return fmt.Errorf("API error (status %d): %s (code: %s)", resp.StatusCode, errResp.Message, errResp.Code)
+}
+
 // NewClient creates a new Nexlayer API client.
 // If baseURL is empty, defaults to the staging environment at app.staging.nexlayer.io.
 // GetLogs retrieves logs for a specific deployment

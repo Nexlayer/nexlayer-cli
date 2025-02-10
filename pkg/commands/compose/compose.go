@@ -1,4 +1,7 @@
-// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
+// compose.go
+// Copyright (c) 2025 Nexlayer. All rights reserved.
+// Use of this source code is governed by an MIT-style license that can be found in the LICENSE file.
+
 package compose
 
 import (
@@ -19,14 +22,6 @@ type DockerCompose struct {
 	Networks map[string]interface{} `yaml:"networks"`
 }
 
-type Port struct {
-	ContainerPort int    `yaml:"containerPort"`
-	ServicePort   int    `yaml:"servicePort"`
-	Name          string `yaml:"name"`
-}
-
-type Pod = components.Pod
-
 type Service struct {
 	Image       string                 `yaml:"image"`
 	Build       string                 `yaml:"build,omitempty"`
@@ -37,6 +32,20 @@ type Service struct {
 	Command     []string               `yaml:"command,omitempty"`
 	Volumes     []string               `yaml:"volumes,omitempty"`
 	Healthcheck map[string]interface{} `yaml:"healthcheck,omitempty"`
+}
+
+// 🔥 Ensure the schema matches `nexlayer.yaml`
+type NexlayerConfig struct {
+	Application struct {
+		Name          string `yaml:"name"`
+		URL           string `yaml:"url,omitempty"`
+		RegistryLogin struct {
+			Registry            string `yaml:"registry"`
+			Username            string `yaml:"username"`
+			PersonalAccessToken string `yaml:"personalAccessToken"`
+		} `yaml:"registryLogin,omitempty"`
+		Pods []components.Pod `yaml:"pods"`
+	} `yaml:"application"`
 }
 
 func NewCommand() *cobra.Command {
@@ -54,59 +63,39 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-func configureService(pod components.Pod, detector components.ComponentDetector) (Service, error) {
+// 🛠 Configure a Docker Compose service from a Nexlayer Pod
+func configureService(pod components.Pod) (Service, error) {
 	service := Service{
+		Image:    pod.Image,
 		Networks: []string{"app-network"},
 	}
 
-	if pod.Image != "" {
-		service.Image = pod.Image
-	} else {
-		detected, err := detector.DetectAndConfigure(components.Pod{
-			Type:       pod.Type,
-			Name:       pod.Name,
-			ExposeOn80: pod.ExposeOn80,
-			Vars:       pod.Vars,
-		})
-		if err != nil {
-			return Service{}, fmt.Errorf("failed to detect component type: %w", err)
-		}
-		service.Image = detected.Config.Image
+	// 🌟 Convert environment variables properly
+	if len(pod.Vars) > 0 {
+		service.Environment = convertVars(pod.Vars)
 	}
 
-	if len(pod.Ports) > 0 {
-		for _, port := range pod.Ports {
-			protocol := port.Protocol
-			if protocol == "" {
-				protocol = "tcp"
-			}
+	// 🔥 Convert ports properly
+	if len(pod.ServicePorts) > 0 {
+		for _, port := range pod.ServicePorts {
 			service.Ports = append(service.Ports,
-				fmt.Sprintf("%d:%d/%s", port.Host, port.Container, protocol))
+				fmt.Sprintf("%d:%d", port, port))
 		}
 	}
 
-	service.Environment = append(service.Environment, convertVars(pod.Vars)...)
-
-	if len(pod.Command) > 0 {
-		service.Command = pod.Command
+	// 📂 Handle volumes correctly
+	if len(pod.Volumes) > 0 {
+		for _, vol := range pod.Volumes {
+			service.Volumes = append(service.Volumes,
+				fmt.Sprintf("%s:%s", vol.Name, vol.MountPath))
+		}
 	}
 
-	detected, err := detector.DetectAndConfigure(pod)
-	if err != nil {
-		return Service{}, fmt.Errorf("failed to detect component: %w", err)
-	}
-
-	for _, vol := range detected.Config.Volumes {
-		service.Volumes = append(service.Volumes,
-			fmt.Sprintf("%s:%s:%s", vol.Source, vol.Target, vol.Type))
-	}
-
-	if detected.Config.HealthCheck != nil {
-		service.Healthcheck = map[string]interface{}{
-			"test":     detected.Config.HealthCheck.Command,
-			"interval": detected.Config.HealthCheck.Interval,
-			"timeout":  detected.Config.HealthCheck.Timeout,
-			"retries":  detected.Config.HealthCheck.Retries,
+	// 🔑 Handle secrets properly
+	if len(pod.Secrets) > 0 {
+		for _, secret := range pod.Secrets {
+			service.Volumes = append(service.Volumes,
+				fmt.Sprintf("%s:%s/%s:ro", secret.Name, secret.MountPath, secret.FileName))
 		}
 	}
 
@@ -121,6 +110,7 @@ func convertVars(vars []components.EnvVar) []string {
 	return result
 }
 
+// 📌 Generate `docker-compose.yml` from `nexlayer.yaml`
 func newGenerateCommand() *cobra.Command {
 	var configFile string
 	cmd := &cobra.Command{
@@ -130,7 +120,7 @@ func newGenerateCommand() *cobra.Command {
 			if configFile == "" {
 				files, err := filepath.Glob("*.yaml")
 				if err != nil {
-					return fmt.Errorf("failed to search for yaml files: %w", err)
+					return fmt.Errorf("failed to search for YAML files: %w", err)
 				}
 
 				for _, f := range files {
@@ -150,15 +140,7 @@ func newGenerateCommand() *cobra.Command {
 				return fmt.Errorf("failed to read config file %s: %w", configFile, err)
 			}
 
-			var config struct {
-				Application struct {
-					Template struct {
-						Name           string           `yaml:"name"`
-						DeploymentName string           `yaml:"deploymentname"`
-						Pods           []components.Pod `yaml:"pods"`
-					} `yaml:"template"`
-				} `yaml:"application"`
-			}
+			var config NexlayerConfig
 
 			if err := yaml.Unmarshal(data, &config); err != nil {
 				return fmt.Errorf("failed to parse config file: %w", err)
@@ -172,25 +154,10 @@ func newGenerateCommand() *cobra.Command {
 				},
 			}
 
-			detector := components.NewComponentDetector()
-
-			for _, pod := range config.Application.Template.Pods {
-				service, err := configureService(pod, detector)
+			for _, pod := range config.Application.Pods {
+				service, err := configureService(pod)
 				if err != nil {
 					return fmt.Errorf("failed to configure service %s: %w", pod.Name, err)
-				}
-
-				service.Environment = append(service.Environment, convertVars(pod.Vars)...)
-
-				if pod.ExposeOn80 && len(service.Ports) == 0 {
-					switch pod.Type {
-					case "frontend":
-						service.Ports = []string{"3000:3000"}
-					case "backend":
-						service.Ports = []string{"5000:5000"}
-					case "nginx":
-						service.Ports = []string{"80:80"}
-					}
 				}
 
 				compose.Services[pod.Name] = service
@@ -205,7 +172,7 @@ func newGenerateCommand() *cobra.Command {
 				return fmt.Errorf("failed to write docker-compose.yml: %w", err)
 			}
 
-			fmt.Println("Successfully generated docker-compose.yml")
+			fmt.Println("✅ Successfully generated docker-compose.yml")
 			return nil
 		},
 	}
@@ -249,7 +216,7 @@ func newLogsCommand() *cobra.Command {
 
 func runDockerCompose(args ...string) error {
 	if _, err := os.Stat("docker-compose.yml"); os.IsNotExist(err) {
-		return fmt.Errorf("docker-compose.yml not found. Run 'nexlayer compose generate' first")
+		return fmt.Errorf("❌ docker-compose.yml not found. Run 'nexlayer compose generate' first")
 	}
 
 	dockerCmd := exec.Command("docker-compose", args...)

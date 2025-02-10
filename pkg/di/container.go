@@ -2,6 +2,7 @@
 package di
 
 import (
+	"os"
 	"sync"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/config"
@@ -15,7 +16,7 @@ type Container struct {
 	mu        sync.RWMutex
 	config    *config.Config
 	apiClient api.APIClient
-	uiManager ui.Manager
+	uiManager *ui.Manager
 	logger    *observability.Logger
 }
 
@@ -61,7 +62,7 @@ func (c *Container) GetConfig() *config.Config {
 }
 
 // GetUIManager returns the UI manager instance.
-func (c *Container) GetUIManager() ui.Manager {
+func (c *Container) GetUIManager() *ui.Manager {
 	c.mu.RLock()
 	if c.uiManager != nil {
 		defer c.mu.RUnlock()
@@ -72,7 +73,7 @@ func (c *Container) GetUIManager() ui.Manager {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.uiManager == nil {
-		c.uiManager = ui.NewManager()
+		c.uiManager = ui.NewManager(os.Stdout)
 	}
 	return c.uiManager
 }
