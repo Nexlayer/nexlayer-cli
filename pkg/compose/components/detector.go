@@ -11,17 +11,21 @@ import (
 
 // DefaultDetector implements the ComponentDetector interface.
 // It is responsible for detecting a component’s type and applying default configurations.
-type DefaultDetector struct{}
+type DefaultDetector struct{
+	analyzer *ProjectAnalyzer
+}
 
 // NewComponentDetector creates a new component detector.
 func NewComponentDetector() ComponentDetector {
-	return &DefaultDetector{}
+	return &DefaultDetector{
+		analyzer: NewProjectAnalyzer(),
+	}
 }
 
 // DetectAndConfigure detects and configures a component based on its type.
 func (d *DefaultDetector) DetectAndConfigure(pod Pod) (DetectedComponent, error) {
 	if pod.Name == "" {
-		return DetectedComponent{}, fmt.Errorf("pod name cannot be empty")
+		return DetectedComponent{}, fmt.Errorf("pod name cannot be empty. Please provide a valid name for your component")
 	}
 
 	// 🔥 Detect component type using image or directory structure

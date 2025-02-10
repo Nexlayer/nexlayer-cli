@@ -29,7 +29,7 @@ func NewCommand() *cobra.Command {
 			} else {
 				dir, err := os.Getwd()
 				if err != nil {
-					return fmt.Errorf("failed to get current directory: %w", err)
+					return fmt.Errorf("unable to determine current directory. Please ensure you have proper permissions and try again. Error: %w", err)
 				}
 				projectName = filepath.Base(dir)
 			}
@@ -43,7 +43,7 @@ func NewCommand() *cobra.Command {
 			// Check if directory is empty
 			files, err := os.ReadDir(dir)
 			if err != nil {
-				return fmt.Errorf("failed to read directory: %w", err)
+				return fmt.Errorf("cannot read contents of directory '%s'. Please verify: (1) you have read permissions, (2) the directory is not locked, (3) the path is valid. Error: %w", dir, err)
 			}
 
 			// If directory is empty or only contains hidden files, offer templates
@@ -70,7 +70,7 @@ func NewCommand() *cobra.Command {
 				// Show template selection
 				selected := l.SelectedItem()
 				if selected == nil {
-					return fmt.Errorf("no template selected")
+					return fmt.Errorf("no template was selected. Please choose a template from the list to continue")
 				}
 
 				// Create project from template
@@ -79,7 +79,7 @@ func NewCommand() *cobra.Command {
 				pterm.Info.Println("🚀 Generating starter files...")
 
 				if err := templates.CreateProject(projectName, templateName); err != nil {
-					return fmt.Errorf("failed to create project: %w", err)
+					return fmt.Errorf("failed to create project from template '%s'. Please ensure: (1) template name is valid, (2) you have write permissions, (3) template files are accessible. Error: %w", templateName, err)
 				}
 			}
 
@@ -93,7 +93,7 @@ func NewCommand() *cobra.Command {
 				// File exists, create backup
 				backupFile := configFile + ".backup"
 				if err := os.Rename(configFile, backupFile); err != nil {
-					return fmt.Errorf("failed to backup existing config: %w", err)
+					return fmt.Errorf("failed to create backup of existing nexlayer.yaml. Please ensure: (1) you have write permissions, (2) original file is not in use, (3) sufficient disk space available. Error: %w", err)
 				}
 				cmd.Printf("Backed up existing %s to %s\n", configFile, backupFile)
 			}
