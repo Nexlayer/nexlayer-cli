@@ -16,6 +16,7 @@ import (
 	initcmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/initcmd"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/status"
+	syncCmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/sync"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/observability"
 	"github.com/spf13/cobra"
@@ -89,6 +90,7 @@ func NewRootCommand() *cobra.Command {
 	cmd.AddCommand(domain.NewCommand(apiClient))
 	cmd.AddCommand(feedback.NewCommand(apiClient))
 	cmd.AddCommand(list.NewCommand(apiClient))
+	cmd.AddCommand(syncCmd.NewCommand())
 	cmd.AddCommand(status.NewCommand(apiClient))
 
 	return cmd

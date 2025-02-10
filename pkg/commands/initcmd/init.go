@@ -7,19 +7,22 @@ import (
 	"path/filepath"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
+	"github.com/Nexlayer/nexlayer-cli/pkg/templates"
+	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
-// NewCommand creates a new init command that uses AI to detect the project stack
-// and generate an appropriate deployment template.
+// NewCommand creates a new init command that supports both existing projects
+// and new project creation from templates.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init [project-name]",
 		Short: "Initialize a new Nexlayer project",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Determine project name from argument or use current directory name.
+			// Determine project name from argument or use current directory name
 			var projectName string
 			if len(args) > 0 {
 				projectName = args[0]
@@ -30,6 +33,59 @@ func NewCommand() *cobra.Command {
 				}
 				projectName = filepath.Base(dir)
 			}
+
+			// Get current directory
+			dir, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("failed to get current directory: %w", err)
+			}
+
+			// Check if directory is empty
+			files, err := os.ReadDir(dir)
+			if err != nil {
+				return fmt.Errorf("failed to read directory: %w", err)
+			}
+
+			// If directory is empty or only contains hidden files, offer templates
+			hasVisibleFiles := false
+			for _, file := range files {
+				if !file.IsDir() && !isHiddenFile(file.Name()) {
+					hasVisibleFiles = true
+					break
+				}
+			}
+
+			if !hasVisibleFiles {
+				// Mode 2: Start from Scratch
+				pterm.Info.Println("📦 No project detected. Would you like to start with a template?")
+
+				// Create template selection list
+				items := templates.GetTemplateItems()
+				l := list.New(items, list.NewDefaultDelegate(), 0, 0)
+				l.Title = "Select a template"
+				l.SetShowStatusBar(false)
+				l.SetFilteringEnabled(false)
+				l.Styles.Title = lipgloss.NewStyle().MarginLeft(2)
+
+				// Show template selection
+				selected := l.SelectedItem()
+				if selected == nil {
+					return fmt.Errorf("no template selected")
+				}
+
+				// Create project from template
+				templateName := selected.(templates.TemplateItem).Name
+				pterm.Info.Printf("✨ Selected: %s\n", templateName)
+				pterm.Info.Println("🚀 Generating starter files...")
+
+				if err := templates.CreateProject(projectName, templateName); err != nil {
+					return fmt.Errorf("failed to create project: %w", err)
+				}
+			}
+
+			// Mode 1: Detect & Generate
+			progress, _ := pterm.DefaultProgressbar.WithTotal(100).Start()
+			progress.Title = "Analyzing project"
 
 			// Check if nexlayer.yaml already exists
 			configFile := "nexlayer.yaml"
@@ -42,17 +98,7 @@ func NewCommand() *cobra.Command {
 				cmd.Printf("Backed up existing %s to %s\n", configFile, backupFile)
 			}
 
-			// Create a progress bar for user feedback.
-			progress, _ := pterm.DefaultProgressbar.WithTotal(100).Start()
-			progress.Title = "Analyzing project"
-
-			// Get current directory for analysis (if needed).
-			dir, err := os.Getwd()
-			if err != nil {
-				return fmt.Errorf("failed to get current directory: %w", err)
-			}
-
-			// Generate the template using AI.
+			// Generate the template using AI
 			progress.Title = "Analyzing project and generating template"
 			yamlStr, err := ai.GenerateYAML(projectName, dir, nil)
 			if err != nil {
@@ -60,13 +106,13 @@ func NewCommand() *cobra.Command {
 			}
 			progress.Add(90)
 
-			// Write the generated template to 'nexlayer.yaml'.
+			// Write the generated template to 'nexlayer.yaml'
 			if err := os.WriteFile("nexlayer.yaml", []byte(yamlStr), 0644); err != nil {
 				return fmt.Errorf("failed to write template: %w", err)
 			}
 			progress.Add(10)
 
-			// Display success message.
+			// Display success message
 			progress.Stop()
 			pterm.Success.Printf("Created nexlayer.yaml for %s\n", projectName)
 			fmt.Println("To deploy your application, run: nexlayer deploy")
@@ -75,4 +121,9 @@ func NewCommand() *cobra.Command {
 	}
 
 	return cmd
+}
+
+// isHiddenFile returns true if the file name starts with a dot
+func isHiddenFile(name string) bool {
+	return len(name) > 0 && name[0] == '.'
 }
