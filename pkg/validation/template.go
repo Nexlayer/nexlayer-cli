@@ -35,8 +35,19 @@ func ValidateTemplate(template *types.NexlayerYAML) error {
 		return fmt.Errorf("application name is required")
 	}
 
-	// Validate registry login if provided
-	if template.Application.RegistryLogin != nil {
+	// Only validate registry login if private images are used
+	hasPrivateImages := false
+	for _, pod := range template.Application.Pods {
+		if strings.Contains(pod.Image, "<% REGISTRY %>") {
+			hasPrivateImages = true
+			break
+		}
+	}
+
+	if hasPrivateImages {
+		if template.Application.RegistryLogin == nil {
+			return fmt.Errorf("registry login is required when using private images")
+		}
 		if err := validateRegistryLogin(template.Application.RegistryLogin); err != nil {
 			return fmt.Errorf("invalid registry login: %w", err)
 		}

@@ -17,19 +17,20 @@
         },
         "registryLogin": {
           "type": "object",
+          "description": "OPTIONAL: Only required when using private images with <% REGISTRY %> template variable",
           "required": ["registry", "username", "personalAccessToken"],
           "properties": {
             "registry": {
               "type": "string",
-              "description": "REQUIRED for private images: The registry for images"
+              "description": "Registry URL where private images are located"
             },
             "username": {
               "type": "string",
-              "description": "REQUIRED if using a private registry"
+              "description": "Registry username for authentication"
             },
             "personalAccessToken": {
               "type": "string",
-              "description": "REQUIRED for read-only registry authentication"
+              "description": "Read-only personal access token for registry authentication"
             }
           }
         },
