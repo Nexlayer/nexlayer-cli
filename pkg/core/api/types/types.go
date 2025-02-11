@@ -60,24 +60,23 @@ type EnvVar struct {
 
 // Pod represents a pod configuration in the template
 type Pod struct {
-	Name         string    `yaml:"name" validate:"required,alphanum"`
-	Type         string    `yaml:"type" validate:"required,oneof=frontend backend database nginx llm react angular vue express django fastapi mongodb postgres redis neo4j"`
+	Name         string    `yaml:"name" validate:"required,podname"`
 	Path         string    `yaml:"path,omitempty" validate:"omitempty,startswith=/"`
 	Image        string    `yaml:"image" validate:"required,image"`
-	Volumes      []Volume  `yaml:"volumes,omitempty" validate:"omitempty"`
-	Secrets      []Secret  `yaml:"secrets,omitempty" validate:"omitempty"`
-	Vars         []EnvVar  `yaml:"vars,omitempty" validate:"omitempty"`
-	ServicePorts []int     `yaml:"servicePorts,omitempty" validate:"omitempty,dive,gt=0,lt=65536"`
+	Volumes      []Volume  `yaml:"volumes,omitempty" validate:"omitempty,dive"`
+	Secrets      []Secret  `yaml:"secrets,omitempty" validate:"omitempty,dive"`
+	Vars         []EnvVar  `yaml:"vars,omitempty" validate:"omitempty,dive"`
+	ServicePorts []int     `yaml:"servicePorts" validate:"required,dive,gt=0,lt=65536"`
 }
 
 // NexlayerYAML represents the structure of a Nexlayer deployment template
 // NexlayerYAML represents the structure of a Nexlayer deployment template
 // Application represents a Nexlayer application configuration
 type Application struct {
-	Name         string       `yaml:"name" validate:"required,alphanum"`
+	Name         string       `yaml:"name" validate:"required"`
 	URL          string       `yaml:"url,omitempty" validate:"omitempty,url"`
 	RegistryLogin *RegistryLogin `yaml:"registryLogin,omitempty" validate:"omitempty"`
-	Pods         []Pod        `yaml:"pods" validate:"required"`
+	Pods         []Pod        `yaml:"pods" validate:"required,dive"`
 }
 
 // NexlayerYAML represents the structure of a Nexlayer deployment template
@@ -86,10 +85,17 @@ type NexlayerYAML struct {
 }
 
 // StartDeploymentResponse represents the response from starting a deployment
+// StartDeploymentResponse represents the response from the /startUserDeployment endpoint
 type StartDeploymentResponse struct {
-	Message   string `json:"message" example:"Deployment started successfully"`
-	Namespace string `json:"namespace" example:"fantastic-fox"`
-	URL       string `json:"url" example:"https://fantastic-fox-my-mern-app.alpha.nexlayer.ai"`
+	// Deployment status message (e.g., "Deployment started successfully")
+	Message string `json:"message" validate:"required" example:"Deployment started successfully"`
+
+	// Generated namespace for the deployment (e.g., "fantastic-fox")
+	Namespace string `json:"namespace" validate:"required" example:"fantastic-fox"`
+
+	// Application URL where the deployment can be accessed
+	// Format: https://{namespace}-{app-name}.alpha.nexlayer.ai
+	URL string `json:"url" validate:"required,url" example:"https://fantastic-fox-my-mern-app.alpha.nexlayer.ai"`
 }
 
 // SaveCustomDomainResponse represents the response from saving a custom domain

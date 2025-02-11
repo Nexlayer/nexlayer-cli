@@ -36,18 +36,41 @@ func NewCommand(client api.APIClient) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "deploy",
-		Short: "Deploy an application",
-		Long: `Deploy an application using a YAML configuration file.
+		Short: "Deploy an application to Nexlayer",
+		Long: `Deploy an application to Nexlayer using a YAML configuration file.
 
-If no file is specified with -f flag, it will look for one of these files in the current directory:
+Endpoint: POST /startUserDeployment/{applicationID?}
+
+Arguments:
+  --app      Optional: Application ID to deploy to. If not provided, uses Nexlayer profile
+  --config   Path to YAML configuration file
+
+The YAML file must follow the Nexlayer schema v2 format with required fields:
+  application:
+    name: string      # Unique deployment name
+    url: string      # Optional permanent domain
+    pods:            # List of pod configurations
+      - name: string   # Pod name (lowercase alphanumeric)
+        image: string  # Fully qualified image path
+        servicePorts: []
+
+If no config file is specified, it will look for one of these files:
 - deployment.yaml
 - deployment.yml
 - nexlayer.yaml
 - nexlayer.yml
 
-Example:
-  nexlayer deploy
-  nexlayer deploy -f custom-deploy.yaml`,
+Response will include:
+- Deployment status message
+- Generated namespace
+- Application URL
+
+Examples:
+  # Deploy with application ID
+  nexlayer deploy --app my-app-123 --config deploy.yaml
+
+  # Deploy using Nexlayer profile
+  nexlayer deploy --config deploy.yaml`,
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// If no file specified, try to find one
@@ -85,6 +108,9 @@ func runDeploy(cmd *cobra.Command, yamlFile string, appID string) error {
 	apiClient := api.NewClient("")
 
 	// Start deployment
+	if appID == "" {
+		cmd.Println("No application ID provided, using Nexlayer profile")
+	}
 	resp, err := apiClient.StartDeployment(context.Background(), appID, yamlFile)
 	if err != nil {
 		return fmt.Errorf("failed to start deployment: %w", err)
@@ -93,6 +119,7 @@ func runDeploy(cmd *cobra.Command, yamlFile string, appID string) error {
 	cmd.Printf("\nDeployment started successfully!\n")
 	cmd.Printf("URL: %s\n", resp.URL)
 	cmd.Printf("Namespace: %s\n", resp.Namespace)
+	cmd.Printf("Status: %s\n", resp.Message)
 
 	return nil
 }

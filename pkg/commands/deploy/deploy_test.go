@@ -11,10 +11,18 @@ import (
 type mockAPIClient struct{}
 
 func (m *mockAPIClient) StartDeployment(ctx context.Context, appID string, configPath string) (*types.StartDeploymentResponse, error) {
+	// Mock different responses based on whether appID is provided
+	if appID == "" {
+		return &types.StartDeploymentResponse{
+			Message:   "Deployment started using Nexlayer profile",
+			Namespace: "profile-namespace",
+			URL:       "https://profile-app.nexlayer.dev",
+		}, nil
+	}
 	return &types.StartDeploymentResponse{
-		Message:   "Deployment started",
-		Namespace: "test-namespace",
-		URL:       "https://test.nexlayer.dev",
+			Message:   "Deployment started",
+			Namespace: "test-namespace",
+			URL:       "https://test.nexlayer.dev",
 	}, nil
 }
 
@@ -49,6 +57,13 @@ func TestNewCommand(t *testing.T) {
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "deploy", cmd.Use)
 	assert.NotEmpty(t, cmd.Short)
+
+	// Test that --app flag is optional
+	appFlag := cmd.Flag("app")
+	assert.NotNil(t, appFlag)
+	assert.Contains(t, appFlag.Usage, "optional")
+	// Ensure flag is not marked as required in usage
+	assert.NotContains(t, appFlag.Usage, "required")
 	assert.NotEmpty(t, cmd.Long)
 }
 
@@ -66,9 +81,9 @@ func TestValidateDeployConfig(t *testing.T) {
 					Pods: []types.Pod{
 						{
 							Name:  "web",
-							Type:  "react",
 							Image: "nginx:latest",
 							Path:  "/",
+							ServicePorts: []int{80},
 						},
 					},
 				},

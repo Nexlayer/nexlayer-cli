@@ -21,10 +21,10 @@ import (
 // Each template defines the application stack, pods, and environment variables,
 // abstracting away the complexity of deployment.
 type APIClient interface {
-	// StartDeployment starts a new deployment using a YAML template file.
-	// The template must follow the Nexlayer template structure (see Templates docs)
-	// containing application.name and pods array.
-	// If appID is empty, creates a new deployment from the template.
+	// StartDeployment starts a new deployment using a YAML configuration file.
+	// The template must follow the Nexlayer schema v2 format.
+	// If appID is empty, uses the Nexlayer profile for deployment.
+	// Endpoint: POST /startUserDeployment/{applicationID?}
 	StartDeployment(ctx context.Context, appID string, configPath string) (*types.StartDeploymentResponse, error)
 
 	// SaveCustomDomain saves a custom domain for an application.
@@ -101,7 +101,7 @@ func NewClient(baseURL string) *Client {
 	return &Client{
 		baseURL: baseURL,
 		httpClient: &http.Client{
-			Timeout:   30 * time.Second,
+			Timeout:   120 * time.Second,
 			Transport: transport,
 		},
 	}
@@ -112,20 +112,32 @@ func (c *Client) SetToken(token string) {
 	c.token = token
 }
 
-// StartDeployment starts a new deployment using a YAML template file.
-// The template must follow the Nexlayer template structure, including:
-// - Required fields: application.name
-// - Optional fields: application.url, application.registryLogin
-// - Pods array with required name, image, servicePorts and optional vars, volumes, secrets
-// If appID is empty, creates a new deployment from the template.
+// StartDeployment starts a new deployment using a YAML configuration file.
+// Endpoint: POST /startUserDeployment/{applicationID?}
+//
+// Parameters:
+// - ctx: Context for the request
+// - appID: Optional application ID. If empty, uses Nexlayer profile
+// - yamlFile: Path to YAML configuration file
+//
+// The YAML file must follow the Nexlayer schema v2 format with:
+// - Required: application.name, pods[].name, pods[].image, pods[].servicePorts
+// - Optional: application.url, application.registryLogin
+//
+// Returns:
+// - StartDeploymentResponse containing:
+//   - message: Deployment status message
+//   - namespace: Generated namespace
+//   - url: Application URL
+// - error: Any error that occurred
 func (c *Client) StartDeployment(ctx context.Context, appID string, yamlFile string) (*types.StartDeploymentResponse, error) {
 	// Read YAML file
 	data, err := os.ReadFile(yamlFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read template file: %w", err)
+		return nil, fmt.Errorf("failed to read configuration file: %w", err)
 	}
 
-	// Make request
+	// Build URL - if appID is empty, use base endpoint
 	url := fmt.Sprintf("%s/startUserDeployment", c.baseURL)
 	if appID != "" {
 		url = fmt.Sprintf("%s/%s", url, appID)

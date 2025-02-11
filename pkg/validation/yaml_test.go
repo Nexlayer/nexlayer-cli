@@ -24,7 +24,6 @@ func TestValidateNexlayerYAML(t *testing.T) {
 					Pods: []types.Pod{
 						{
 							Name:  "frontend",
-							Type:  "react",
 							Image: "nginx:latest",
 							Path:  "/",
 							ServicePorts: []int{80},
@@ -52,8 +51,8 @@ func TestValidateNexlayerYAML(t *testing.T) {
 					Pods: []types.Pod{
 						{
 							Name:  "database",
-							Type:  "postgres",
 							Image: "postgres:latest",
+							ServicePorts: []int{5432},
 							Volumes: []types.Volume{
 								{
 									Name:      "data",
@@ -80,7 +79,6 @@ func TestValidateNexlayerYAML(t *testing.T) {
 					Pods: []types.Pod{
 						{
 							Name:  "api",
-							Type:  "fastapi",
 							Image: "ghcr.io/myorg/api:latest",
 							Path:  "/api",
 							ServicePorts: []int{8080},

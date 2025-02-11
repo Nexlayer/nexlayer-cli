@@ -20,6 +20,7 @@ var (
 	volumeSizePattern = regexp.MustCompile(`^\d+[KMGT]i?$`)
 	filenamePattern  = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 	envVarPattern    = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+	podNamePattern   = regexp.MustCompile(`^[a-z][a-z0-9\.\-]*$`)
 )
 
 func init() {
@@ -31,6 +32,7 @@ func init() {
 	_ = validate.RegisterValidation("volumesize", validateVolumeSize)
 	_ = validate.RegisterValidation("filename", validateFilename)
 	_ = validate.RegisterValidation("envvar", validateEnvVar)
+	_ = validate.RegisterValidation("podname", validatePodName)
 }
 
 // ValidateNexlayerYAML validates the provided YAML configuration
@@ -66,6 +68,10 @@ func ValidateNexlayerYAML(yaml *types.NexlayerYAML) error {
 }
 
 // Custom validators
+func validatePodName(fl validator.FieldLevel) bool {
+	return podNamePattern.MatchString(fl.Field().String())
+}
+
 func validateImage(fl validator.FieldLevel) bool {
 	return imagePattern.MatchString(fl.Field().String())
 }
@@ -88,8 +94,8 @@ func formatValidationError(err validator.FieldError) string {
 	switch err.Tag() {
 	case "required":
 		return fmt.Sprintf("Field '%s' is required", field)
-	case "alphanum":
-		return fmt.Sprintf("Field '%s' must contain only alphanumeric characters", field)
+	case "podname":
+		return fmt.Sprintf("Field '%s' must start with a lowercase letter and contain only lowercase alphanumeric characters, dots, or hyphens", field)
 	case "image":
 		return fmt.Sprintf("Field '%s' must be a valid Docker image reference", field)
 	case "volumesize":

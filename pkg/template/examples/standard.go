@@ -6,23 +6,32 @@ package examples
 
 import "github.com/Nexlayer/nexlayer-cli/pkg/template"
 
-// StandardTemplate returns a standard example template
+// StandardTemplate returns a standard example template that follows
+// the Nexlayer YAML schema v2 format
 func StandardTemplate() *template.NexlayerYAML {
 	return &template.NexlayerYAML{
 		Application: template.Application{
+			// REQUIRED: Unique deployment name
 			Name: "my-app",
-			URL:  "https://myapp.example.com",
+			// OPTIONAL: Permanent domain
+			URL:  "my-app.nexlayer.dev",
+			// REQUIRED for private images
 			RegistryLogin: &template.RegistryLogin{
-				Registry:            "ghcr.io/my-org",
+				Registry:            "docker.io/my-org",
 				Username:            "myuser",
 				PersonalAccessToken: "mytoken",
 			},
+			// REQUIRED: List of pod configurations
 			Pods: []template.Pod{
 				{
+					// REQUIRED: Pod name (lowercase alphanumeric)
 					Name:  "frontend",
+					// OPTIONAL: Route path for frontend
 					Path:  "/",
+					// REQUIRED: Pod type
 					Type:  template.React,
-					Image: "<% REGISTRY %>/frontend:latest",
+					// REQUIRED: Fully qualified image path
+					Image: "docker.io/my-org/frontend:latest",
 					Vars: []template.EnvVar{
 						{Key: "API_URL", Value: "http://backend.pod:8000"},
 						{Key: "NODE_ENV", Value: "production"},
@@ -36,10 +45,14 @@ func StandardTemplate() *template.NexlayerYAML {
 					},
 				},
 				{
+					// REQUIRED: Pod name (lowercase alphanumeric)
 					Name:  "backend",
+					// OPTIONAL: Route path for API
 					Path:  "/api",
+					// REQUIRED: Pod type
 					Type:  template.FastAPI,
-					Image: "<% REGISTRY %>/backend:latest",
+					// REQUIRED: Fully qualified image path
+					Image: "docker.io/my-org/backend:latest",
 					Vars: []template.EnvVar{
 						{Key: "DATABASE_URL", Value: "postgres://user:pass@db.pod:5432/db"},
 						{Key: "PORT", Value: "8000"},

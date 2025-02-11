@@ -34,24 +34,11 @@ func validatePod(pod types.Pod) error {
 	if pod.Name == "" {
 		return fmt.Errorf("pod name is required")
 	}
-	if pod.Type == "" {
-		return fmt.Errorf("pod type is required")
-	}
 	if pod.Image == "" {
 		return fmt.Errorf("pod image is required")
 	}
-
-	// Validate pod type
-	validTypes := []string{"postgres", "mysql", "mongodb", "redis", "nginx", "react", "express", "fastapi", "django", "vue", "angular", "llm"}
-	valid := false
-	for _, t := range validTypes {
-		if pod.Type == t {
-			valid = true
-			break
-		}
-	}
-	if !valid {
-		return fmt.Errorf("invalid pod type: %s", pod.Type)
+	if len(pod.ServicePorts) == 0 {
+		return fmt.Errorf("pod service ports are required")
 	}
 
 	return nil
