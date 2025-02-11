@@ -30,34 +30,52 @@ type CreateAppRequest struct {
 	Name string `json:"name"`
 }
 
-// NexlayerYAML represents a complete Nexlayer deployment template
-// Port represents a container port configuration
-type Port struct {
-	ContainerPort int    `yaml:"containerPort"`
-	ServicePort   int    `yaml:"servicePort"`
-	Name          string `yaml:"name"`
+// RegistryLogin represents private registry authentication
+type RegistryLogin struct {
+	Registry           string `yaml:"registry"`
+	Username           string `yaml:"username"`
+	PersonalAccessToken string `yaml:"personalAccessToken"`
+}
+
+// Volume represents a persistent storage volume
+type Volume struct {
+	Name      string `yaml:"name"`
+	Size      string `yaml:"size"`
+	MountPath string `yaml:"mountPath"`
+}
+
+// Secret represents encrypted credentials or config files
+type Secret struct {
+	Name      string `yaml:"name"`
+	Data      string `yaml:"data"`
+	MountPath string `yaml:"mountPath"`
+	FileName  string `yaml:"fileName"`
+}
+
+// EnvVar represents an environment variable
+type EnvVar struct {
+	Key   string `yaml:"key"`
+	Value string `yaml:"value"`
 }
 
 // Pod represents a pod configuration in the template
 type Pod struct {
-	Type  string `yaml:"type"`
-	Name  string `yaml:"name"`
-	Image string `yaml:"image"`
-	Vars  []struct {
-		Key   string `yaml:"key"`
-		Value string `yaml:"value"`
-	} `yaml:"vars,omitempty"`
-	Ports []Port `yaml:"ports,omitempty"`
+	Name         string    `yaml:"name"`
+	Path         string    `yaml:"path,omitempty"`
+	Image        string    `yaml:"image"`
+	Volumes      []Volume  `yaml:"volumes,omitempty"`
+	Secrets      []Secret  `yaml:"secrets,omitempty"`
+	Vars         []EnvVar  `yaml:"vars,omitempty"`
+	ServicePorts []int     `yaml:"servicePorts,omitempty"`
 }
 
 // NexlayerYAML represents the structure of a Nexlayer deployment template
 type NexlayerYAML struct {
 	Application struct {
-		Template struct {
-			Name           string `yaml:"name"`
-			DeploymentName string `yaml:"deploymentName"`
-			Pods           []Pod  `yaml:"pods"`
-		} `yaml:"template"`
+		Name         string       `yaml:"name"`
+		URL          string       `yaml:"url,omitempty"`
+		RegistryLogin *RegistryLogin `yaml:"registryLogin,omitempty"`
+		Pods         []Pod        `yaml:"pods"`
 	} `yaml:"application"`
 }
 
