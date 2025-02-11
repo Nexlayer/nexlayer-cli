@@ -1,261 +1,31 @@
-# Copyright (c) 2025 Nexlayer. All rights reserved.
-# Use of this source code is governed by an MIT-style license that can be found in the LICENSE file.
-#
-# Nexlayer Template Reference
-# This document serves as the central specification for Nexlayer YAML templates.
-# It defines the structure, supported values, and best practices for creating deployment templates.
-# These templates are used to deploy applications on the Nexlayer Cloud Platform (powered by GKE)
-# with fully automated networking, DNS, and routing.
-#
-# Key Principles:
-# - Simplicity: Each template consists of a minimal, clear structure focused on pods.
-# - Security: Sensitive credentials must be placed in a dedicated "secrets" section.
-# - Dynamic Networking: Use the "expose" and "path" fields to configure external routing via Kubernetes Ingress.
-#   DNS names are dynamically generated based on pod names and namespaces.
-# - Standardization: Use standard Docker Hub images and specific image tags for stability.
-# - Continuous Learning: This reference is continuously updated based on deployment feedback to train our AI
-#   assistant to generate the correct YAML automatically.
-#
-version: "2.0"
+# Nexlayer YAML Template Reference
+# Version: 1.0
+# This document defines the structured format for deploying full-stack applications on Nexlayer Cloud.
+# Both human engineers and AI agents can use this reference to generate, modify, and validate deployments.
 
-schema:
-  application:
-    name: "<string>"  # REQUIRED: The name of the deployment (must be unique)
-    url: "<string>"  # OPTIONAL: Permanent domain (only include if needed)
-    registryLogin:  # OPTIONAL: Private registry authentication details
-      registry: "<string>"  # REQUIRED for private images: The registry for images
-      username: "<string>"  # REQUIRED if using a private registry
-      personalAccessToken: "<string>"  # REQUIRED for read-only registry authentication
-    pods:  # REQUIRED: List of pods in the deployment
-      - name: "<string>"  # REQUIRED: Pod name (must start with a lowercase letter, only alphanumeric, '-', or '.')
-        path: "<string>"  # OPTIONAL: Route path for frontend (e.g., "/" for web apps)
-        image: "<string>"  # REQUIRED: Docker image path (supports "<% REGISTRY %>" for private images)
-        volumes:  # OPTIONAL: Volume mounts
-          - name: "<string>"  # REQUIRED: Name of the volume
-            size: "<string>"  # REQUIRED: Volume size (e.g., "1Gi")
-            mountPath: "<string>"  # REQUIRED: Path inside the container
-        secrets:  # OPTIONAL: Secret mounts
-          - name: "<string>"  # REQUIRED: Secret name
-            data: "<string>"  # REQUIRED: Base64-encoded or raw secret value
-            mountPath: "<string>"  # REQUIRED: Directory where the secret file will be stored
-            fileName: "<string>"  # REQUIRED: File name for the secret (e.g., "config.json")
-        vars:  # OPTIONAL: Environment variables
-          - key: "<string>"  # REQUIRED: Environment variable key
-            value: "<string>"  # REQUIRED: Value (Supports: pod references, "<% URL %>", etc.)
-        servicePorts:  # REQUIRED: List of ports to expose
-          - "<integer>"  # REQUIRED: Port to expose (e.g., 3000)
-
-componentTypes:
-  frontend:
-    supported:
-      react:
-        image: "docker.io/library/node:18-alpine"
-        defaultPorts:
-          - containerPort: 3000
-            servicePort: 80
-            name: "web"
-        env:
-          - key: NODE_ENV
-            value: "production"
-          - key: REACT_APP_API_URL
-            value: "http://CANDIDATE_DEPENDENCY_URL_0"
-      nextjs:
-        image: "docker.io/library/node:18-alpine"
-        defaultPorts:
-          - containerPort: 3000
-            servicePort: 80
-            name: "web"
-        env:
-          - key: NODE_ENV
-            value: "production"
-      vue:
-        image: "docker.io/library/node:18-alpine"
-        defaultPorts:
-          - containerPort: 8080
-            servicePort: 80
-            name: "web"
-  backend:
-    supported:
-      fastapi:
-        image: "docker.io/library/python:3.11-slim"
-        defaultPorts:
-          - containerPort: 8000
-            servicePort: 8000
-            name: "api"
-        env:
-          - key: PORT
-            value: "8000"
-      express:
-        image: "docker.io/library/node:18-alpine"
-        defaultPorts:
-          - containerPort: 3000
-            servicePort: 3000
-            name: "api"
-      django:
-        image: "docker.io/library/python:3.11-slim"
-        defaultPorts:
-          - containerPort: 8000
-            servicePort: 8000
-            name: "api"
-  database:
-    supported:
-      postgres:
-        image: "docker.io/library/postgres:latest"
-        defaultPorts:
-          - containerPort: 5432
-            servicePort: 5432
-            name: "postgres"
-        env:
-          - key: POSTGRES_USER
-            value: "postgres"
-          - key: POSTGRES_PASSWORD
-            value: "REQUIRED"
-      mongodb:
-        image: "docker.io/library/mongo:latest"
-        defaultPorts:
-          - containerPort: 27017
-            servicePort: 27017
-            name: "mongodb"
-        env:
-          - key: MONGO_INITDB_ROOT_USERNAME
-            value: "REQUIRED"
-          - key: MONGO_INITDB_ROOT_PASSWORD
-            value: "REQUIRED"
-      redis:
-        image: "docker.io/library/redis:7"
-        defaultPorts:
-          - containerPort: 6379
-            servicePort: 6379
-            name: "redis"
-  llm:
-    supported:
-      ollama:
-        image: "docker.io/ollama/ollama:latest"
-        defaultPorts:
-          - containerPort: 11434
-            servicePort: 11434
-            name: "ollama"
-      langfuse:
-        image: "docker.io/langfuse/langfuse:3"
-        defaultPorts:
-          - containerPort: 3000
-            servicePort: 3000
-            name: "langfuse"
-
-examples:
-  ai_stack:
-    application:
-      name: "ai-app"
-      url: "ai.example.com"
-      registryLogin:
-        registry: "ghcr.io"
-        username: "username"
-        personalAccessToken: "<token>"
-      pods:
-        - name: "ollama"
-          image: "<% REGISTRY %>/ollama/ollama:latest"
-          servicePorts: [11434]
-          volumes:
-            - name: "models"
-              size: "10Gi"
-              mountPath: "/models"
-          vars:
-            - key: "OLLAMA_HOST"
-              value: "0.0.0.0"
-        - name: "web-ui"
-          path: "/"
-          image: "<% REGISTRY %>/web-ui:v1"
-          servicePorts: [3000]
-          vars:
-            - key: "REACT_APP_API_URL"
-              value: "http://<% POD_NAME %>:11434"
-
-  full_stack:
-    application:
-      name: "fullstack-app"
-      url: "app.example.com"
-      pods:
-        - name: "web-ui"
-          path: "/"
-          image: "<% REGISTRY %>/web-ui:v1"
-          servicePorts: [3000]
-          vars:
-            - key: "REACT_APP_API_URL"
-              value: "http://<% POD_NAME %>:8000"
-        - name: "api"
-          image: "<% REGISTRY %>/api:v1"
-          servicePorts: [8000]
-          secrets:
-            - name: "db-credentials"
-              data: "base64_encoded_data"
-              mountPath: "/app/config"
-              fileName: "db.json"
-          vars:
-            - key: "DATABASE_URL"
-              value: "postgresql://<% POD_NAME %>:5432/mydb"
-        - name: "postgres-db"
-          image: "docker.io/library/postgres:latest"
-          servicePorts: [5432]
-          volumes:
-            - name: "pgdata"
-              size: "5Gi"
-              mountPath: "/var/lib/postgresql/data"
-          secrets:
-            - name: "postgres-password"
-              data: "base64_encoded_password"
-              mountPath: "/run/secrets"
-              fileName: "postgres-password"
-      - name: "postgres-db"
-        image: "docker.io/library/postgres:latest"
-        expose: false
-        ports:
-          - containerPort: 5432
-            servicePort: 5432
-            name: "postgres"
-        secrets:
-          - key: POSTGRES_USER
-            value: "postgres"
-          - key: POSTGRES_PASSWORD
-            value: "REQUIRED"
-
-bestPractices:
-  ports:
-    - "Use descriptive port names that reflect the service (e.g., 'web', 'api', 'db')"
-    - "Ensure port names are unique within each pod"
-    - "Service ports must be unique across all pods"
-    - "Follow standard port conventions (80 for HTTP, 443 for HTTPS)"
-  environment:
-    - "Use CANDIDATE_DEPENDENCY_URL_X for internal service URLs"
-    - "Store sensitive data in the 'secrets' section"
-    - "Use clear and descriptive variable names"
-    - "Document all required environment variables"
-  routing:
-    - "For externally accessible pods, set 'expose: true' and define the 'path' (e.g., '/' for the main UI, '/api' for backend)"
-    - "Leverage Kubernetes Ingress for dynamic DNS and routing"
-  security:
-    - "Never store secrets in template files"
-    - "Use non-root users within containers"
-    - "Set proper resource limits and network policies"
-
-validation:
-  required:
-    - "Template must include application.template.name and deploymentName"
-    - "Each pod must have a unique 'name' and a valid 'image'"
-    - "Port names must be unique within a pod"
-    - "Service ports must be unique across all pods"
-  recommended:
-    - "Include resource limits for all pods"
-    - "Configure health checks"
-    - "Set appropriate environment variables"
-    - "Use specific image tags (avoid 'latest')"
-
-trainingNotes:
-  instructions: >
-    This YAML reference is the authoritative source for generating Nexlayer YAML templates.
-    The AI agent must strictly adhere to these specifications to ensure accurate and production-ready deployments.
-    Do not hallucinate or generate extra fields. Use only the specified fields and follow the schema exactly.
-    Update this reference as new learnings from deployments and user feedback are obtained.
-  versioning: "Update this document whenever significant changes to the Nexlayer template structure occur."
-  errorPrevention: >
-    Ensure that all generated templates include required fields and validate against this schema.
-    If a field is missing or invalid, the AI must flag it and provide a clear error message.
+application:
+  name: "<string>"  # REQUIRED: The unique name of your deployment.
+  url: "<string>"  # OPTIONAL: Permanent domain for this deployment. Omit if using a temporary environment.
+  registryLogin:  # OPTIONAL: Required only for private container registries.
+    registry: "<string>"  # REQUIRED for private registries. Example: "ghcr.io/my-org"
+    username: "<string>"  # REQUIRED for private registry authentication.
+    personalAccessToken: "<string>"  # REQUIRED for secure authentication.
+  pods:  # REQUIRED: List of services that make up this application.
+    - name: "<string>"  # REQUIRED: Unique pod name (lowercase, alphanumeric, '-', or '.')
+      path: "<string>"  # OPTIONAL: URL path where this pod is accessible (e.g., '/' for frontend, '/api' for backend)
+      image: "<string>"  # REQUIRED: Docker image reference (supports <% REGISTRY %> for private images)
+      volumes:  # OPTIONAL: Defines persistent storage volumes.
+        - name: "<string>"  # REQUIRED: Unique volume name.
+          size: "<string>"  # REQUIRED: Storage size (e.g., "1Gi").
+          mountPath: "<string>"  # REQUIRED: Path inside the container.
+      secrets:  # OPTIONAL: Defines encrypted credentials or config files.
+        - name: "<string>"  # REQUIRED: Secret name.
+          data: "<string>"  # REQUIRED: Raw or Base64-encoded secret content.
+          mountPath: "<string>"  # REQUIRED: Directory where the secret is stored.
+          fileName: "<string>"  # REQUIRED: Name of the secret file.
+      vars:  # OPTIONAL: Environment variables required by this pod.
+        - key: "<string>"  # REQUIRED: Environment variable key.
+          value: "<string>"  # REQUIRED: Environment variable value.
+      servicePorts:  # OPTIONAL: List of ports that this pod exposes.
+        - "<integer>"  # REQUIRED: Port number (e.g., 3000, 5432).
+      

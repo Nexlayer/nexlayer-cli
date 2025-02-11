@@ -77,16 +77,6 @@ func DetectStack(projectPath string) (*StackInfo, error) {
 				}
 			}
 
-		// Database detection
-		case "docker-compose.yml":
-			content, err := os.ReadFile(path)
-			if err == nil {
-				if strings.Contains(string(content), "postgres") {
-					info.Database = "PostgreSQL"
-				} else if strings.Contains(string(content), "mongodb") {
-					info.Database = "MongoDB"
-				}
-			}
 
 		// Docker detection
 		case "Dockerfile":

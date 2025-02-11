@@ -35,6 +35,7 @@ func init() {
 
 // ValidateNexlayerYAML validates the provided YAML configuration
 func ValidateNexlayerYAML(yaml *types.NexlayerYAML) error {
+	// First validate the struct
 	if err := validate.Struct(yaml); err != nil {
 		if _, ok := err.(*validator.InvalidValidationError); ok {
 			return fmt.Errorf("invalid yaml structure: %w", err)
@@ -46,6 +47,21 @@ func ValidateNexlayerYAML(yaml *types.NexlayerYAML) error {
 		}
 		return fmt.Errorf("validation failed:\n%s", strings.Join(validationErrors, "\n"))
 	}
+
+	// Additional validation for Pod slice length
+	if len(yaml.Application.Pods) == 0 {
+		return fmt.Errorf("at least one pod must be specified")
+	}
+
+	// Additional validation for volumes
+	for _, pod := range yaml.Application.Pods {
+		for _, volume := range pod.Volumes {
+			if !volumeSizePattern.MatchString(volume.Size) {
+				return fmt.Errorf("invalid volume size '%s' for volume '%s' in pod '%s'", volume.Size, volume.Name, pod.Name)
+			}
+		}
+	}
+
 	return nil
 }
 

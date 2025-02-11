@@ -19,12 +19,7 @@ func TestValidateNexlayerYAML(t *testing.T) {
 		{
 			name: "valid yaml",
 			yaml: &types.NexlayerYAML{
-				Application: struct {
-					Name         string              `yaml:"name" validate:"required,alphanum"`
-					URL          string              `yaml:"url,omitempty" validate:"omitempty,url"`
-					RegistryLogin *types.RegistryLogin `yaml:"registryLogin,omitempty" validate:"omitempty"`
-					Pods         []types.Pod         `yaml:"pods" validate:"required,dive,min=1"`
-				}{
+				Application: types.Application{
 					Name: "myapp",
 					Pods: []types.Pod{
 						{
@@ -42,12 +37,7 @@ func TestValidateNexlayerYAML(t *testing.T) {
 		{
 			name: "invalid yaml - missing required fields",
 			yaml: &types.NexlayerYAML{
-				Application: struct {
-					Name         string              `yaml:"name" validate:"required,alphanum"`
-					URL          string              `yaml:"url,omitempty" validate:"omitempty,url"`
-					RegistryLogin *types.RegistryLogin `yaml:"registryLogin,omitempty" validate:"omitempty"`
-					Pods         []types.Pod         `yaml:"pods" validate:"required,dive,min=1"`
-				}{
+				Application: types.Application{
 					Name: "",
 					Pods: []types.Pod{},
 				},
@@ -57,12 +47,7 @@ func TestValidateNexlayerYAML(t *testing.T) {
 		{
 			name: "invalid yaml - invalid volume size",
 			yaml: &types.NexlayerYAML{
-				Application: struct {
-					Name         string              `yaml:"name" validate:"required,alphanum"`
-					URL          string              `yaml:"url,omitempty" validate:"omitempty,url"`
-					RegistryLogin *types.RegistryLogin `yaml:"registryLogin,omitempty" validate:"omitempty"`
-					Pods         []types.Pod         `yaml:"pods" validate:"required,dive,min=1"`
-				}{
+				Application: types.Application{
 					Name: "myapp",
 					Pods: []types.Pod{
 						{
@@ -85,12 +70,7 @@ func TestValidateNexlayerYAML(t *testing.T) {
 		{
 			name: "valid yaml with registry login",
 			yaml: &types.NexlayerYAML{
-				Application: struct {
-					Name         string              `yaml:"name" validate:"required,alphanum"`
-					URL          string              `yaml:"url,omitempty" validate:"omitempty,url"`
-					RegistryLogin *types.RegistryLogin `yaml:"registryLogin,omitempty" validate:"omitempty"`
-					Pods         []types.Pod         `yaml:"pods" validate:"required,dive,min=1"`
-				}{
+				Application: types.Application{
 					Name: "myapp",
 					RegistryLogin: &types.RegistryLogin{
 						Registry:           "ghcr.io",

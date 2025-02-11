@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/compose"
+
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/deploy"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/domain"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/feedback"
@@ -89,7 +89,7 @@ func NewRootCommand() *cobra.Command {
 	// Register all commands.
 	cmd.AddCommand(initcmd.NewCommand())
 	cmd.AddCommand(ai.NewCommand())
-	cmd.AddCommand(compose.NewCommand())
+
 	cmd.AddCommand(deploy.NewCommand(apiClient))
 	cmd.AddCommand(domain.NewCommand(apiClient))
 	cmd.AddCommand(feedback.NewCommand(apiClient))

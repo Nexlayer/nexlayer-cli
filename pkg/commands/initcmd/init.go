@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
 	"github.com/Nexlayer/nexlayer-cli/pkg/templates"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/charmbracelet/bubbles/list"
@@ -21,6 +20,7 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init [project-name]",
 		Short: "Initialize a new Nexlayer project",
+		Long:  "Initialize a new Nexlayer project with intelligent stack detection and configuration generation",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Determine project name from argument or use current directory name
@@ -102,17 +102,12 @@ func NewCommand() *cobra.Command {
 				cmd.Printf("Backed up existing %s to %s\n", configFile, backupFile)
 			}
 
-			// Generate the template using AI
+			// Generate the template using AI provider
 			progress.Title = "Analyzing project and generating template"
-			stackType, components := ai.DetectStack(dir)
-			req := ai.TemplateRequest{
-				ProjectName: projectName,
-				TemplateType: stackType,
-				RequiredFields: map[string]interface{}{
-					"components": components,
-				},
+			if defaultProvider == nil {
+				return fmt.Errorf("no AI provider available for template generation")
 			}
-			yamlStr, err := ai.GenerateTemplate(cmd.Context(), req)
+			yamlStr, err := defaultProvider.GenerateTemplate(projectName)
 			if err != nil {
 				return fmt.Errorf("failed to generate template: %w", err)
 			}

@@ -20,7 +20,28 @@
 ```bash
 # Install Nexlayer CLI
 go install github.com/Nexlayer/nexlayer-cli@latest
+```
 
+### Setting up your PATH
+
+When you run `go install`, it places the Nexlayer CLI executable in a directory called `~/go/bin`. However, your computer needs to know where to find this executable when you type `nexlayer` in the terminal. Here's how to set it up:
+
+1. First, add this line to your shell configuration file:
+   ```bash
+   export PATH=$PATH:~/go/bin
+   ```
+
+2. The configuration file location depends on your shell:
+   - For Bash: `~/.bashrc` or `~/.bash_profile`
+   - For Zsh: `~/.zshrc`
+
+3. After adding the line, either:
+   - Restart your terminal, or
+   - Run `source ~/.bashrc` (or `source ~/.zshrc` for Zsh)
+
+Now you can run Nexlayer commands from any directory!
+
+```bash
 # Create a new project with intelligent stack detection
 nexlayer init my-app
 
