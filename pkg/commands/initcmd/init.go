@@ -8,6 +8,7 @@ import (
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
 	"github.com/Nexlayer/nexlayer-cli/pkg/templates"
+	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/pterm/pterm"
@@ -33,6 +34,9 @@ func NewCommand() *cobra.Command {
 				}
 				projectName = filepath.Base(dir)
 			}
+
+			// Display welcome message
+			fmt.Print(ui.RenderBox(ui.RenderWelcome()))
 
 			// Get current directory
 			dir, err := os.Getwd()

@@ -2,21 +2,13 @@
 package deploy
 
 import (
-	"bytes"
 	"context"
-	"crypto/tls"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
-	"path/filepath"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/sysinfo"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 )
 
 // findDeploymentFile looks for a deployment file in the current directory
@@ -68,106 +60,39 @@ Example:
 				cmd.Printf("Using deployment file: %s\n", yamlFile)
 			}
 
-			return runDeploy(cmd, yamlFile)
+			// Get app ID if provided
+			appID, _ := cmd.Flags().GetString("app")
+
+			return runDeploy(cmd, yamlFile, appID)
 		},
 	}
 
-	cmd.Flags().StringVarP(&yamlFile, "file", "f", "", "Path to YAML/JSON configuration file (optional)")
+	cmd.Flags().StringVarP(&yamlFile, "config", "f", "", "Path to YAML configuration file")
+	// Make app flag optional
+	var appID string
+	cmd.Flags().StringVar(&appID, "app", "", "Application ID (optional)")
+	
+	// Mark config flag as required
+	cmd.MarkFlagRequired("config")
 
 	return cmd
 }
 
-func runDeploy(cmd *cobra.Command, yamlFile string) error {
+func runDeploy(cmd *cobra.Command, yamlFile string, appID string) error {
 	cmd.Println(ui.RenderTitleWithBorder("Deploying Application"))
 
-	// Create API client for sending feedback
+	// Create API client
 	apiClient := api.NewClient("")
 
-	// Read the configuration file
-	fileContent, err := ioutil.ReadFile(yamlFile)
+	// Start deployment
+	resp, err := apiClient.StartDeployment(context.Background(), appID, yamlFile)
 	if err != nil {
-		return fmt.Errorf("failed to read configuration file: %w", err)
+		return fmt.Errorf("failed to start deployment: %w", err)
 	}
 
-	// Parse YAML to get deployment name
-	var config struct {
-		Application struct {
-			Template struct {
-				Name           string `yaml:"name"`
-				DeploymentName string `yaml:"deploymentName"`
-			} `yaml:"template"`
-		} `yaml:"application"`
-	}
-
-	if err := yaml.Unmarshal(fileContent, &config); err != nil {
-		cmd.Printf("Warning: Could not parse deployment name from config: %v\n", err)
-	}
-
-	// Create HTTP request
-	url := "https://app.staging.nexlayer.io/startUserDeployment"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(fileContent))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Set content type based on file extension
-	contentType := "application/json"
-	if filepath.Ext(yamlFile) == ".yaml" || filepath.Ext(yamlFile) == ".yml" {
-		contentType = "text/x-yaml"
-	}
-	req.Header.Set("Content-Type", contentType)
-
-	// Create HTTP client that skips SSL verification
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := &http.Client{Transport: tr}
-
-	// Send request
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send deployment request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("deployment failed: %s", string(body))
-	}
-
-	cmd.Printf("Deployment started successfully!\n")
-	cmd.Printf("Response: %s\n", string(body))
-
-	// Send automatic feedback
-	go func() {
-		// Get system information
-		sysInfo := sysinfo.GetSystemInfo()
-
-		// Extract deployment URL from response
-		var deployResp struct {
-			URL string `json:"url"`
-		}
-		if err := json.Unmarshal(body, &deployResp); err == nil {
-			sysInfo.DeploymentURL = deployResp.URL
-		}
-
-		// Format feedback message
-		deploymentName := config.Application.Template.DeploymentName
-		if deploymentName == "" {
-			deploymentName = filepath.Base(yamlFile)
-		}
-		feedbackMsg := sysInfo.FormatFeedback(deploymentName)
-
-		// Send feedback
-		if err := apiClient.SendFeedback(context.Background(), feedbackMsg); err != nil {
-			cmd.Printf("Warning: Failed to send automatic feedback: %v\n", err)
-		}
-	}()
+	cmd.Printf("\nDeployment started successfully!\n")
+	cmd.Printf("URL: %s\n", resp.URL)
+	cmd.Printf("Namespace: %s\n", resp.Namespace)
 
 	return nil
 }

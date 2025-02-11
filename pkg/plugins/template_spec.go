@@ -74,15 +74,28 @@ func (s *TemplateSpec) ValidateTemplate(template map[string]interface{}) []strin
 
 	// Check required fields
 	if app, ok := template["application"].(map[string]interface{}); ok {
-		if tmpl, ok := app["template"].(map[string]interface{}); ok {
-			if _, ok := tmpl["name"]; !ok {
-				violations = append(violations, "missing required field: application.template.name")
-			}
-			if _, ok := tmpl["deploymentName"]; !ok {
-				violations = append(violations, "missing required field: application.template.deploymentName")
+		// Check application.name
+		if _, ok := app["name"]; !ok {
+			violations = append(violations, "missing required field: application.name")
+		}
+
+		// Check application.pods
+		if pods, ok := app["pods"].([]interface{}); ok {
+			for i, pod := range pods {
+				podMap := pod.(map[string]interface{})
+				// Check required pod fields
+				if _, ok := podMap["name"]; !ok {
+					violations = append(violations, fmt.Sprintf("missing required field: application.pods[%d].name", i))
+				}
+				if _, ok := podMap["image"]; !ok {
+					violations = append(violations, fmt.Sprintf("missing required field: application.pods[%d].image", i))
+				}
+				if _, ok := podMap["servicePorts"]; !ok {
+					violations = append(violations, fmt.Sprintf("missing required field: application.pods[%d].servicePorts", i))
+				}
 			}
 		} else {
-			violations = append(violations, "missing required field: application.template")
+			violations = append(violations, "missing required field: application.pods")
 		}
 	} else {
 		violations = append(violations, "missing required field: application")

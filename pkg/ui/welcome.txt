@@ -1,0 +1,27 @@
+🚀 Welcome to Nexlayer CLI!
+
+Let's get you set up with everything you need.
+
+📝 To get started, you'll need an authentication token.
+You can get your token by visiting: https://app.nexlayer.io/settings/tokens
+
+Once you have your token, set it in your environment:
+
+export NEXLAYER_TOKEN=your_token_here
+
+Pro tip: Add this to your shell configuration file (~/.bashrc, ~/.zshrc, etc.)
+to make it permanent.
+
+🎉 Next steps:
+1. Run 'nexlayer init my-app' to create a new project
+2. Or use 'nexlayer deploy' to deploy an existing project
+
+💡 Development workflow:
+- Use 'nexlayer watch' to auto-redeploy on changes
+- Use 'nexlayer status' to check deployment status
+- Use 'nexlayer logs' to view application logs
+
+📚 For more information:
+- Run 'nexlayer --help' to see all available commands
+- Visit our documentation at https://docs.nexlayer.io
+- Join our community at https://community.nexlayer.io

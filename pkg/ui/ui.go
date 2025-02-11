@@ -16,9 +16,16 @@ import (
 	"github.com/fatih/color"
 )
 
+var welcomeMessage = "\n  _   _           _                      \n | \\ | |         | |                     \n |  \\| | _____  _| | __ _ _   _  ___ _ __ \n | . ' |/ _ \\ \\/ / |/ _' | | | |/ _ \\ '__|\n | |\\  |  __/>  <| | (_| | |_| |  __/ |   \n |_| \\_|\\___/_/\\_\\_|\\__,_|\\__, |\\___|_|   \n                           __/ |          \n                          |___/           \n\nWelcome to Nexlayer CLI! Let's get started...\n"
+
 func init() {
 	// Force color output
 	color.NoColor = false
+}
+
+// RenderWelcome returns the welcome message
+func RenderWelcome() string {
+	return welcomeMessage
 }
 
 var (

@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo.svg" alt="Nexlayer Logo" width="400"/>
+  <img src="pkg/ui/assets/logo.svg" alt="Nexlayer Logo" width="400"/>
   <h1>Nexlayer CLI</h1>
   <p><strong>Deploy Full-Stack Applications in Seconds ⚡️</strong></p>
   <p>
@@ -21,22 +21,43 @@
 # Install Nexlayer CLI
 go install github.com/Nexlayer/nexlayer-cli@latest
 
-# Create a new project
+# Create a new project with intelligent stack detection
 nexlayer init my-app
 
-# Deploy your app
+# Deploy your app with automatic validation
 nexlayer deploy
 ```
 
 That's it! Your app is live. [Watch the demo →](https://nexlayer.dev/demo)
 
+### Intelligent Project Configuration
+
+Nexlayer uses advanced analysis to:
+- Detect your tech stack and dependencies
+- Configure appropriate container images
+- Set up health checks and environment variables
+- Validate your configuration against best practices
+
+### Development Mode
+
+During development, you can use the watch command to automatically redeploy when files change:
+
+```bash
+# Start watching for changes
+nexlayer watch
+```
+
+The watch command will monitor your project files and automatically trigger a redeployment whenever changes are detected.
+
 ## ✨ Features
 
 - 🤖 **AI-Powered Detection** - Automatically analyze and configure your project
 - 🎯 **Smart Templates** - Production-ready templates for any stack
+- ✅ **Built-in Validation** - Ensure configurations meet best practices
 - 🔄 **Live Sync** - Keep configuration in sync with project changes
 - 🚀 **One-Command Deploy** - Deploy full-stack apps instantly
 - 📊 **Real-Time Monitoring** - Live logs and deployment status
+- 👀 **Live Watch Mode** - Auto-redeploy on file changes during development
 - 🔌 **Plugin System** - Extend functionality with custom plugins
 
 ## 📝 Templates
@@ -85,8 +106,20 @@ cd nexlayer-cli
 # Install dependencies
 make setup
 
-# Run tests
+# Run tests and validation
 make test
+
+# Run specific test suites
+go test ./pkg/validation -v  # Run validation tests
+go test ./pkg/compose -v     # Run compose tests
+```
+
+### Code Organization
+
+- `pkg/validation/` - YAML schema validation and component type checking
+- `pkg/compose/` - Docker compose generation and component detection
+- `pkg/core/` - Core functionality and API types
+- `pkg/commands/` - CLI command implementations
 ```
 
 ## 💪 Contributing

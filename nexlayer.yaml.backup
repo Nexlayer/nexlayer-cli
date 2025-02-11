@@ -1,9 +1,0 @@
-# Nexlayer Deployment Template for nexlayer-cli
-# Generated with AI assistance.
-# Customize this template using your IDE's AI assistant.
-#
-application:
-    template:
-        name: nexlayer-cli
-        deploymentName: nexlayer-cli
-        pods: []

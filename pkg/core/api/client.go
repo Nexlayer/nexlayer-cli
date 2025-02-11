@@ -23,7 +23,7 @@ import (
 type APIClient interface {
 	// StartDeployment starts a new deployment using a YAML template file.
 	// The template must follow the Nexlayer template structure (see Templates docs)
-	// containing application.template section and pods array.
+	// containing application.name and pods array.
 	// If appID is empty, creates a new deployment from the template.
 	StartDeployment(ctx context.Context, appID string, configPath string) (*types.StartDeploymentResponse, error)
 
@@ -114,9 +114,9 @@ func (c *Client) SetToken(token string) {
 
 // StartDeployment starts a new deployment using a YAML template file.
 // The template must follow the Nexlayer template structure, including:
-// - Required fields: application.template.name, deploymentName, registryLogin
-// - Pods array with valid pod types (frontend, backend, database, nginx, llm)
-// - Each pod must have: type, name, tag, and optional vars
+// - Required fields: application.name
+// - Optional fields: application.url, application.registryLogin
+// - Pods array with required name, image, servicePorts and optional vars, volumes, secrets
 // If appID is empty, creates a new deployment from the template.
 func (c *Client) StartDeployment(ctx context.Context, appID string, yamlFile string) (*types.StartDeploymentResponse, error) {
 	// Read YAML file

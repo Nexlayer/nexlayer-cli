@@ -1,23 +1,17 @@
 // Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
 package types
 
-// Template represents the application template configuration
-type Template struct {
-	Name           string       `yaml:"name"`
-	DeploymentName string       `yaml:"deploymentName"`
-	RegistryLogin  RegistryAuth `yaml:"registryLogin"`
-	Pods           []PodConfig  `yaml:"pods"`
-	Build          Build        `yaml:"build"`
+// Config represents the application configuration
+type Config struct {
+	Application Application `yaml:"application"`
 }
 
 // Application represents the application configuration
 type Application struct {
-	Template Template `yaml:"template"`
-}
-
-// Config represents the application configuration
-type Config struct {
-	Application Application `yaml:"application"`
+	Name          string       `yaml:"name"`
+	URL           string       `yaml:"url,omitempty"`
+	RegistryLogin *RegistryAuth `yaml:"registryLogin,omitempty"`
+	Pods          []Pod        `yaml:"pods"`
 }
 
 // RegistryAuth represents registry authentication configuration
@@ -27,23 +21,35 @@ type RegistryAuth struct {
 	PersonalAccessToken string `yaml:"personalAccessToken"`
 }
 
-// PodConfig represents a pod configuration
-type PodConfig struct {
-	Type       string    `yaml:"type"`
-	Name       string    `yaml:"name"`
-	Tag        string    `yaml:"tag"`
-	Vars       []VarPair `yaml:"vars"`
-	ExposeHttp bool      `yaml:"exposeHttp"`
+// Pod represents a pod configuration
+type Pod struct {
+	Name         string    `yaml:"name"`
+	Path         string    `yaml:"path,omitempty"`
+	Image        string    `yaml:"image"`
+	Volumes      []Volume  `yaml:"volumes,omitempty"`
+	Secrets      []Secret  `yaml:"secrets,omitempty"`
+	Vars         []EnvVar  `yaml:"vars,omitempty"`
+	ServicePorts []int     `yaml:"servicePorts"`
+	Command      []string  `yaml:"command,omitempty"`
 }
 
-// VarPair represents a key-value pair for environment variables
-type VarPair struct {
+// Volume represents a persistent volume configuration
+type Volume struct {
+	Name      string `yaml:"name"`
+	Size      string `yaml:"size"`
+	MountPath string `yaml:"mountPath"`
+}
+
+// Secret represents a secret configuration
+type Secret struct {
+	Name      string `yaml:"name"`
+	Data      string `yaml:"data"`
+	MountPath string `yaml:"mountPath"`
+	FileName  string `yaml:"fileName"`
+}
+
+// EnvVar represents a key-value pair for environment variables
+type EnvVar struct {
 	Key   string `yaml:"key"`
 	Value string `yaml:"value"`
-}
-
-// Build represents the build configuration
-type Build struct {
-	Command string `yaml:"command"`
-	Output  string `yaml:"output"`
 }

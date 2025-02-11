@@ -32,51 +32,52 @@ type CreateAppRequest struct {
 
 // RegistryLogin represents private registry authentication
 type RegistryLogin struct {
-	Registry           string `yaml:"registry"`
-	Username           string `yaml:"username"`
-	PersonalAccessToken string `yaml:"personalAccessToken"`
+	Registry           string `yaml:"registry" validate:"required,hostname"`
+	Username           string `yaml:"username" validate:"required"`
+	PersonalAccessToken string `yaml:"personalAccessToken" validate:"required"`
 }
 
 // Volume represents a persistent storage volume
 type Volume struct {
-	Name      string `yaml:"name"`
-	Size      string `yaml:"size"`
-	MountPath string `yaml:"mountPath"`
+	Name      string `yaml:"name" validate:"required,alphanum"`
+	Size      string `yaml:"size" validate:"required,volumesize"`
+	MountPath string `yaml:"mountPath" validate:"required,startswith=/"`
 }
 
 // Secret represents encrypted credentials or config files
 type Secret struct {
-	Name      string `yaml:"name"`
-	Data      string `yaml:"data"`
-	MountPath string `yaml:"mountPath"`
-	FileName  string `yaml:"fileName"`
+	Name      string `yaml:"name" validate:"required,alphanum"`
+	Data      string `yaml:"data" validate:"required"`
+	MountPath string `yaml:"mountPath" validate:"required,startswith=/"`
+	FileName  string `yaml:"fileName" validate:"required,filename"`
 }
 
 // EnvVar represents an environment variable
 type EnvVar struct {
-	Key   string `yaml:"key"`
-	Value string `yaml:"value"`
+	Key   string `yaml:"key" validate:"required,envvar"`
+	Value string `yaml:"value" validate:"required"`
 }
 
 // Pod represents a pod configuration in the template
 type Pod struct {
-	Name         string    `yaml:"name"`
-	Path         string    `yaml:"path,omitempty"`
-	Image        string    `yaml:"image"`
-	Volumes      []Volume  `yaml:"volumes,omitempty"`
-	Secrets      []Secret  `yaml:"secrets,omitempty"`
-	Vars         []EnvVar  `yaml:"vars,omitempty"`
-	ServicePorts []int     `yaml:"servicePorts,omitempty"`
+	Name         string    `yaml:"name" validate:"required,alphanum"`
+	Type         string    `yaml:"type" validate:"required,oneof=frontend backend database nginx llm react angular vue express django fastapi mongodb postgres redis neo4j"`
+	Path         string    `yaml:"path,omitempty" validate:"omitempty,startswith=/"`
+	Image        string    `yaml:"image" validate:"required,image"`
+	Volumes      []Volume  `yaml:"volumes,omitempty" validate:"omitempty,dive"`
+	Secrets      []Secret  `yaml:"secrets,omitempty" validate:"omitempty,dive"`
+	Vars         []EnvVar  `yaml:"vars,omitempty" validate:"omitempty,dive"`
+	ServicePorts []int     `yaml:"servicePorts,omitempty" validate:"omitempty,gt=0,lt=65536"`
 }
 
 // NexlayerYAML represents the structure of a Nexlayer deployment template
 type NexlayerYAML struct {
 	Application struct {
-		Name         string       `yaml:"name"`
-		URL          string       `yaml:"url,omitempty"`
-		RegistryLogin *RegistryLogin `yaml:"registryLogin,omitempty"`
-		Pods         []Pod        `yaml:"pods"`
-	} `yaml:"application"`
+		Name         string       `yaml:"name" validate:"required,alphanum"`
+		URL          string       `yaml:"url,omitempty" validate:"omitempty,url"`
+		RegistryLogin *RegistryLogin `yaml:"registryLogin,omitempty" validate:"omitempty"`
+		Pods         []Pod        `yaml:"pods" validate:"required,dive,min=1"`
+	} `yaml:"application" validate:"required"`
 }
 
 // StartDeploymentResponse represents the response from starting a deployment
