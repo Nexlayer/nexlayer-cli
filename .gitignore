@@ -36,6 +36,7 @@ coverage.out
 # Build artifacts
 dist/
 bin/
+build/
 
 # IDE files
 .idea/
