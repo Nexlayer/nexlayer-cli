@@ -1,48 +1,66 @@
-GOPATH := $(shell go env GOPATH)
-PATH := $(GOPATH)/bin:$(PATH)
+VERSION ?= $(shell git describe --tags --always --dirty)
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: all build metadata clean install-tools ensure-deps check-deps
+.PHONY: all build test clean release validate ai-metadata
 
-all: ensure-deps build metadata
+all: build test ai-metadata
 
+# Standard build for CLI users
 build:
-	go build -v ./...
+	go build -v -ldflags "-X github.com/Nexlayer/nexlayer-cli/pkg/version.Version=$(VERSION)" \
+		-o bin/nexlayer-cli .
+	cd bin && ln -sf nexlayer-cli nexlayer
 
-metadata: ensure-deps
-	@echo "Generating project metadata..."
-	@mkdir -p build
-	@PATH=$(GOPATH)/bin:$(PATH) go run tools/metadata/main.go
+# Generate LLM-optimized metadata
+ai-metadata:
+	@echo "Generating LLM-optimized metadata..."
+	@mkdir -p ai_training/metadata
+	@go run tools/llm/main.go
+	@echo "Copying example templates with LLM annotations..."
+	@mkdir -p ai_training/examples
+	@for file in examples/templates/*.yaml; do \
+		python tools/llm/annotate.py $$file ai_training/examples/$$(basename $$file); \
+	done
+	@echo "Generating semantic search index..."
+	@python tools/llm/index.py ai_training/metadata/llm_metadata.json ai_training/metadata/semantic_index.json
 
+# Test all packages
+test:
+	go test -v -cover ./...
+
+# Clean build artifacts
 clean:
-	rm -rf build/
+	rm -rf bin/ dist/ build/
 	go clean
 
-check-deps:
-	@echo "Checking dependencies..."
-	@if ! which dot > /dev/null; then \
-		echo "graphviz not found"; \
-		exit 1; \
-	fi
-	@if ! which go-callvis > /dev/null; then \
-		echo "go-callvis not found"; \
-		exit 1; \
-	fi
+# Validate Nexlayer configuration
+validate:
+	@echo "Validating nexlayer.yaml..."
+	./bin/nexlayer validate
 
-# Ensure all dependencies are installed
-ensure-deps:
-	@echo "Checking and installing dependencies..."
-	@if ! which dot > /dev/null; then \
-		echo "Installing graphviz..." && \
-		brew install graphviz || { echo "Failed to install graphviz"; exit 1; }; \
-	else \
-		echo "graphviz is already installed"; \
-	fi
-	@if ! which go-callvis > /dev/null; then \
-		echo "Installing go-callvis..." && \
-		go install github.com/ofabry/go-callvis@latest || { echo "Failed to install go-callvis"; exit 1; }; \
-	else \
-		echo "go-callvis is already installed"; \
-	fi
+# Build release packages
+release:
+	@echo "Building release for $(GOOS)/$(GOARCH)..."
+	mkdir -p dist/$(GOOS)_$(GOARCH)
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
+		-ldflags "-X github.com/Nexlayer/nexlayer-cli/pkg/version.Version=$(VERSION)" \
+		-o dist/$(GOOS)_$(GOARCH)/nexlayer-cli .
+	cd dist/$(GOOS)_$(GOARCH) && ln -sf nexlayer-cli nexlayer
 
-.PHONY: install-tools
-install-tools: ensure-deps
+# Validate templates
+template-validate:
+	@echo "Validating template schema..."
+	@for file in templates/*.yaml; do \
+		echo "Validating $$file..."; \
+		./bin/nexlayer validate -f $$file || exit 1; \
+	done
+
+# Build test container
+docker-build:
+	docker build -t nexlayer/cli-test:$(VERSION) \
+		--build-arg VERSION=$(VERSION) \
+		-f Dockerfile .
+
+.PHONY: docker-build template-validate
+

@@ -12,14 +12,23 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
 )
 
-// ValidationError represents a validation error with context
+// ValidationError represents a validation error with context and suggestions
 type ValidationError struct {
-	Field   string
-	Message string
+	Field       string
+	Message     string
+	Suggestions []string
+	Severity    string // error, warning
 }
 
 func (e ValidationError) Error() string {
-	return fmt.Sprintf("%s: %s", e.Field, e.Message)
+	base := fmt.Sprintf("%s: %s", e.Field, e.Message)
+	if len(e.Suggestions) > 0 {
+		base += "\nSuggestions:"
+		for _, s := range e.Suggestions {
+			base += fmt.Sprintf("\n  - %s", s)
+		}
+	}
+	return base
 }
 
 // Validator provides YAML configuration validation
@@ -41,21 +50,38 @@ func (v *Validator) ValidateYAML(yaml *schema.NexlayerYAML) []ValidationError {
 	// Validate application
 	if yaml.Application.Name == "" {
 		errors = append(errors, ValidationError{
-			Field:   "application.name",
-			Message: "application name is required",
+			Field:    "application.name",
+			Message:  "Application name is required",
+			Severity: "error",
+			Suggestions: []string{
+				"Add 'name' field under 'application' section",
+				"Use a descriptive name that reflects your application's purpose",
+			},
 		})
 	} else if !isValidName(yaml.Application.Name) {
 		errors = append(errors, ValidationError{
-			Field:   "application.name",
-			Message: "application name must be lowercase alphanumeric with dashes only",
+			Field:    "application.name",
+			Message:  "Invalid application name format",
+			Severity: "error",
+			Suggestions: []string{
+				"Use only lowercase letters, numbers, and dashes",
+				"Start with a letter",
+				"Example: my-app-123",
+			},
 		})
 	}
 
 	// Validate pods
 	if len(yaml.Application.Pods) == 0 {
 		errors = append(errors, ValidationError{
-			Field:   "application.pods",
-			Message: "at least one pod configuration is required",
+			Field:    "application.pods",
+			Message:  "No pod configurations found",
+			Severity: "error",
+			Suggestions: []string{
+				"Add at least one pod under 'pods' section",
+				"Each pod should define an 'image' and 'servicePorts'",
+				"Example:\n  pods:\n    - name: web\n      image: nginx:latest\n      servicePorts:\n        - 80",
+			},
 		})
 	}
 
@@ -81,13 +107,25 @@ func (v *Validator) validatePod(pod schema.Pod, index int) []ValidationError {
 	// Validate required fields
 	if pod.Name == "" {
 		errors = append(errors, ValidationError{
-			Field:   prefix + ".name",
-			Message: "pod name is required",
+			Field:    prefix + ".name",
+			Message:  "Pod name is required",
+			Severity: "error",
+			Suggestions: []string{
+				"Add 'name' field to pod configuration",
+				"Use a descriptive name that reflects the pod's purpose",
+				"Example: web-server, api, database",
+			},
 		})
 	} else if !isValidName(pod.Name) {
 		errors = append(errors, ValidationError{
-			Field:   prefix + ".name",
-			Message: "pod name must be lowercase alphanumeric with dashes only",
+			Field:    prefix + ".name",
+			Message:  "Invalid pod name format",
+			Severity: "error",
+			Suggestions: []string{
+				"Use only lowercase letters, numbers, and dashes",
+				"Start with a letter",
+				"Example: web-app-1, api-server, redis-cache",
+			},
 		})
 	}
 

@@ -1,136 +1,235 @@
-// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
+// Copyright (c) 2025 Nexlayer. All rights reserved.
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
+
 package initcmd
 
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/templates"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/Nexlayer/nexlayer-cli/pkg/validation"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
-// NewCommand creates a new init command that supports both existing projects
-// and new project creation from templates.
+// NewCommand initializes a new Nexlayer project with automatic detection
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init [project-name]",
 		Short: "Initialize a new Nexlayer project",
-		Long:  "Initialize a new Nexlayer project with intelligent stack detection and configuration generation",
+		Long:  "Initialize a new Nexlayer project with intelligent stack detection and configuration generation.",
 		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// Determine project name from argument or use current directory name
-			var projectName string
-			if len(args) > 0 {
-				projectName = args[0]
-			} else {
-				dir, err := os.Getwd()
-				if err != nil {
-					return fmt.Errorf("unable to determine current directory. Please ensure you have proper permissions and try again. Error: %w", err)
-				}
-				projectName = filepath.Base(dir)
-			}
-
-			// Display welcome message
-			fmt.Print(ui.RenderBox(ui.RenderWelcome()))
-
-			// Get current directory
-			dir, err := os.Getwd()
-			if err != nil {
-				return fmt.Errorf("failed to get current directory: %w", err)
-			}
-
-			// Check if directory is empty
-			files, err := os.ReadDir(dir)
-			if err != nil {
-				return fmt.Errorf("cannot read contents of directory '%s'. Please verify: (1) you have read permissions, (2) the directory is not locked, (3) the path is valid. Error: %w", dir, err)
-			}
-
-			// If directory is empty or only contains hidden files, offer templates
-			hasVisibleFiles := false
-			for _, file := range files {
-				if !file.IsDir() && !isHiddenFile(file.Name()) {
-					hasVisibleFiles = true
-					break
-				}
-			}
-
-			if !hasVisibleFiles {
-				// Mode 2: Start from Scratch
-				pterm.Info.Println("📦 No project detected. Would you like to start with a template?")
-
-				// Create template selection list
-				items := templates.GetTemplateItems()
-				l := list.New(items, list.NewDefaultDelegate(), 0, 0)
-				l.Title = "Select a template"
-				l.SetShowStatusBar(false)
-				l.SetFilteringEnabled(false)
-				l.Styles.Title = lipgloss.NewStyle().MarginLeft(2)
-
-				// Show template selection
-				selected := l.SelectedItem()
-				if selected == nil {
-					return fmt.Errorf("no template was selected. Please choose a template from the list to continue")
-				}
-
-				// Create project from template
-				templateName := selected.(templates.TemplateItem).Name
-				pterm.Info.Printf("✨ Selected: %s\n", templateName)
-				pterm.Info.Println("🚀 Generating starter files...")
-
-				if err := templates.CreateProject(projectName, templateName); err != nil {
-					return fmt.Errorf("failed to create project from template '%s'. Please ensure: (1) template name is valid, (2) you have write permissions, (3) template files are accessible. Error: %w", templateName, err)
-				}
-			}
-
-			// Mode 1: Detect & Generate
-			progress, _ := pterm.DefaultProgressbar.WithTotal(100).Start()
-			progress.Title = "Analyzing project"
-
-			// Check if nexlayer.yaml already exists
-			configFile := "nexlayer.yaml"
-			if _, err := os.Stat(configFile); err == nil {
-				// File exists, create backup
-				backupFile := configFile + ".backup"
-				if err := os.Rename(configFile, backupFile); err != nil {
-					return fmt.Errorf("failed to create backup of existing nexlayer.yaml. Please ensure: (1) you have write permissions, (2) original file is not in use, (3) sufficient disk space available. Error: %w", err)
-				}
-				cmd.Printf("Backed up existing %s to %s\n", configFile, backupFile)
-			}
-
-			// Generate the template using AI provider
-			progress.Title = "Analyzing project and generating template"
-			if defaultProvider == nil {
-				return fmt.Errorf("no AI provider available for template generation")
-			}
-			yamlStr, err := defaultProvider.GenerateTemplate(projectName)
-			if err != nil {
-				return fmt.Errorf("failed to generate template: %w", err)
-			}
-			progress.Add(90)
-
-			// Write the generated template to 'nexlayer.yaml'
-			if err := os.WriteFile("nexlayer.yaml", []byte(yamlStr), 0644); err != nil {
-				return fmt.Errorf("failed to write template: %w", err)
-			}
-			progress.Add(10)
-
-			// Display success message
-			progress.Stop()
-			pterm.Success.Printf("Created nexlayer.yaml for %s\n", projectName)
-			fmt.Println("To deploy your application, run: nexlayer deploy")
-			return nil
-		},
+		RunE:  runInitCommand,
 	}
-
 	return cmd
 }
 
-// isHiddenFile returns true if the file name starts with a dot
-func isHiddenFile(name string) bool {
-	return len(name) > 0 && name[0] == '.'
+// DetectIDE checks which AI-powered IDE is currently being used
+func DetectIDE() string {
+	// 1️⃣ Check environment variables
+	if os.Getenv("CURSOR") != "" {
+		return "Cursor"
+	}
+	if os.Getenv("WINDSURF") != "" {
+		return "Windsurf"
+	}
+	if os.Getenv("VSCODE_GIT_IPC_HANDLE") != "" || os.Getenv("VSCODE_PID") != "" {
+		return "VSCode"
+	}
+	if os.Getenv("ZED_ROOT") != "" {
+		return "Zed"
+	}
+	if os.Getenv("AIDER_PROJECT") != "" {
+		return "Aider"
+	}
+
+	// 2️⃣ Check running processes
+	processes := []string{"cursor", "code", "windsurf", "zed", "aider"}
+	for _, process := range processes {
+		cmd := exec.Command("pgrep", "-x", process)
+		if err := cmd.Run(); err == nil {
+			return strings.Title(process)
+		}
+	}
+
+	// 3️⃣ Check configuration files in the project directory
+	configFiles := map[string]string{
+		".cursor":          "Cursor",
+		".vscode":          "VSCode",
+		"windsurf.json":    "Windsurf",
+		"zed-settings.json": "Zed",
+		".aider":           "Aider",
+	}
+
+	for file, ide := range configFiles {
+		if _, err := os.Stat(file); err == nil {
+			return ide
+		}
+	}
+
+	return "Unknown"
+}
+
+// runInitCommand handles the execution of the init command
+func runInitCommand(cmd *cobra.Command, args []string) error {
+	// Determine project name
+	projectName := getProjectName(args)
+
+	// Display welcome message
+	fmt.Print(ui.RenderBox(ui.RenderWelcome()))
+
+	// Start progress bar
+	progress, err := pterm.DefaultProgressbar.WithTotal(100).Start()
+	if err != nil {
+		return fmt.Errorf("failed to start progress bar: %w", err)
+	}
+	defer progress.Stop()
+
+	// Detect IDE being used
+	ide := DetectIDE()
+	if ide != "Unknown" {
+		fmt.Printf("🖥️  Detected AI-powered IDE: %s\n", ide)
+	}
+
+	// Detect Project Type
+	progress.UpdateTitle("Analyzing project...")
+	info, err := detectProject(progress)
+	if err != nil {
+		return err
+	}
+
+	// Detect the LLM provider
+	llmProvider := detection.DetectAIIDE()
+
+	// Generate YAML based on detected project
+	progress.UpdateTitle("Generating Nexlayer configuration...")
+	yamlContent, err := generateProjectYAML(projectName, info, ide, llmProvider)
+	if err != nil {
+		return err
+	}
+	progress.Add(20)
+
+	// Write YAML to file
+	if err := writeYAMLToFile("nexlayer.yaml", yamlContent); err != nil {
+		return err
+	}
+	progress.Add(20)
+
+	// Validate YAML
+	if err := validateGeneratedYAML(yamlContent); err != nil {
+		return err
+	}
+	progress.Add(20)
+
+	// Completion message
+	progress.Stop()
+	pterm.Success.Printf("\n✨ Your Nexlayer project is ready!\n")
+	pterm.Info.Println("\nDeploy with:")
+	fmt.Println("  nexlayer deploy")
+	return nil
+}
+
+// getProjectName determines the project name from arguments or directory
+func getProjectName(args []string) string {
+	if len(args) > 0 {
+		return args[0]
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		pterm.Error.Println("Unable to determine current directory. Defaulting to 'new-project'.")
+		return "new-project"
+	}
+	return filepath.Base(dir)
+}
+
+// detectProject attempts to detect the project type
+func detectProject(progress *pterm.ProgressbarPrinter) (*detection.ProjectInfo, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	detector := detection.NewDetectorRegistry()
+	progress.Add(20)
+
+	info, err := detector.DetectProject(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect project type: %w", err)
+	}
+
+	pterm.Success.Printf("✅ Found %s project\n", info.Type)
+	return info, nil
+}
+
+// generateProjectYAML creates the Nexlayer configuration file
+func generateProjectYAML(projectName string, info *detection.ProjectInfo, ide string, llmProvider string) (string, error) {
+	yamlContent, err := detection.GenerateYAML(info)
+	if err != nil {
+		pterm.Warning.Println("⚠️  Using basic template - some features may need manual configuration")
+		yamlContent = fmt.Sprintf(`application:
+  name: %s
+  environment:
+    ide: %s
+    llm: %s
+  pods:
+    - name: app
+      image: nginx:latest
+      servicePorts:
+        - 80
+`, projectName, ide, llmProvider)
+	}
+	return yamlContent, nil
+}
+
+// writeYAMLToFile writes the YAML content to a file
+func writeYAMLToFile(filename string, content string) error {
+	if _, err := os.Stat(filename); err == nil {
+		backupFile := filename + ".backup"
+		if err := os.Rename(filename, backupFile); err != nil {
+			return fmt.Errorf("failed to create backup of existing %s: %w", filename, err)
+		}
+		pterm.Info.Printf("📦 Backed up existing %s to %s\n", filename, backupFile)
+	}
+
+	if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write YAML file: %w", err)
+	}
+	pterm.Info.Println("✅ Configuration written to nexlayer.yaml")
+	return nil
+}
+
+// validateGeneratedYAML checks for YAML syntax errors
+func validateGeneratedYAML(yamlContent string) error {
+	var config schema.NexlayerYAML
+	if err := yaml.Unmarshal([]byte(yamlContent), &config); err != nil {
+		return fmt.Errorf("failed to parse generated YAML: %w", err)
+	}
+
+	validator := validation.NewValidator(false)
+	validationErrors := validator.ValidateYAML(&config)
+	if len(validationErrors) > 0 {
+		pterm.Warning.Println("⚠️  Validation found issues:")
+
+		for _, err := range validationErrors {
+			fmt.Printf("❌ %s: %s\n", err.Field, err.Message)
+			for _, suggestion := range err.Suggestions {
+				fmt.Printf("   💡 %s\n", suggestion)
+			}
+		}
+
+		fmt.Println("\n📝 Next Steps:")
+		fmt.Println("1. Fix issues in nexlayer.yaml")
+		fmt.Println("2. Run 'nexlayer validate'")
+		fmt.Println("3. Once validation passes, run 'nexlayer deploy'")
+	}
+	pterm.Success.Println("✅ Validation passed")
+	return nil
 }

@@ -30,20 +30,36 @@ if ! command -v go &> /dev/null; then
     exit 1
 fi
 
-# Install the CLI
-echo "📦 Installing latest version..."
-go install github.com/Nexlayer/nexlayer-cli@latest
+# Clone the repository
+echo "📦 Cloning Nexlayer CLI repository..."
+git clone https://github.com/Nexlayer/nexlayer-cli.git
+cd nexlayer-cli
+
+# Build the CLI
+echo "🔨 Building from source..."
+go mod download
+go build -o nexlayer-cli ./cmd/nexlayer
+
+# Install to system path
+echo "📥 Installing to /usr/local/bin..."
+sudo mv nexlayer-cli /usr/local/bin/
+
+# Create nexlayer symlink
+echo "🔗 Creating nexlayer command symlink..."
+sudo ln -sf /usr/local/bin/nexlayer-cli /usr/local/bin/nexlayer
 
 # Verify installation
 if command -v nexlayer &> /dev/null; then
     echo -e "${GREEN}✨ Nexlayer CLI successfully installed!${NC}"
     echo
     echo "🎯 Get started with:"
-    echo "   nexlayer wizard"
+    echo "   nexlayer init        # Initialize a new project"
+    echo "   nexlayer deploy     # Deploy your application"
+    echo "   nexlayer status     # Check deployment status"
     echo
     echo "📚 Learn more:"
     echo "   nexlayer help"
-    echo "   nexlayer wizard advanced"
+    echo "   nexlayer --version"
 else
     echo -e "${RED}❌ Installation failed${NC}"
     echo "Please try again or visit https://docs.nexlayer.io/installation for help"

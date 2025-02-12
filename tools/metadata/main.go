@@ -71,10 +71,10 @@ func main() {
 }
 
 func generateMetadata() error {
-	// Create build directory if it doesn't exist
-	buildDir := "build"
-	if err := os.MkdirAll(buildDir, 0755); err != nil {
-		return fmt.Errorf("failed to create build directory: %w", err)
+	// Create AI training analysis directory if it doesn't exist
+	aiDir := filepath.Join("ai_training", "analysis")
+	if err := os.MkdirAll(aiDir, 0755); err != nil {
+		return fmt.Errorf("failed to create AI training directory: %w", err)
 	}
 
 	metadata := &Metadata{
@@ -100,7 +100,7 @@ func generateMetadata() error {
 	}
 
 	// Write metadata to file
-	file, err := os.Create(filepath.Join(buildDir, "metadata.json"))
+	file, err := os.Create(filepath.Join(aiDir, "metadata.json"))
 	if err != nil {
 		return fmt.Errorf("failed to create metadata file: %w", err)
 	}
@@ -178,7 +178,7 @@ func parsePackages(metadata *Metadata) error {
 			return err
 		}
 
-		if !info.IsDir() || strings.Contains(path, "vendor") || strings.Contains(path, "build") {
+		if !info.IsDir() || strings.Contains(path, "vendor") || strings.Contains(path, "ai_training") {
 			return nil
 		}
 
@@ -316,10 +316,10 @@ func generateCallGraphs(metadata *Metadata) error {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	// Create build directory if it doesn't exist
-	buildDir := filepath.Join(wd, "build")
-	if err := os.MkdirAll(buildDir, 0755); err != nil {
-		return fmt.Errorf("failed to create build directory: %w", err)
+	// Create AI training analysis directory if it doesn't exist
+	aiDir := filepath.Join(wd, "ai_training", "analysis")
+	if err := os.MkdirAll(aiDir, 0755); err != nil {
+		return fmt.Errorf("failed to create AI training directory: %w", err)
 	}
 
 	for _, pkg := range keyPackages {
@@ -327,7 +327,7 @@ func generateCallGraphs(metadata *Metadata) error {
 
 		// Clean package path for filename
 		cleanPkg := strings.Replace(pkg, "/", "_", -1)
-		outputFile := filepath.Join(buildDir, fmt.Sprintf("callgraph_%s.svg", cleanPkg))
+		outputFile := filepath.Join(aiDir, fmt.Sprintf("callgraph_%s.svg", cleanPkg))
 
 		// Get module name from go.mod
 		modCmd := exec.Command("go", "list", "-m")

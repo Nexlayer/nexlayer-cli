@@ -91,3 +91,4 @@ test/**/dist/
 # AI training data
 ai_training/*.json
 ai_training/*.yaml
+.windsurfrules
