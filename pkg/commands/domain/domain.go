@@ -62,7 +62,11 @@ func runAddDomain(cmd *cobra.Command, client *api.Client, appID string, domain s
 	}
 	cmd.Println(ui.RenderTitleWithBorder("Adding Custom Domain"))
 
-	err := client.SaveCustomDomain(cmd.Context(), appID, domain)
+	resp, err := client.SaveCustomDomain(cmd.Context(), appID, domain)
+	if err != nil {
+		return err
+	}
+	fmt.Println(resp.Message)
 	if err != nil {
 		return fmt.Errorf("failed to add custom domain: %w", err)
 	}

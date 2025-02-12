@@ -7,8 +7,9 @@ package status
 import (
 	"context"
 	"fmt"
+	"time"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/common"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -44,7 +45,7 @@ func (m model) View() string {
 }
 
 // NewCommand creates a new status command
-func NewCommand(client *api.Client) *cobra.Command {
+func NewCommand(client common.CommandClient) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status [namespace] [application-id]",
 		Short: "Get deployment status",
@@ -67,34 +68,55 @@ If namespace and application ID are provided, shows detailed information about t
 	return cmd
 }
 
-func getDeploymentInfo(ctx context.Context, client *api.Client, namespace, appID string) error {
-	info, err := client.GetDeploymentInfo(ctx, namespace, appID)
+func getDeploymentInfo(ctx context.Context, client common.CommandClient, namespace, appID string) error {
+	resp, err := client.GetDeploymentInfo(ctx, namespace, appID)
 	if err != nil {
 		return fmt.Errorf("failed to get deployment info: %w", err)
 	}
+
+	info := resp.Data
 
 	// Print deployment info
 	bold := color.New(color.Bold).SprintFunc()
 	fmt.Printf("\n%s\n\n", bold("Deployment Information"))
 	fmt.Printf("Namespace:     %s\n", info.Namespace)
 	fmt.Printf("Template:      %s (%s)\n", info.TemplateName, info.TemplateID)
-	fmt.Printf("Status:        %s\n", formatStatus(info.DeploymentStatus))
+	fmt.Printf("Status:        %s\n", formatStatus(info.Status))
+	fmt.Printf("URL:           %s\n", info.URL)
+	fmt.Printf("Custom Domain: %s\n", info.CustomDomain)
+	fmt.Printf("Created:       %s\n", info.CreatedAt.Format(time.RFC3339))
+	fmt.Printf("Last Updated:  %s\n", info.LastUpdated.Format(time.RFC3339))
+	fmt.Printf("Version:       %s\n", info.Version)
 	fmt.Println()
+
+	// Print pod statuses if available
+	if len(info.PodStatuses) > 0 {
+		fmt.Printf("\n%s\n\n", bold("Pod Statuses"))
+		for _, pod := range info.PodStatuses {
+			fmt.Printf("Pod:           %s (%s)\n", pod.Name, pod.Type)
+			fmt.Printf("Status:        %s\n", formatStatus(pod.Status))
+			fmt.Printf("Ready:         %v\n", pod.Ready)
+			fmt.Printf("Restarts:      %d\n", pod.Restarts)
+			fmt.Printf("Image:         %s\n", pod.Image)
+			fmt.Printf("Created:       %s\n\n", pod.CreatedAt.Format(time.RFC3339))
+		}
+	}
 
 	return nil
 }
 
-func listDeployments(ctx context.Context, client *api.Client) error {
+func listDeployments(ctx context.Context, client common.CommandClient) error {
 	// Get deployments with pagination
-	deployments, err := client.GetDeployments(ctx, "")
+	resp, err := client.ListDeployments(ctx)
 	if err != nil {
 		return err
 	}
 
-	if len(deployments) == 0 {
+	if len(resp.Data) == 0 {
 		fmt.Println("No deployments found")
 		return nil
 	}
+	deployments := resp.Data
 
 	// Define table columns
 	columns := []table.Column{
@@ -102,6 +124,9 @@ func listDeployments(ctx context.Context, client *api.Client) error {
 		{Title: "Template ID", Width: 36},
 		{Title: "Template Name", Width: 30},
 		{Title: "Status", Width: 15},
+		{Title: "URL", Width: 30},
+		{Title: "Version", Width: 10},
+		{Title: "Created", Width: 25},
 	}
 
 	// Create rows
@@ -111,7 +136,10 @@ func listDeployments(ctx context.Context, client *api.Client) error {
 			d.Namespace,
 			d.TemplateID,
 			d.TemplateName,
-			formatStatus(d.DeploymentStatus),
+			formatStatus(d.Status),
+			d.URL,
+			d.Version,
+			d.CreatedAt.Format(time.RFC3339),
 		})
 	}
 

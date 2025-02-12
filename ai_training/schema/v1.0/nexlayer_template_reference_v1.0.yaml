@@ -1,0 +1,62 @@
+# Nexlayer YAML Template Reference
+# Version: 1.2
+# This document defines the structured format for deploying full-stack applications on Nexlayer Cloud.
+# Nexlayer Cloud simplifies Kubernetes deployments by automating service discovery, storage, and scaling.
+# Both human engineers and AI agents can use this reference to generate, modify, and validate deployments.
+#
+# Key Features:
+# - Define application metadata (name and optional permanent URL)
+# - Configure private registry authentication (if using private Docker images)
+# - List pods (services) that constitute your application
+# - Configure persistent storage (volumes), secrets, environment variables, and service ports for each pod
+# - Use dynamic placeholders (e.g., `<% REGISTRY %>`, `<% URL %>`) for flexible, automated deployments.
+#
+application:
+  name: "<string>"  # REQUIRED: The unique name of your deployment/application.
+  url: "<string>"   # OPTIONAL: Permanent domain for this deployment. Omit if using a temporary environment.
+  registryLogin:    # OPTIONAL: Required only for private container registries.
+    registry: "<string>"             # REQUIRED for private registries. Example: "ghcr.io/my-org"
+    username: "<string>"             # REQUIRED: Username for registry authentication.
+    personalAccessToken: "<string>"  # REQUIRED: Read-only access token for secure registry authentication.
+  pods:  # REQUIRED: List of services (pods) that make up this application.
+    - name: "<string>"  # REQUIRED: Unique pod name. Must be lowercase and can include alphanumeric characters, '-' or '.'.
+      path: "<string>"  # OPTIONAL: URL path where this pod is accessible (e.g., '/' for frontend, '/api' for backend).
+      image: "<string>"  # REQUIRED: Docker image reference. Supports the `<% REGISTRY %>` placeholder for private images.
+      volumes:  # OPTIONAL: Defines persistent storage volumes for this pod.
+        - name: "<string>"       # REQUIRED: Unique volume name.
+          size: "<string>"       # REQUIRED: Storage size (e.g., "1Gi").
+          mountPath: "<string>"  # REQUIRED: Path inside the container where the volume is mounted.
+      secrets:  # OPTIONAL: Defines secrets (e.g., API keys, passwords) for this pod.
+        - name: "<string>"        # REQUIRED: Secret name.
+          data: "<string>"        # REQUIRED: Raw or Base64-encoded secret content.
+          mountPath: "<string>"   # REQUIRED: Directory inside the pod where the secret is stored.
+          fileName: "<string>"    # REQUIRED: Name of the file to be created for the secret.
+      vars:  # OPTIONAL: Environment variables required by this pod.
+        - key: "<string>"   # REQUIRED: Environment variable key.
+          value: "<string>" # REQUIRED: Environment variable value. Supports placeholders like `<pod-name>.pod` or `<% URL %>`.
+      servicePorts:  # OPTIONAL: List of ports that this pod exposes for inter-service communication.
+        - <integer>  # REQUIRED: Port number (e.g., 3000, 5432, 6379).
+
+# ---------------------------------------------------------------------------
+# How to Use This YAML Template:
+#
+# Application Metadata:
+#   Set the 'name' and optionally the 'url' for your deployment. This metadata identifies your application.
+#
+# Private Registry Authentication:
+#   Include the 'registryLogin' block only if your Docker images are hosted in a private registry.
+#   For public images, simply omit this block.
+#
+# Pods (Services):
+#   Define each service as a pod in the 'pods' array. Each pod must have a unique 'name' (following the specified pattern),
+#   an 'image' (with support for dynamic `<% REGISTRY %>` placeholders), and may include additional configuration such as:
+#     - 'path': URL path for accessing the service.
+#     - 'volumes': For persistent storage.
+#     - 'secrets': For securely injecting sensitive data.
+#     - 'vars': Environment variables for runtime configuration.
+#     - 'servicePorts': Ports that the pod exposes for inter-service communication.
+#
+# Dynamic Placeholders:
+#   Use `<% REGISTRY %>` within the 'image' field to dynamically reference your private registry.
+#   Use `<% URL %>` within environment variables to auto-generate site links.
+# ---------------------------------------------------------------------------

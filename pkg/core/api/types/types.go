@@ -1,4 +1,10 @@
-// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
+// Copyright (c) 2025 Nexlayer. All rights reserved.
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
+
+// Package types defines the data structures used in the Nexlayer API.
+// Generated from OpenAPI schema version 1.0.0
+
 package types
 
 import "time"
@@ -96,6 +102,11 @@ type StartDeploymentResponse struct {
 	// Application URL where the deployment can be accessed
 	// Format: https://{namespace}-{app-name}.alpha.nexlayer.ai
 	URL string `json:"url" validate:"required,url" example:"https://fantastic-fox-my-mern-app.alpha.nexlayer.ai"`
+}
+
+// SaveCustomDomainRequest represents the request body for saving a custom domain
+type SaveCustomDomainRequest struct {
+	Domain string `json:"domain" example:"mydomain.com"`
 }
 
 // SaveCustomDomainResponse represents the response from saving a custom domain

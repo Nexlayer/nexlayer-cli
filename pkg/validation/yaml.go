@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/types"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
 )
 
 var (
@@ -36,7 +36,7 @@ func init() {
 }
 
 // ValidateNexlayerYAML validates the provided YAML configuration
-func ValidateNexlayerYAML(yaml *types.NexlayerYAML) error {
+func ValidateNexlayerYAML(yaml *schema.NexlayerYAML) error {
 	// First validate the struct
 	if err := validate.Struct(yaml); err != nil {
 		if _, ok := err.(*validator.InvalidValidationError); ok {

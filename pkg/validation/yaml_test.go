@@ -7,26 +7,32 @@ package validation
 import (
 	"testing"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/types"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
 )
 
 func TestValidateNexlayerYAML(t *testing.T) {
 	tests := []struct {
 		name    string
-		yaml    *types.NexlayerYAML
+		yaml    *schema.NexlayerYAML
 		wantErr bool
 	}{
 		{
 			name: "valid yaml",
-			yaml: &types.NexlayerYAML{
-				Application: types.Application{
+			yaml: &schema.NexlayerYAML{
+				Application: schema.Application{
 					Name: "myapp",
-					Pods: []types.Pod{
+					Pods: []schema.Pod{
 						{
 							Name:  "frontend",
 							Image: "nginx:latest",
 							Path:  "/",
-							ServicePorts: []int{80},
+							Ports: []schema.Port{
+								{
+									ContainerPort: 80,
+									ServicePort:   80,
+									Name:          "web",
+								},
+							},
 						},
 					},
 				},
@@ -35,25 +41,31 @@ func TestValidateNexlayerYAML(t *testing.T) {
 		},
 		{
 			name: "invalid yaml - missing required fields",
-			yaml: &types.NexlayerYAML{
-				Application: types.Application{
+			yaml: &schema.NexlayerYAML{
+				Application: schema.Application{
 					Name: "",
-					Pods: []types.Pod{},
+					Pods: []schema.Pod{},
 				},
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid yaml - invalid volume size",
-			yaml: &types.NexlayerYAML{
-				Application: types.Application{
+			yaml: &schema.NexlayerYAML{
+				Application: schema.Application{
 					Name: "myapp",
-					Pods: []types.Pod{
+					Pods: []schema.Pod{
 						{
 							Name:  "database",
 							Image: "postgres:latest",
-							ServicePorts: []int{5432},
-							Volumes: []types.Volume{
+							Ports: []schema.Port{
+								{
+									ContainerPort: 5432,
+									ServicePort:   5432,
+									Name:          "postgres",
+								},
+							},
+							Volumes: []schema.Volume{
 								{
 									Name:      "data",
 									Size:      "invalid",
@@ -68,20 +80,26 @@ func TestValidateNexlayerYAML(t *testing.T) {
 		},
 		{
 			name: "valid yaml with registry login",
-			yaml: &types.NexlayerYAML{
-				Application: types.Application{
+			yaml: &schema.NexlayerYAML{
+				Application: schema.Application{
 					Name: "myapp",
-					RegistryLogin: &types.RegistryLogin{
+					RegistryLogin: &schema.RegistryLogin{
 						Registry:           "ghcr.io",
 						Username:           "myuser",
 						PersonalAccessToken: "token123",
 					},
-					Pods: []types.Pod{
+					Pods: []schema.Pod{
 						{
 							Name:  "api",
 							Image: "ghcr.io/myorg/api:latest",
 							Path:  "/api",
-							ServicePorts: []int{8080},
+							Ports: []schema.Port{
+								{
+									ContainerPort: 8080,
+									ServicePort:   8080,
+									Name:          "api",
+								},
+							},
 						},
 					},
 				},

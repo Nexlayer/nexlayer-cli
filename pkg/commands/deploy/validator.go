@@ -3,11 +3,11 @@ package deploy
 import (
 	"fmt"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/types"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
 )
 
 // validateDeployConfig validates the deployment configuration
-func validateDeployConfig(yaml *types.NexlayerYAML) error {
+func validateDeployConfig(yaml *schema.NexlayerYAML) error {
 	if yaml == nil {
 		return fmt.Errorf("deployment configuration is required")
 	}
@@ -30,14 +30,14 @@ func validateDeployConfig(yaml *types.NexlayerYAML) error {
 }
 
 // validatePod validates a pod configuration
-func validatePod(pod types.Pod) error {
+func validatePod(pod schema.Pod) error {
 	if pod.Name == "" {
 		return fmt.Errorf("pod name is required")
 	}
 	if pod.Image == "" {
 		return fmt.Errorf("pod image is required")
 	}
-	if len(pod.ServicePorts) == 0 {
+	if len(pod.Ports) == 0 {
 		return fmt.Errorf("pod service ports are required")
 	}
 

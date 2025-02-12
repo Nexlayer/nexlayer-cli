@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
+
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/spf13/cobra"
 )
@@ -31,7 +32,7 @@ func findDeploymentFile() (string, error) {
 }
 
 // NewCommand creates a new deploy command
-func NewCommand(client api.APIClient) *cobra.Command {
+func NewCommand(apiClient api.APIClient) *cobra.Command {
 	var yamlFile string
 
 	cmd := &cobra.Command{
@@ -86,11 +87,11 @@ Examples:
 			// Get app ID if provided
 			appID, _ := cmd.Flags().GetString("app")
 
-			return runDeploy(cmd, yamlFile, appID)
+			return runDeploy(cmd, apiClient, yamlFile, appID)
 		},
 	}
 
-	cmd.Flags().StringVarP(&yamlFile, "config", "f", "", "Path to YAML configuration file")
+	cmd.Flags().StringVarP(&yamlFile, "config", "c", "", "Path to YAML configuration file")
 	// Make app flag optional
 	var appID string
 	cmd.Flags().StringVar(&appID, "app", "", "Application ID (optional)")
@@ -101,25 +102,36 @@ Examples:
 	return cmd
 }
 
-func runDeploy(cmd *cobra.Command, yamlFile string, appID string) error {
+func runDeploy(cmd *cobra.Command, client api.APIClient, yamlFile string, appID string) error {
 	cmd.Println(ui.RenderTitleWithBorder("Deploying Application"))
-
-	// Create API client
-	apiClient := api.NewClient("")
 
 	// Start deployment
 	if appID == "" {
 		cmd.Println("No application ID provided, using Nexlayer profile")
 	}
-	resp, err := apiClient.StartDeployment(context.Background(), appID, yamlFile)
+	resp, err := client.StartDeployment(context.Background(), appID, yamlFile)
 	if err != nil {
 		return fmt.Errorf("failed to start deployment: %w", err)
 	}
 
 	cmd.Printf("\nDeployment started successfully!\n")
-	cmd.Printf("URL: %s\n", resp.URL)
-	cmd.Printf("Namespace: %s\n", resp.Namespace)
 	cmd.Printf("Status: %s\n", resp.Message)
+
+	// Get deployment info to show additional details
+	info, err := client.GetDeploymentInfo(context.Background(), resp.Data.Namespace, appID)
+	if err != nil {
+		cmd.Printf("Warning: Could not fetch deployment details: %v\n", err)
+		return nil
+	}
+
+	cmd.Printf("\nDeployment Details:\n")
+	cmd.Printf("  Namespace:     %s\n", info.Data.Namespace)
+	cmd.Printf("  Template:      %s (%s)\n", info.Data.TemplateName, info.Data.TemplateID)
+	cmd.Printf("  Status:        %s\n", info.Data.Status)
+	cmd.Printf("  URL:           %s\n", info.Data.URL)
+	if info.Data.CustomDomain != "" {
+		cmd.Printf("  Custom Domain: %s\n", info.Data.CustomDomain)
+	}
 
 	return nil
 }

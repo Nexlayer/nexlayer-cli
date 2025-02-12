@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/types"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
 	"github.com/xeipuuv/gojsonschema"
 )
 
@@ -23,7 +23,7 @@ var (
 
 // ValidateTemplate performs comprehensive validation of a Nexlayer template
 // according to the v2.0 schema specification.
-func ValidateTemplate(template *types.NexlayerYAML) error {
+func ValidateTemplate(template *schema.NexlayerYAML) error {
 	// First validate against JSON Schema
 	if err := validateAgainstSchema(template); err != nil {
 		return fmt.Errorf("schema validation failed: %w", err)
@@ -69,7 +69,7 @@ func ValidateTemplate(template *types.NexlayerYAML) error {
 }
 
 // validateRegistryLogin validates registry authentication details
-func validateRegistryLogin(login *types.RegistryLogin) error {
+func validateRegistryLogin(login *schema.RegistryLogin) error {
 	if login.Registry == "" {
 		return fmt.Errorf("registry URL is required")
 	}
@@ -83,7 +83,7 @@ func validateRegistryLogin(login *types.RegistryLogin) error {
 }
 
 // validatePod validates a single pod configuration
-func validatePod(pod types.Pod, usedPorts map[int]string) error {
+func validatePod(pod schema.Pod, usedPorts map[int]string) error {
 	// Validate pod name
 	if pod.Name == "" {
 		return fmt.Errorf("pod name is required")
@@ -98,17 +98,23 @@ func validatePod(pod types.Pod, usedPorts map[int]string) error {
 	}
 
 	// Validate service ports
-	if len(pod.ServicePorts) == 0 {
+	if len(pod.Ports) == 0 {
 		return fmt.Errorf("at least one service port is required")
 	}
-	for _, port := range pod.ServicePorts {
-		if port <= 0 || port > 65535 {
-			return fmt.Errorf("invalid port number %d: must be between 1 and 65535", port)
+	for _, port := range pod.Ports {
+		if port.ServicePort <= 0 || port.ServicePort > 65535 {
+			return fmt.Errorf("invalid service port number %d: must be between 1 and 65535", port.ServicePort)
 		}
-		if existingPod, exists := usedPorts[port]; exists {
-			return fmt.Errorf("port %d is already in use by pod %q", port, existingPod)
+		if port.ContainerPort <= 0 || port.ContainerPort > 65535 {
+			return fmt.Errorf("invalid container port number %d: must be between 1 and 65535", port.ContainerPort)
 		}
-		usedPorts[port] = pod.Name
+		if port.Name == "" {
+			return fmt.Errorf("port name is required")
+		}
+		if existingPod, exists := usedPorts[port.ServicePort]; exists {
+			return fmt.Errorf("service port %d is already in use by pod %q", port.ServicePort, existingPod)
+		}
+		usedPorts[port.ServicePort] = pod.Name
 	}
 
 	// Validate volumes if present
@@ -129,7 +135,7 @@ func validatePod(pod types.Pod, usedPorts map[int]string) error {
 }
 
 // validateAgainstSchema validates the template against the JSON Schema
-func validateAgainstSchema(template *types.NexlayerYAML) error {
+func validateAgainstSchema(template *schema.NexlayerYAML) error {
 	// Use embedded schema
 	schemaLoader := gojsonschema.NewStringLoader(SchemaV2)
 
@@ -157,7 +163,7 @@ func validateAgainstSchema(template *types.NexlayerYAML) error {
 }
 
 // validateVolume validates a volume configuration
-func validateVolume(vol types.Volume) error {
+func validateVolume(vol schema.Volume) error {
 	if vol.Name == "" {
 		return fmt.Errorf("volume name is required")
 	}
@@ -184,7 +190,7 @@ func validateVolume(vol types.Volume) error {
 }
 
 // validateSecret validates a secret configuration
-func validateSecret(secret types.Secret) error {
+func validateSecret(secret schema.Secret) error {
 	if secret.Name == "" {
 		return fmt.Errorf("secret name is required")
 	}

@@ -1,4 +1,10 @@
-// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
+// Copyright (c) 2025 Nexlayer. All rights reserved.
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
+
+// Package api provides a client for interacting with the Nexlayer API.
+// Generated from OpenAPI schema version 1.0.0
+
 package api
 
 import (
@@ -13,39 +19,40 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/types"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
 )
 
 // APIClient defines the interface for interacting with the Nexlayer API.
-// The Nexlayer API allows deploying full-stack AI-powered applications using templates.
-// Each template defines the application stack, pods, and environment variables,
-// abstracting away the complexity of deployment.
+// The Nexlayer API provides endpoints for deploying applications, managing deployments,
+// sending feedback, and handling custom domains. Designed for easy integration into
+// CI/CD pipelines and automated deployment systems.
+
 type APIClient interface {
 	// StartDeployment starts a new deployment using a YAML configuration file.
-	// The template must follow the Nexlayer schema v2 format.
-	// If appID is empty, uses the Nexlayer profile for deployment.
+	// The YAML file should be provided as binary data using the 'text/x-yaml' content type.
 	// Endpoint: POST /startUserDeployment/{applicationID?}
-	StartDeployment(ctx context.Context, appID string, configPath string) (*types.StartDeploymentResponse, error)
+	StartDeployment(ctx context.Context, appID string, configPath string) (*schema.APIResponse[schema.DeploymentResponse], error)
 
-	// SaveCustomDomain saves a custom domain for an application.
-	// The domain will be associated with the specified application ID.
-	SaveCustomDomain(ctx context.Context, appID string, domain string) error
+	// SendFeedback submits feedback to Nexlayer regarding deployment or application experience.
+	// Endpoint: POST /feedback
+	SendFeedback(ctx context.Context, text string) error
 
-	// GetDeployments retrieves all deployments for a given application.
-	GetDeployments(ctx context.Context, appID string) ([]types.Deployment, error)
+	// SaveCustomDomain associates a custom domain with a specific application deployment.
+	// Endpoint: POST /saveCustomDomain/{applicationID}
+	SaveCustomDomain(ctx context.Context, appID string, domain string) (*schema.APIResponse[struct{}], error)
+
+	// ListDeployments retrieves all deployments.
+	// Endpoint: GET /listDeployments
+	ListDeployments(ctx context.Context) (*schema.APIResponse[[]schema.Deployment], error)
 
 	// GetDeploymentInfo retrieves detailed information about a specific deployment.
-	// Requires both the namespace and application ID to uniquely identify the deployment.
-	GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*types.DeploymentInfo, error)
+	// Endpoint: GET /getDeploymentInfo/{namespace}/{applicationID}
+	GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*schema.APIResponse[schema.Deployment], error)
 
 	// GetLogs retrieves logs for a specific deployment.
 	// If follow is true, streams logs in real-time.
 	// tail specifies the number of lines to return from the end of the logs.
 	GetLogs(ctx context.Context, namespace string, appID string, follow bool, tail int) ([]string, error)
-
-	// SendFeedback sends user feedback to Nexlayer.
-	// The feedback text will be used to improve the service.
-	SendFeedback(ctx context.Context, text string) error
 }
 
 // Client represents an API client for interacting with the Nexlayer API.
@@ -60,15 +67,37 @@ type Client struct {
 // handleAPIError processes API error responses and returns a formatted error
 func (c *Client) handleAPIError(resp *http.Response) error {
 	body, _ := io.ReadAll(resp.Body)
-	var errResp types.ErrorResponse
+	var errResp schema.APIError
 	if err := json.Unmarshal(body, &errResp); err != nil {
 		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 	}
-	return fmt.Errorf("API error (status %d): %s (code: %s)", resp.StatusCode, errResp.Message, errResp.Code)
+	return fmt.Errorf("API error (status %d): %s", resp.StatusCode, errResp.Message)
 }
 
 // NewClient creates a new Nexlayer API client.
 // If baseURL is empty, defaults to the staging environment at app.staging.nexlayer.io.
+// ListDeployments retrieves all deployments.
+// Endpoint: GET /listDeployments
+func (c *Client) ListDeployments(ctx context.Context) (*schema.APIResponse[[]schema.Deployment], error) {
+	url := fmt.Sprintf("%s/listDeployments", c.baseURL)
+	resp, err := c.get(ctx, url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list deployments: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.handleAPIError(resp)
+	}
+
+	var result schema.APIResponse[[]schema.Deployment]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode deployments response: %w", err)
+	}
+
+	return &result, nil
+}
+
 // GetLogs retrieves logs for a specific deployment
 func (c *Client) GetLogs(ctx context.Context, namespace string, appID string, follow bool, tail int) ([]string, error) {
 	url := fmt.Sprintf("%s/getDeploymentLogs/%s/%s?follow=%v&tail=%d", c.baseURL, namespace, appID, follow, tail)
@@ -130,7 +159,7 @@ func (c *Client) SetToken(token string) {
 //   - namespace: Generated namespace
 //   - url: Application URL
 // - error: Any error that occurred
-func (c *Client) StartDeployment(ctx context.Context, appID string, yamlFile string) (*types.StartDeploymentResponse, error) {
+func (c *Client) StartDeployment(ctx context.Context, appID string, yamlFile string) (*schema.APIResponse[schema.DeploymentResponse], error) {
 	// Read YAML file
 	data, err := os.ReadFile(yamlFile)
 	if err != nil {
@@ -150,84 +179,94 @@ func (c *Client) StartDeployment(ctx context.Context, appID string, yamlFile str
 	}
 	defer resp.Body.Close()
 
-	// Read response body
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.handleAPIError(resp)
 	}
 
-	// Print status code and response body for debugging
-	fmt.Printf("Status Code: %d\n", resp.StatusCode)
-	fmt.Printf("Response Body: %s\n", string(respBody))
-
-	// Check for error response
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("server error: %s - %s", resp.Status, string(respBody))
-	}
-
-	var result types.StartDeploymentResponse
-	if err := json.Unmarshal(respBody, &result); err != nil {
+	var result schema.APIResponse[schema.DeploymentResponse]
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	return &result, nil
 }
 
-// SaveCustomDomain saves a custom domain for an application
-func (c *Client) SaveCustomDomain(ctx context.Context, appID string, domain string) error {
+// SaveCustomDomain associates a custom domain with a specific application deployment.
+// Endpoint: POST /saveCustomDomain/{applicationID}
+func (c *Client) SaveCustomDomain(ctx context.Context, appID string, domain string) (*schema.APIResponse[struct{}], error) {
 	url := fmt.Sprintf("%s/saveCustomDomain/%s", c.baseURL, appID)
-	data := map[string]string{"domain": domain}
 
-	body, err := json.Marshal(data)
+	req := struct {
+		Domain string `json:"domain"`
+	}{
+		Domain: domain,
+	}
+
+	body, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	resp, err := c.post(ctx, url, body)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to save custom domain: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.handleAPIError(resp)
 	}
 
-	var result types.SaveCustomDomainResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return fmt.Errorf("failed to decode response: %w", err)
+	var response schema.APIResponse[struct{}]
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return nil
+	return &response, nil
 }
 
-// GetDeployments gets all deployments for an application
-func (c *Client) GetDeployments(ctx context.Context, appID string) ([]types.Deployment, error) {
+// GetDeployments retrieves all deployments associated with the specified application ID.
+// Endpoint: GET /getDeployments/{applicationID}
+func (c *Client) GetDeployments(ctx context.Context, appID string) (*schema.APIResponse[[]schema.Deployment], error) {
 	url := fmt.Sprintf("%s/getDeployments/%s", c.baseURL, appID)
 	resp, err := c.get(ctx, url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get deployments: %w", err)
 	}
 	defer resp.Body.Close()
 
-	var result types.GetDeploymentsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.handleAPIError(resp)
+	}
+
+	var response schema.APIResponse[[]schema.Deployment]
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return result.Deployments, nil
+	return &response, nil
 }
 
-// GetDeploymentInfo gets detailed information about a deployment
-func (c *Client) GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*types.DeploymentInfo, error) {
+// GetDeploymentInfo retrieves detailed information about a specific deployment.
+// Endpoint: GET /getDeploymentInfo/{namespace}/{applicationID}
+func (c *Client) GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*schema.APIResponse[schema.Deployment], error) {
 	url := fmt.Sprintf("%s/getDeploymentInfo/%s/%s", c.baseURL, namespace, appID)
 	resp, err := c.get(ctx, url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get deployment info: %w", err)
 	}
 	defer resp.Body.Close()
 
-	var result types.GetDeploymentInfoResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.handleAPIError(resp)
+	}
+
+	var response schema.APIResponse[schema.Deployment]
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return &result.Deployment, nil
+	return &response, nil
 }
 
 // Helper methods for making HTTP requests

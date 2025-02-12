@@ -17,6 +17,7 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/plugin"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/registry"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/status"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/validate"
 	"github.com/Nexlayer/nexlayer-cli/pkg/di"
 	"github.com/Nexlayer/nexlayer-cli/pkg/plugins"
 )
@@ -121,6 +122,7 @@ func (f *Factory) registerBuiltinCommands() {
 		debug.NewProvider(),
 		initcmd.NewProvider(),
 		ai.NewProvider(),
+		validate.NewProvider(),
 		plugin.NewProvider(f.plugins),
 	}
 

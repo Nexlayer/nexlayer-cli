@@ -112,6 +112,10 @@ nexlayer deploy
 nexlayer status
 nexlayer logs -f [pod]
 
+# Validate configuration
+nexlayer validate [file]        # Validate config file
+nexlayer validate --strict      # Enable strict validation
+
 # Keep config in sync
 nexlayer sync
 ```

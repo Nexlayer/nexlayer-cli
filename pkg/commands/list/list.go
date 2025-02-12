@@ -45,10 +45,11 @@ Example:
 func runListDeployments(cmd *cobra.Command, client *api.Client, appID string) error {
 	cmd.Println(ui.RenderTitleWithBorder("Deployments"))
 
-	deployments, err := client.GetDeployments(cmd.Context(), appID)
+	resp, err := client.GetDeployments(cmd.Context(), appID)
 	if err != nil {
 		return fmt.Errorf("failed to list deployments: %w", err)
 	}
+	deployments := resp.Data
 
 	if len(deployments) == 0 {
 		cmd.Println("No deployments found")
@@ -62,7 +63,7 @@ func runListDeployments(cmd *cobra.Command, client *api.Client, appID string) er
 		rows[i] = []string{
 			d.Namespace,
 			d.TemplateName,
-			d.DeploymentStatus,
+			d.Status,
 		}
 	}
 

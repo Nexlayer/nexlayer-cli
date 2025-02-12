@@ -4,42 +4,51 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/types"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
 	"github.com/stretchr/testify/assert"
 )
 
 type mockAPIClient struct{}
 
-func (m *mockAPIClient) StartDeployment(ctx context.Context, appID string, configPath string) (*types.StartDeploymentResponse, error) {
+func (m *mockAPIClient) StartDeployment(ctx context.Context, appID string, configPath string) (*schema.APIResponse[schema.DeploymentResponse], error) {
 	// Mock different responses based on whether appID is provided
 	if appID == "" {
-		return &types.StartDeploymentResponse{
-			Message:   "Deployment started using Nexlayer profile",
-			Namespace: "profile-namespace",
-			URL:       "https://profile-app.nexlayer.dev",
+		return &schema.APIResponse[schema.DeploymentResponse]{
+			Message: "Deployment started using Nexlayer profile",
+			Data: schema.DeploymentResponse{
+				Namespace: "profile-namespace",
+				URL:      "https://profile-app.nexlayer.dev",
+			},
 		}, nil
 	}
-	return &types.StartDeploymentResponse{
-			Message:   "Deployment started",
+	return &schema.APIResponse[schema.DeploymentResponse]{
+		Message: "Deployment started",
+		Data: schema.DeploymentResponse{
 			Namespace: "test-namespace",
-			URL:       "https://test.nexlayer.dev",
+			URL:      "https://test.nexlayer.dev",
+		},
 	}, nil
 }
 
-func (m *mockAPIClient) SaveCustomDomain(ctx context.Context, appID string, domain string) error {
-	return nil
+func (m *mockAPIClient) SaveCustomDomain(ctx context.Context, appID string, domain string) (*schema.APIResponse[struct{}], error) {
+	return &schema.APIResponse[struct{}]{Message: "Custom domain saved successfully", Data: struct{}{}}, nil
 }
 
-func (m *mockAPIClient) GetDeployments(ctx context.Context, appID string) ([]types.Deployment, error) {
-	return []types.Deployment{}, nil
+func (m *mockAPIClient) ListDeployments(ctx context.Context) (*schema.APIResponse[[]schema.Deployment], error) {
+	return &schema.APIResponse[[]schema.Deployment]{
+		Data: []schema.Deployment{},
+	}, nil
 }
 
-func (m *mockAPIClient) GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*types.DeploymentInfo, error) {
-	return &types.DeploymentInfo{
-		Namespace:        namespace,
-		TemplateID:       "test-id",
-		TemplateName:     "test-app",
-		DeploymentStatus: "running",
+func (m *mockAPIClient) GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*schema.APIResponse[schema.Deployment], error) {
+	return &schema.APIResponse[schema.Deployment]{
+		Data: schema.Deployment{
+			Namespace:    namespace,
+			TemplateID:   "test-id",
+			TemplateName: "test-app",
+			Status:       "running",
+			URL:         "https://test.nexlayer.dev",
+		},
 	}, nil
 }
 
@@ -70,20 +79,25 @@ func TestNewCommand(t *testing.T) {
 func TestValidateDeployConfig(t *testing.T) {
 	tests := []struct {
 		name    string
-		yaml    *types.NexlayerYAML
+		yaml    *schema.NexlayerYAML
 		wantErr bool
 	}{
 		{
 			name: "valid deployment",
-			yaml: &types.NexlayerYAML{
-				Application: types.Application{
+			yaml: &schema.NexlayerYAML{
+				Application: schema.Application{
 					Name: "test-app",
-					Pods: []types.Pod{
+					Pods: []schema.Pod{
 						{
 							Name:  "web",
 							Image: "nginx:latest",
-							Path:  "/",
-							ServicePorts: []int{80},
+							Ports: []schema.Port{
+								{
+									ContainerPort: 80,
+									ServicePort: 80,
+									Name: "web",
+								},
+							},
 						},
 					},
 				},
@@ -92,10 +106,10 @@ func TestValidateDeployConfig(t *testing.T) {
 		},
 		{
 			name: "missing required fields",
-			yaml: &types.NexlayerYAML{
-				Application: types.Application{
+			yaml: &schema.NexlayerYAML{
+				Application: schema.Application{
 					Name: "",
-					Pods: []types.Pod{},
+					Pods: []schema.Pod{},
 				},
 			},
 			wantErr: true,
