@@ -6,20 +6,25 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/errors"
+	"github.com/Nexlayer/nexlayer-cli/pkg/observability"
 )
 
+// APIClient is an alias for the api.APIClient interface
+type APIClient = api.APIClient
+
 // WithErrorHandling wraps an APIClient with error handling middleware
-func WithErrorHandling(next api.APIClient) api.APIClient {
+func WithErrorHandling(next APIClient) APIClient {
 	return &errorHandler{next: next}
 }
 
 type errorHandler struct {
-	next api.APIClient
+	next APIClient
 }
 
 func (h *errorHandler) GetDeploymentInfo(ctx context.Context, namespace, appID string) (*schema.APIResponse[schema.Deployment], error) {
@@ -71,17 +76,96 @@ func (h *errorHandler) SendFeedback(ctx context.Context, text string) error {
 }
 
 func (h *errorHandler) handleError(err error) error {
-	if apiErr, ok := err.(*schema.APIError); ok {
-		switch apiErr.StatusCode {
-		case http.StatusUnauthorized:
-			return fmt.Errorf("authentication failed: %w", err)
-		case http.StatusNotFound:
-			return fmt.Errorf("resource not found: %w", err)
+	logger := observability.NewLogger(observability.ERROR)
+
+	// Check if it's already our error type
+	if e, ok := err.(*errors.Error); ok {
+		logger.Error(context.Background(), "Error occurred: %s", e.Message)
+		return e
+	}
+
+	// Handle HTTP errors
+	if httpErr, ok := err.(*schema.APIError); ok {
+		switch httpErr.StatusCode {
 		case http.StatusBadRequest:
-			return fmt.Errorf("invalid request: %w", err)
+			return errors.UserError(
+				"Invalid request: " + h.cleanErrorMessage(httpErr.Message),
+				httpErr,
+			)
+		case http.StatusUnauthorized:
+			return errors.UserError(
+				"Authentication failed. Please check your credentials.",
+				httpErr,
+			)
+		case http.StatusForbidden:
+			return errors.UserError(
+				"You don't have permission to perform this action.",
+				httpErr,
+			)
+		case http.StatusNotFound:
+			return errors.UserError(
+				"The requested resource was not found.",
+				httpErr,
+			)
+		case http.StatusTooManyRequests:
+			return errors.NetworkError(
+				"Rate limit exceeded. Please try again later.",
+				httpErr,
+			)
+		case http.StatusBadGateway, http.StatusServiceUnavailable:
+			return errors.NetworkError(
+				"The Nexlayer service is temporarily unavailable. Please try again later.",
+				httpErr,
+			)
 		default:
-			return fmt.Errorf("API error: %w", err)
+			if httpErr.StatusCode >= 500 {
+				return errors.SystemError(
+					"An unexpected error occurred. Our team has been notified.",
+					httpErr,
+				)
+			}
+			return errors.InternalError(
+				"An unexpected error occurred.",
+				httpErr,
+			)
 		}
 	}
-	return fmt.Errorf("unexpected error: %w", err)
+
+	// Handle context cancellation
+	if err == context.Canceled {
+		return errors.UserError(
+			"Operation cancelled by user.",
+			err,
+		)
+	}
+
+	// Handle context deadline
+	if err == context.DeadlineExceeded {
+		return errors.NetworkError(
+			"Operation timed out. Please check your network connection and try again.",
+			err,
+		)
+	}
+
+	// Default to internal error
+	logger.Error(context.Background(), "Unhandled error type: %v", err)
+	return errors.InternalError(
+		"An unexpected error occurred.",
+		err,
+	)
+}
+
+// cleanErrorMessage removes sensitive information from error messages
+func (h *errorHandler) cleanErrorMessage(msg string) string {
+	// Remove any potential token or key information
+	msg = strings.ReplaceAll(msg, "token", "[REDACTED]")
+	msg = strings.ReplaceAll(msg, "key", "[REDACTED]")
+
+	// Remove any potential file paths
+	if strings.Contains(msg, "/") {
+		parts := strings.Split(msg, "/")
+		msg = parts[len(parts)-1]
+	}
+
+	return msg
 }

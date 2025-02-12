@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
-
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/factory"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/deploy"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/domain"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/feedback"
@@ -20,6 +20,7 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/validate"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/watch"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/errors"
 	"github.com/Nexlayer/nexlayer-cli/pkg/observability"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -48,7 +49,18 @@ func init() {
 	// Enable colors for Windows
 	os.Setenv("TERM", "xterm-256color")
 
-	// Initialize the logger first with JSON mode and rotation settings.
+	// Initialize the logger
+	logger = observability.NewLogger(
+		observability.INFO,
+		observability.WithJSON(),
+		observability.WithRotation(10, 5),
+	)
+
+	// Create command factory with middlewares
+	cmdFactory := factory.NewCommandFactory(logger)
+	cmdFactory.AddMiddleware(factory.RecoveryMiddleware(logger))
+	cmdFactory.AddMiddleware(factory.ErrorHandlingMiddleware())
+	cmdFactory.AddMiddleware(factory.LoggingMiddleware(logger))
 	logger = observability.NewLogger(
 		observability.INFO,
 		observability.WithJSON(),
@@ -107,6 +119,19 @@ func NewRootCommand() *cobra.Command {
 // It handles errors by reporting them and exiting the application.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
+		// Check if it's our custom error type
+		if nexErr, ok := err.(*errors.Error); ok {
+			// Log with stack trace for internal errors
+			if nexErr.Type == errors.ErrorTypeInternal {
+				logger.Error(context.Background(), "Internal error occurred: %s [file=%s, line=%d]", 
+					nexErr.Error(), nexErr.File, nexErr.Line)
+			}
+			// For user errors, just show the message
+			if nexErr.Type == errors.ErrorTypeUser {
+				fmt.Fprintln(os.Stderr, nexErr.Message)
+				os.Exit(1)
+			}
+		}
 		reportError(err)
 		os.Exit(1)
 	}
@@ -116,22 +141,52 @@ func Execute() {
 // It formats errors based on the jsonOutput flag and logs them.
 func reportError(err error) {
 	if jsonOutput {
-		jsonErr := map[string]interface{}{
-			"error_context": map[string]interface{}{
-				"type":    "CommandError",
-				"message": err.Error(),
-			},
+		// For structured errors, include all available context
+		if nexErr, ok := err.(*errors.Error); ok {
+			output := map[string]interface{}{
+				"error":   nexErr.Message,
+				"type":    nexErr.Type.String(),
+				"file":    nexErr.File,
+				"line":    nexErr.Line,
+				"context": map[string]interface{}{},
+			}
+			if nexErr.Cause != nil {
+				output["cause"] = nexErr.Cause.Error()
+			}
+			if len(nexErr.Stack) > 0 {
+				output["stack"] = nexErr.Stack
+			}
+			json.NewEncoder(os.Stderr).Encode(output)
+			return
 		}
-		if jsonBytes, jerr := json.Marshal(jsonErr); jerr == nil {
-			fmt.Println(string(jsonBytes))
-		} else {
-			fmt.Println(err)
-		}
-	} else {
-		// Log the error using structured logging and print the error.
-		logger.Error(context.Background(), "Command execution error: %v", err)
-		fmt.Println(err)
+		// Fall back to simple error message for non-structured errors
+		json.NewEncoder(os.Stderr).Encode(map[string]string{
+			"error": err.Error(),
+		})
+		return
 	}
+
+	if logger != nil {
+		// Use structured logging for our custom error type
+		if nexErr, ok := err.(*errors.Error); ok {
+			fields := map[string]interface{}{
+				"type": nexErr.Type.String(),
+				"file": nexErr.File,
+				"line": nexErr.Line,
+			}
+			if nexErr.Cause != nil {
+				fields["cause"] = nexErr.Cause.Error()
+			}
+			logger.Error(context.Background(), "Command error: %s [type=%s, file=%s, line=%d]", 
+				nexErr.Message, nexErr.Type.String(), nexErr.File, nexErr.Line)
+			return
+		}
+		// Fall back to simple error logging
+		logger.Error(context.Background(), "Command error: %v", err)
+		return
+	}
+
+	fmt.Fprintln(os.Stderr, err)
 }
 
 // lazyInitConfig loads configuration files and environment variables.
