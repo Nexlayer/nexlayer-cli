@@ -15,6 +15,7 @@ nexlayer
 
 # Local development files
 nexlayer.yaml
+nexlayer.yaml.backup
 .nexlayer/
 cli_test.go
 scripts/
@@ -27,6 +28,7 @@ testdata/
 testing/
 tetsing/
 *_test/
+test_init/
 test.yaml
 testing-cli-wizard.yaml
 testing-cli-*.yaml
@@ -49,6 +51,30 @@ build/
 Thumbs.db
 
 # Go specific
+*.exe
+*.test
+*.prof
+*.out
+
+# Analysis and development tools
+ai_training/analysis/
+**/callgraph_*
+*.gv
+*.svg
+metadata.json
+
+# Python development
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.env/
+.venv/
+*.egg-info/
+dist/
+build/
 *.out
 vendor/
 go.work
