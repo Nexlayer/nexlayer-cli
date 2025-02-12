@@ -1,0 +1,72 @@
+# Example Nexlayer Configuration (v1.2)
+# This is a complete example showcasing all available configuration options
+
+application:
+  # Required: Name of your application (must be unique)
+  name: example-app
+  
+  # Optional: Permanent domain for your application
+  url: www.example.ai
+  
+  # Required only if using private images
+  registryLogin:
+    registry: ghcr.io
+    username: SomeUser1234
+    personalAccessToken: ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxx
+  
+  # Required: List of pods (services) that make up your application
+  pods:
+    # Frontend web application
+    - name: frontend
+      path: /
+      image: <% REGISTRY %>/myapp/frontend:v1
+      vars:
+        - key: API_URL
+          value: http://backend.pod:3000
+        - key: SITE_URL
+          value: <% URL %>/api
+      servicePorts:
+        - 3000
+    
+    # Backend API service
+    - name: backend
+      path: /api
+      image: <% REGISTRY %>/myapp/backend:v1
+      volumes:
+        - name: data
+          size: 1Gi
+          mountPath: /app/data
+      secrets:
+        - name: db-creds
+          data: "base64_encoded_secret"
+          mountPath: /app/secrets
+          fileName: .env
+      vars:
+        - key: DB_HOST
+          value: database.pod
+        - key: DB_PORT
+          value: "5432"
+      servicePorts:
+        - 3000
+    
+    # Database service
+    - name: database
+      image: postgres:14
+      volumes:
+        - name: db-data
+          size: 5Gi
+          mountPath: /var/lib/postgresql/data
+      secrets:
+        - name: postgres-password
+          data: "base64_encoded_password"
+          mountPath: /run/secrets
+          fileName: postgres-password
+      vars:
+        - key: POSTGRES_DB
+          value: myapp
+        - key: POSTGRES_USER
+          value: myapp
+        - key: POSTGRES_PASSWORD_FILE
+          value: /run/secrets/postgres-password
+      servicePorts:
+        - 5432

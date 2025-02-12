@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/template"
 	"github.com/xeipuuv/gojsonschema"
 )
 
@@ -23,7 +23,7 @@ var (
 
 // ValidateTemplate performs comprehensive validation of a Nexlayer template
 // according to the v2.0 schema specification.
-func ValidateTemplate(template *schema.NexlayerYAML) error {
+func ValidateTemplate(template *template.NexlayerYAML) error {
 	// First validate against JSON Schema
 	if err := validateAgainstSchema(template); err != nil {
 		return fmt.Errorf("schema validation failed: %w", err)
@@ -69,7 +69,7 @@ func ValidateTemplate(template *schema.NexlayerYAML) error {
 }
 
 // validateRegistryLogin validates registry authentication details
-func validateRegistryLogin(login *schema.RegistryLogin) error {
+func validateRegistryLogin(login *template.RegistryLogin) error {
 	if login.Registry == "" {
 		return fmt.Errorf("registry URL is required")
 	}
@@ -83,7 +83,7 @@ func validateRegistryLogin(login *schema.RegistryLogin) error {
 }
 
 // validatePod validates a single pod configuration
-func validatePod(pod schema.Pod, usedPorts map[int]string) error {
+func validatePod(pod template.Pod, usedPorts map[int]string) error {
 	// Validate pod name
 	if pod.Name == "" {
 		return fmt.Errorf("pod name is required")
@@ -135,7 +135,7 @@ func validatePod(pod schema.Pod, usedPorts map[int]string) error {
 }
 
 // validateAgainstSchema validates the template against the JSON Schema
-func validateAgainstSchema(template *schema.NexlayerYAML) error {
+func validateAgainstSchema(template *template.NexlayerYAML) error {
 	// Use embedded schema
 	schemaLoader := gojsonschema.NewStringLoader(SchemaV2)
 
@@ -163,7 +163,7 @@ func validateAgainstSchema(template *schema.NexlayerYAML) error {
 }
 
 // validateVolume validates a volume configuration
-func validateVolume(vol schema.Volume) error {
+func validateVolume(vol template.Volume) error {
 	if vol.Name == "" {
 		return fmt.Errorf("volume name is required")
 	}
@@ -190,7 +190,7 @@ func validateVolume(vol schema.Volume) error {
 }
 
 // validateSecret validates a secret configuration
-func validateSecret(secret schema.Secret) error {
+func validateSecret(secret template.Secret) error {
 	if secret.Name == "" {
 		return fmt.Errorf("secret name is required")
 	}

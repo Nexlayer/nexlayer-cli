@@ -18,7 +18,9 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/status"
 	syncCmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/sync"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/validate"
+	versionCmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/version"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/watch"
+	"github.com/Nexlayer/nexlayer-cli/pkg/version"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/errors"
 	"github.com/Nexlayer/nexlayer-cli/pkg/observability"
@@ -94,10 +96,19 @@ func NewRootCommand() *cobra.Command {
 			// Set a background context.
 			cmd.SetContext(context.Background())
 		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			showVersion, _ := cmd.Flags().GetBool("version")
+			if showVersion {
+				fmt.Printf("Nexlayer CLI version %s\n", version.GetVersion())
+				return nil
+			}
+			return cmd.Help()
+		},
 	}
 
-	// Add a global JSON flag for structured error output.
+	// Add global flags
 	cmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "j", false, "Output errors in JSON format")
+	cmd.Flags().Bool("version", false, "Print version information")
 
 	// Register all commands.
 	cmd.AddCommand(initcmd.NewCommand())
@@ -111,6 +122,7 @@ func NewRootCommand() *cobra.Command {
 	cmd.AddCommand(status.NewCommand(apiClient))
 	cmd.AddCommand(watch.NewWatchCommand())
 	cmd.AddCommand(validate.NewCommand())
+	cmd.AddCommand(versionCmd.NewCommand())
 
 	return cmd
 }

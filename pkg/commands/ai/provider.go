@@ -3,6 +3,7 @@ package ai
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -111,8 +112,23 @@ func GetPreferredProvider(ctx context.Context, requiredCaps Capability) *AIProvi
 	}
 	cache.RUnlock()
 
-	for _, provider := range AllProviders {
+	// Define provider priority order
+	priorityProviders := []AIProvider{
+		WindsurfEditor,  // Windsurf has the most capabilities
+		ZedEditor,       // Zed has deployment assistance
+		CursorAI,       // Cursor is widely used
+		GitHubCopilot,  // Copilot is also popular
+		VSCodeAI,       // VSCode is common
+	}
+
+	// Try each provider in priority order
+	for _, provider := range priorityProviders {
 		if os.Getenv(provider.EnvVarKey) != "" && provider.Capabilities&requiredCaps == requiredCaps {
+			// Log which provider we're using
+			if os.Getenv("NEXLAYER_DEBUG") != "" {
+				fmt.Printf("Using AI provider: %s (%s)\n", provider.Name, provider.Description)
+			}
+
 			// Cache the result
 			cache.Lock()
 			cache.provider = &provider
@@ -120,6 +136,11 @@ func GetPreferredProvider(ctx context.Context, requiredCaps Capability) *AIProvi
 			cache.Unlock()
 			return &provider
 		}
+	}
+
+	// No provider found
+	if os.Getenv("NEXLAYER_DEBUG") != "" {
+		fmt.Println("No AI provider found with required capabilities, using fallback template")
 	}
 	return nil
 }

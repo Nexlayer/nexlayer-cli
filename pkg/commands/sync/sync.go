@@ -44,13 +44,12 @@ func NewCommand() *cobra.Command {
 
 			// Generate new YAML based on current project state
 			progress.Title = "Analyzing project and generating updated template"
-			stackType, components := ai.DetectStack(dir)
+			if _, err = ai.DetectStack(dir); err != nil { // We don't need the info since the AI package will detect it again
+				return fmt.Errorf("failed to detect project info: %v", err)
+			}
 			req := ai.TemplateRequest{
 				ProjectName: "", // Empty since we're updating existing
-				TemplateType: stackType,
-				RequiredFields: map[string]interface{}{
-					"components": components,
-				},
+				ProjectDir: dir,
 			}
 			newYAML, err := ai.GenerateTemplate(cmd.Context(), req)
 			if err != nil {

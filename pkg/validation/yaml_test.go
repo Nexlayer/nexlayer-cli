@@ -7,26 +7,26 @@ package validation
 import (
 	"testing"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/template"
 )
 
 func TestValidateNexlayerYAML(t *testing.T) {
 	tests := []struct {
 		name    string
-		yaml    *schema.NexlayerYAML
+		yaml    *template.NexlayerYAML
 		wantErr bool
 	}{
 		{
 			name: "valid yaml",
-			yaml: &schema.NexlayerYAML{
-				Application: schema.Application{
+			yaml: &template.NexlayerYAML{
+				Application: template.Application{
 					Name: "myapp",
-					Pods: []schema.Pod{
+					Pods: []template.Pod{
 						{
 							Name:  "frontend",
 							Image: "nginx:latest",
 							Path:  "/",
-							Ports: []schema.Port{
+							Ports: []template.Port{
 								{
 									ContainerPort: 80,
 									ServicePort:   80,
@@ -41,31 +41,31 @@ func TestValidateNexlayerYAML(t *testing.T) {
 		},
 		{
 			name: "invalid yaml - missing required fields",
-			yaml: &schema.NexlayerYAML{
-				Application: schema.Application{
+			yaml: &template.NexlayerYAML{
+				Application: template.Application{
 					Name: "",
-					Pods: []schema.Pod{},
+					Pods: []template.Pod{},
 				},
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid yaml - invalid volume size",
-			yaml: &schema.NexlayerYAML{
-				Application: schema.Application{
+			yaml: &template.NexlayerYAML{
+				Application: template.Application{
 					Name: "myapp",
-					Pods: []schema.Pod{
+					Pods: []template.Pod{
 						{
 							Name:  "database",
 							Image: "postgres:latest",
-							Ports: []schema.Port{
+							Ports: []template.Port{
 								{
 									ContainerPort: 5432,
 									ServicePort:   5432,
 									Name:          "postgres",
 								},
 							},
-							Volumes: []schema.Volume{
+							Volumes: []template.Volume{
 								{
 									Name:      "data",
 									Size:      "invalid",
@@ -80,20 +80,20 @@ func TestValidateNexlayerYAML(t *testing.T) {
 		},
 		{
 			name: "valid yaml with registry login",
-			yaml: &schema.NexlayerYAML{
-				Application: schema.Application{
+			yaml: &template.NexlayerYAML{
+				Application: template.Application{
 					Name: "myapp",
-					RegistryLogin: &schema.RegistryLogin{
+					RegistryLogin: &template.RegistryLogin{
 						Registry:           "ghcr.io",
 						Username:           "myuser",
 						PersonalAccessToken: "token123",
 					},
-					Pods: []schema.Pod{
+					Pods: []template.Pod{
 						{
 							Name:  "api",
 							Image: "ghcr.io/myorg/api:latest",
 							Path:  "/api",
-							Ports: []schema.Port{
+							Ports: []template.Port{
 								{
 									ContainerPort: 8080,
 									ServicePort:   8080,
@@ -110,7 +110,7 @@ func TestValidateNexlayerYAML(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateNexlayerYAML(tt.yaml)
+			err := ValidateTemplate(tt.yaml)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateNexlayerYAML() error = %v, wantErr %v", err, tt.wantErr)
 			}

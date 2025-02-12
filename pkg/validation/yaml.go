@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/validation/schema"
 )
 
 var (
@@ -52,7 +52,17 @@ func ValidateNexlayerYAML(yaml *schema.NexlayerYAML) error {
 
 	// Additional validation for Pod slice length
 	if len(yaml.Application.Pods) == 0 {
-		return fmt.Errorf("at least one pod must be specified")
+		return fmt.Errorf("template must contain at least one pod")
+	}
+
+	// Validate pod names and service ports
+	for _, pod := range yaml.Application.Pods {
+		if pod.Name == "" {
+			return fmt.Errorf("pod name cannot be empty")
+		}
+		if len(pod.ServicePorts) == 0 {
+			return fmt.Errorf("pod '%s' must have at least one service port", pod.Name)
+		}
 	}
 
 	// Additional validation for volumes
