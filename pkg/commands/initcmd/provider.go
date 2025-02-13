@@ -17,6 +17,11 @@ func NewProvider() registry.CommandProvider {
 	return &Provider{}
 }
 
+// NewCommand creates a new init command
+func (p *Provider) NewCommand(deps *registry.CommandDependencies) *cobra.Command {
+	return NewCommand()
+}
+
 // Name returns the provider's name
 func (p *Provider) Name() string {
 	return "init"

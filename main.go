@@ -8,11 +8,17 @@
 // subcommands and their respective functionality.
 package main
 
-import "github.com/Nexlayer/nexlayer-cli/cmd"
+import (
+	"os"
+
+	"github.com/Nexlayer/nexlayer-cli/cmd"
+)
 
 // main is the entry point of the Nexlayer CLI.
 // It delegates to cmd.Execute() which handles command-line parsing,
 // configuration loading, and command execution.
 func main() {
-	cmd.Execute()
+	if err := cmd.NewRootCommand().Execute(); err != nil {
+		os.Exit(1)
+	}
 }

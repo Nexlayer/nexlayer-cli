@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-// GenerateYAML generates a nexlayer.yaml based on detected project info
-func GenerateYAML(info *ProjectInfo) (string, error) {
+// GenerateYAMLFromTemplate generates a nexlayer.yaml based on detected project info using templates
+func GenerateYAMLFromTemplate(info *ProjectInfo) (string, error) {
 	var builder strings.Builder
 
 	// Write application section

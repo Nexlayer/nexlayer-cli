@@ -102,35 +102,44 @@ Examples:
 	return cmd
 }
 
-func runDeploy(cmd *cobra.Command, client api.APIClient, yamlFile string, appID string) error {
-	cmd.Println(ui.RenderTitleWithBorder("Deploying Application"))
+func runDeploy(_ *cobra.Command, client api.APIClient, yamlFile string, appID string) error {
+	ui.RenderTitleWithBorder("Deploying Application")
 
 	// Start deployment
 	if appID == "" {
-		cmd.Println("No application ID provided, using Nexlayer profile")
+		fmt.Println("No application ID provided, using Nexlayer profile")
 	}
 	resp, err := client.StartDeployment(context.Background(), appID, yamlFile)
 	if err != nil {
 		return fmt.Errorf("failed to start deployment: %w", err)
 	}
 
-	cmd.Printf("\nDeployment started successfully!\n")
-	cmd.Printf("Status: %s\n", resp.Message)
+	// Print deployment info
+	ui.RenderSuccess("Deployment started successfully!")
+	fmt.Printf("🚀 URL: %s\n", resp.Data.URL)
 
 	// Get deployment info to show additional details
 	info, err := client.GetDeploymentInfo(context.Background(), resp.Data.Namespace, appID)
 	if err != nil {
-		cmd.Printf("Warning: Could not fetch deployment details: %v\n", err)
+		ui.RenderError(fmt.Sprintf("Could not fetch deployment details: %v", err))
 		return nil
 	}
 
-	cmd.Printf("\nDeployment Details:\n")
-	cmd.Printf("  Namespace:     %s\n", info.Data.Namespace)
-	cmd.Printf("  Template:      %s (%s)\n", info.Data.TemplateName, info.Data.TemplateID)
-	cmd.Printf("  Status:        %s\n", info.Data.Status)
-	cmd.Printf("  URL:           %s\n", info.Data.URL)
-	if info.Data.CustomDomain != "" {
-		cmd.Printf("  Custom Domain: %s\n", info.Data.CustomDomain)
+	// Print deployment details
+	ui.RenderTitleWithBorder("Deployment Details")
+	fmt.Printf("✨ Status:  %s\n", info.Data.Status)
+	fmt.Printf("🌐 URL:     %s\n", info.Data.URL)
+	fmt.Printf("📚 Version: %s\n", info.Data.Version)
+
+	// Print pod statuses
+	if len(info.Data.PodStatuses) > 0 {
+		fmt.Println("\n📦 Pods:")
+		table := ui.NewTable()
+		table.AddHeader("NAME", "STATUS", "READY")
+		for _, pod := range info.Data.PodStatuses {
+			table.AddRow(pod.Name, pod.Status, fmt.Sprintf("%v", pod.Ready))
+		}
+		table.Render()
 	}
 
 	return nil

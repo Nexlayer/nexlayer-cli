@@ -1,5 +1,5 @@
 // Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
-package domain
+package savedomain
 
 import (
 	"fmt"
@@ -12,29 +12,28 @@ import (
 )
 
 func NewCommand(client *api.Client) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "domain",
-		Short: "Manage custom domains",
-		Long:  `Add or remove custom domains for your applications.`,
-	}
-
-	cmd.AddCommand(newAddCommand(client))
-	return cmd
-}
-
-func newAddCommand(client *api.Client) *cobra.Command {
-	var appID string
+	var (
+		appID string
+		domain string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "add [domain]",
-		Short: "Add a custom domain",
-		Long: `Add a custom domain to your application.
-		
+		Use:   "save-domain [domain]",
+		Short: "Save a custom domain for your application",
+		Long: `Save a custom domain for your application.
+
+Endpoint: POST /saveCustomDomain/{applicationID}
+
+Arguments:
+  --app      Application ID to save domain for
+  domain     Domain name to save (e.g., example.com)
+
 Example:
-  nexlayer domain add example.com --app myapp`,
+  nexlayer save-domain example.com --app myapp`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAddDomain(cmd, client, appID, args[0])
+			domain = args[0]
+			return runAddDomain(cmd, client, appID, domain)
 		},
 	}
 
@@ -43,6 +42,8 @@ Example:
 
 	return cmd
 }
+
+
 
 // validateDomain checks if a domain name is valid
 func validateDomain(domain string) error {
@@ -60,15 +61,16 @@ func runAddDomain(cmd *cobra.Command, client *api.Client, appID string, domain s
 	if err := validateDomain(domain); err != nil {
 		return err
 	}
-	cmd.Println(ui.RenderTitleWithBorder("Adding Custom Domain"))
 
-	resp, err := client.SaveCustomDomain(cmd.Context(), appID, domain)
+	ui.RenderTitleWithBorder("Adding Custom Domain")
+
+	// Save custom domain
+	_, err := client.SaveCustomDomain(cmd.Context(), appID, domain)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to save custom domain: %w", err)
 	}
-	fmt.Println(resp.Message)
-	
 
-	cmd.Printf("Successfully added custom domain: %s\n", domain)
+	// Print success message
+	ui.RenderSuccess(fmt.Sprintf("Custom domain '%s' saved successfully", domain))
 	return nil
 }

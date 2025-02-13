@@ -42,8 +42,8 @@ When you run `go install`, it places the Nexlayer CLI executable in a directory 
 Now you can run Nexlayer commands from any directory!
 
 ```bash
-# Create a new project with intelligent stack detection
-nexlayer init my-app
+# Initialize your project with intelligent stack detection
+nexlayer init
 
 # Deploy your app with automatic validation
 nexlayer deploy
@@ -53,7 +53,7 @@ That's it! Your app is live. [Watch the demo →](https://nexlayer.dev/demo)
 
 ### Intelligent Project Configuration
 
-Nexlayer uses advanced analysis to:
+Run `nexlayer init` in your project directory to automatically configure it for deployment. Nexlayer will analyze your current directory and:
 - Detect your tech stack and dependencies
 - Configure appropriate container images
 - Set up health checks and environment variables
@@ -84,8 +84,8 @@ The watch command will monitor your project files and automatically trigger a re
 ## 📝 Templates
 
 ```bash
-# Create a new project with an interactive template selector
-nexlayer init my-app
+# Initialize your project with intelligent stack detection
+nexlayer init
 ```
 
 ### AI/LLM Templates

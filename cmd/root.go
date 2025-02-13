@@ -9,26 +9,22 @@ import (
 	"sync"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/factory"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/deploy"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/domain"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/deployment"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/feedback"
 	initcmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/initcmd"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/status"
-	syncCmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/sync"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/validate"
-	versionCmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/version"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/watch"
-	"github.com/Nexlayer/nexlayer-cli/pkg/version"
+	savedomain "github.com/Nexlayer/nexlayer-cli/pkg/commands/save-domain"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
-	"github.com/Nexlayer/nexlayer-cli/pkg/errors"
 	"github.com/Nexlayer/nexlayer-cli/pkg/observability"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 // Package cmd provides the command-line interface for the Nexlayer CLI.
+
+import (
+	"github.com/Nexlayer/nexlayer-cli/pkg/errors"
+)
 
 var (
 	// logger is the global structured logger instance
@@ -55,17 +51,6 @@ func init() {
 	logger = observability.NewLogger(
 		observability.INFO,
 		observability.WithJSON(),
-		observability.WithRotation(10, 5),
-	)
-
-	// Create command factory with middlewares
-	cmdFactory := factory.NewCommandFactory(logger)
-	cmdFactory.AddMiddleware(factory.RecoveryMiddleware(logger))
-	cmdFactory.AddMiddleware(factory.ErrorHandlingMiddleware())
-	cmdFactory.AddMiddleware(factory.LoggingMiddleware(logger))
-	logger = observability.NewLogger(
-		observability.INFO,
-		observability.WithJSON(),
 		observability.WithRotation(50, 7), // 50MB max size, 7 days retention
 	)
 
@@ -87,9 +72,21 @@ func NewRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "nexlayer",
 		Short: "Nexlayer CLI - Deploy AI applications with ease",
+		Long: `Nexlayer CLI provides a simple interface to deploy and manage your applications.
+
+Core Commands:
+  init             Create a new Nexlayer project with nexlayer.yaml
+  deploy           Upload your YAML to start a deployment
+  deployments      List your deployments
+  deployment-info  Show details for a specific deployment
+  save-domain      Save a custom domain to your profile
+  feedback         Send feedback to Nexlayer team
+
+AI Commands:
+  ai               AI-powered features for deployment assistance`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// Load configuration only when needed.
-			if cmd.Name() != "help" && cmd.Name() != "version" {
+			if cmd.Name() != "help" {
 				lazyInitConfig()
 			}
 
@@ -97,34 +94,40 @@ func NewRootCommand() *cobra.Command {
 			cmd.SetContext(context.Background())
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			showVersion, _ := cmd.Flags().GetBool("version")
-			if showVersion {
-				fmt.Printf("Nexlayer CLI version %s\n", version.GetVersion())
-				return nil
-			}
 			return cmd.Help()
 		},
 	}
 
 	// Add global flags
-	cmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "j", false, "Output errors in JSON format")
-	cmd.Flags().Bool("version", false, "Print version information")
+	cmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "Output in JSON format")
+	cmd.PersistentFlags().String("config", "", "Config file (default is $HOME/.nexlayer/config.yaml)")
 
-	// Register all commands.
-	cmd.AddCommand(initcmd.NewCommand())
-	cmd.AddCommand(ai.NewCommand())
+	// Register commands
+	cmd.AddCommand(
+		initcmd.NewCommand(),
+		deploy.NewCommand(apiClient),
+		deployment.NewCommand(apiClient),
+		savedomain.NewCommand(apiClient),
+		feedback.NewCommand(apiClient),
+		ai.NewCommand(),
+	)
 
-	cmd.AddCommand(deploy.NewCommand(apiClient))
-	cmd.AddCommand(domain.NewCommand(apiClient))
-	cmd.AddCommand(feedback.NewCommand(apiClient))
-	cmd.AddCommand(list.NewCommand(apiClient))
-	cmd.AddCommand(syncCmd.NewCommand())
-	cmd.AddCommand(status.NewCommand(apiClient))
-	cmd.AddCommand(watch.NewWatchCommand())
-	cmd.AddCommand(validate.NewCommand())
-	cmd.AddCommand(versionCmd.NewCommand())
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			fmt.Printf("Nexlayer CLI version %s\n", "0.1.0")
+			return nil
+		}
+		return cmd.Help()
+	}
 
 	return cmd
+}
+
+// addGlobalFlags adds global flags to the root command.
+func addGlobalFlags(cmd *cobra.Command) {
+	// Add global flags
+	cmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "j", false, "Output errors in JSON format")
+	cmd.Flags().Bool("version", false, "Print version information")
 }
 
 // Execute runs the root command.

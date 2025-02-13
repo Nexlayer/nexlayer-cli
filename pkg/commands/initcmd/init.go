@@ -17,16 +17,16 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/validation"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 )
 
-// NewCommand initializes a new Nexlayer project with automatic detection
+// NewCommand initializes a new Nexlayer project
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "init [project-name]",
+		Use:   "init",
 		Short: "Initialize a new Nexlayer project",
-		Long:  "Initialize a new Nexlayer project with intelligent stack detection and configuration generation.",
-		Args:  cobra.MaximumNArgs(1),
+		Long:  "Initialize a new Nexlayer project by creating a nexlayer.yaml file in the current directory.",
+		Args:  cobra.NoArgs,
 		RunE:  runInitCommand,
 	}
 	return cmd
@@ -62,11 +62,11 @@ func DetectIDE() string {
 
 	// 3️⃣ Check configuration files in the project directory
 	configFiles := map[string]string{
-		".cursor":          "Cursor",
-		".vscode":          "VSCode",
-		"windsurf.json":    "Windsurf",
+		".cursor":           "Cursor",
+		".vscode":           "VSCode",
+		"windsurf.json":     "Windsurf",
 		"zed-settings.json": "Zed",
-		".aider":           "Aider",
+		".aider":            "Aider",
 	}
 
 	for file, ide := range configFiles {
@@ -80,11 +80,11 @@ func DetectIDE() string {
 
 // runInitCommand handles the execution of the init command
 func runInitCommand(cmd *cobra.Command, args []string) error {
-	// Determine project name
-	projectName := getProjectName(args)
+	// Determine project name from current directory
+	projectName := getProjectName()
 
 	// Display welcome message
-	fmt.Print(ui.RenderBox(ui.RenderWelcome()))
+	ui.RenderWelcome("Welcome to Nexlayer CLI!\nLet's set up your project configuration.")
 
 	// Start progress bar
 	progress, err := pterm.DefaultProgressbar.WithTotal(100).Start()
@@ -111,7 +111,8 @@ func runInitCommand(cmd *cobra.Command, args []string) error {
 
 	// Generate YAML based on detected project
 	progress.UpdateTitle("Generating Nexlayer configuration...")
-	yamlContent, err := generateProjectYAML(projectName, info, ide, llmProvider)
+	var _ string = llmProvider
+	yamlContent, err := generateProjectYAML(projectName, info)
 	if err != nil {
 		return err
 	}
@@ -137,17 +138,24 @@ func runInitCommand(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// getProjectName determines the project name from arguments or directory
-func getProjectName(args []string) string {
-	if len(args) > 0 {
-		return args[0]
-	}
+// getProjectName determines the project name from the current directory
+func getProjectName() string {
 	dir, err := os.Getwd()
 	if err != nil {
 		pterm.Error.Println("Unable to determine current directory. Defaulting to 'new-project'.")
 		return "new-project"
 	}
-	return filepath.Base(dir)
+	// Clean the directory name to be a valid project name
+	name := filepath.Base(dir)
+	// Convert to lowercase and replace invalid characters with hyphens
+	name = strings.ToLower(name)
+	name = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			return r
+		}
+		return '-'
+	}, name)
+	return name
 }
 
 // detectProject attempts to detect the project type
@@ -170,9 +178,9 @@ func detectProject(progress *pterm.ProgressbarPrinter) (*detection.ProjectInfo, 
 }
 
 // generateProjectYAML creates the Nexlayer configuration file
-func generateProjectYAML(projectName string, info *detection.ProjectInfo, ide string, llmProvider string) (string, error) {
+func generateProjectYAML(projectName string, info *detection.ProjectInfo) (string, error) {
 	// Try to generate YAML based on project detection
-	yamlContent, err := detection.GenerateYAML(info)
+	yamlContent, err := detection.GenerateYAMLFromTemplate(info)
 	if err != nil {
 		pterm.Warning.Println("⚠️  Using basic template - some features may need manual configuration")
 		// Use a basic template following v1.2 schema
@@ -236,7 +244,9 @@ func validateGeneratedYAML(yamlContent string) error {
 		fmt.Println("1. Fix issues in nexlayer.yaml")
 		fmt.Println("2. Run 'nexlayer validate'")
 		fmt.Println("3. Once validation passes, run 'nexlayer deploy'")
+		return fmt.Errorf("validation failed")
 	}
+
 	pterm.Success.Println("✅ Validation passed")
 	return nil
 }

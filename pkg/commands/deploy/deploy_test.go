@@ -14,7 +14,6 @@ func (m *mockAPIClient) StartDeployment(ctx context.Context, appID string, confi
 	// Mock different responses based on whether appID is provided
 	if appID == "" {
 		return &schema.APIResponse[schema.DeploymentResponse]{
-			Message: "Deployment started using Nexlayer profile",
 			Data: schema.DeploymentResponse{
 				Namespace: "profile-namespace",
 				URL:      "https://profile-app.nexlayer.dev",
@@ -22,7 +21,6 @@ func (m *mockAPIClient) StartDeployment(ctx context.Context, appID string, confi
 		}, nil
 	}
 	return &schema.APIResponse[schema.DeploymentResponse]{
-		Message: "Deployment started",
 		Data: schema.DeploymentResponse{
 			Namespace: "test-namespace",
 			URL:      "https://test.nexlayer.dev",
@@ -31,7 +29,7 @@ func (m *mockAPIClient) StartDeployment(ctx context.Context, appID string, confi
 }
 
 func (m *mockAPIClient) SaveCustomDomain(ctx context.Context, appID string, domain string) (*schema.APIResponse[struct{}], error) {
-	return &schema.APIResponse[struct{}]{Message: "Custom domain saved successfully", Data: struct{}{}}, nil
+	return &schema.APIResponse[struct{}]{Data: struct{}{}}, nil
 }
 
 func (m *mockAPIClient) ListDeployments(ctx context.Context) (*schema.APIResponse[[]schema.Deployment], error) {
@@ -43,11 +41,16 @@ func (m *mockAPIClient) ListDeployments(ctx context.Context) (*schema.APIRespons
 func (m *mockAPIClient) GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*schema.APIResponse[schema.Deployment], error) {
 	return &schema.APIResponse[schema.Deployment]{
 		Data: schema.Deployment{
-			Namespace:    namespace,
-			TemplateID:   "test-id",
-			TemplateName: "test-app",
-			Status:       "running",
-			URL:         "https://test.nexlayer.dev",
+			Status:  "running",
+			URL:     "https://test.nexlayer.dev",
+			Version: "v1.0.0",
+			PodStatuses: []schema.PodStatus{
+				{
+					Name:   "web",
+					Status: "Running",
+					Ready:  true,
+				},
+			},
 		},
 	}, nil
 }

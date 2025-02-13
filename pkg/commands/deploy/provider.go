@@ -12,6 +12,11 @@ func NewProvider() registry.CommandProvider {
 	return &Provider{}
 }
 
+// NewCommand creates a new deploy command
+func (p *Provider) NewCommand(deps *registry.CommandDependencies) *cobra.Command {
+	return NewCommand(deps.APIClient)
+}
+
 func (p *Provider) Name() string {
 	return "deploy"
 }

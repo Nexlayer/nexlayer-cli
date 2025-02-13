@@ -34,6 +34,7 @@ testing-cli-wizard.yaml
 testing-cli-*.yaml
 *.test
 coverage.out
+test-projects/
 
 # Build artifacts
 dist/
