@@ -13,61 +13,69 @@ func GenerateYAML(info *ProjectInfo) (string, error) {
 	fmt.Fprintf(&builder, "application:\n")
 	fmt.Fprintf(&builder, "  name: %s\n", info.Name)
 
-	// Include AI-powered IDE & LLM model if available
-	if info.LLMProvider != "" || info.LLMModel != "" {
-		fmt.Fprintf(&builder, "  environment:\n")
-		if info.LLMProvider != "" {
-			fmt.Fprintf(&builder, "    ai_ide: %s\n", info.LLMProvider)
-		}
-		if info.LLMModel != "" {
-			fmt.Fprintf(&builder, "    llm_model: %s\n", info.LLMModel)
-		}
-	}
-
-	// Write pods section
+	// Add pods section
 	fmt.Fprintf(&builder, "  pods:\n")
 
 	// Add default pod if no project type detected
 	if info.Type == "" {
 		fmt.Fprintf(&builder, "    - name: app\n")
+		fmt.Fprintf(&builder, "      type: frontend\n")
 		fmt.Fprintf(&builder, "      image: nginx:latest\n")
 		fmt.Fprintf(&builder, "      servicePorts:\n")
 		fmt.Fprintf(&builder, "        - 80\n")
 		return builder.String(), nil
 	}
 
-	// Determine image based on project type
-	fmt.Fprintf(&builder, "    - name: app\n")
+	// Determine pod configuration based on project type
 	switch info.Type {
-	case TypeNextjs:
-		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s\n", info.Name)
+	case TypeNextjs, TypeReact:
+		// Frontend pod
+		fmt.Fprintf(&builder, "    - name: web\n")
+		fmt.Fprintf(&builder, "      type: frontend\n")
+		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
 		fmt.Fprintf(&builder, "      path: /\n")
-		fmt.Fprintf(&builder, "      servicePorts:\n")
-		fmt.Fprintf(&builder, "        - %d\n", info.Port)
-
-	case TypeReact:
-		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s\n", info.Name)
-		fmt.Fprintf(&builder, "      path: /\n")
+		fmt.Fprintf(&builder, "      vars:\n")
+		fmt.Fprintf(&builder, "        NODE_ENV: production\n")
 		fmt.Fprintf(&builder, "      servicePorts:\n")
 		fmt.Fprintf(&builder, "        - %d\n", info.Port)
 
 	case TypeNode:
-		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s\n", info.Name)
+		// Backend API pod
+		fmt.Fprintf(&builder, "    - name: api\n")
+		fmt.Fprintf(&builder, "      type: backend\n")
+		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
+		fmt.Fprintf(&builder, "      path: /api\n")
+		fmt.Fprintf(&builder, "      vars:\n")
+		fmt.Fprintf(&builder, "        NODE_ENV: production\n")
 		fmt.Fprintf(&builder, "      servicePorts:\n")
 		fmt.Fprintf(&builder, "        - %d\n", info.Port)
 
 	case TypePython:
-		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s\n", info.Name)
+		// Python backend pod
+		fmt.Fprintf(&builder, "    - name: api\n")
+		fmt.Fprintf(&builder, "      type: backend\n")
+		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
+		fmt.Fprintf(&builder, "      path: /api\n")
+		fmt.Fprintf(&builder, "      vars:\n")
+		fmt.Fprintf(&builder, "        PYTHON_ENV: production\n")
 		fmt.Fprintf(&builder, "      servicePorts:\n")
 		fmt.Fprintf(&builder, "        - %d\n", info.Port)
 
 	case TypeGo:
-		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s\n", info.Name)
+		// Go backend pod
+		fmt.Fprintf(&builder, "    - name: api\n")
+		fmt.Fprintf(&builder, "      type: backend\n")
+		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
+		fmt.Fprintf(&builder, "      path: /api\n")
+		fmt.Fprintf(&builder, "      vars:\n")
+		fmt.Fprintf(&builder, "        GO_ENV: production\n")
 		fmt.Fprintf(&builder, "      servicePorts:\n")
 		fmt.Fprintf(&builder, "        - %d\n", info.Port)
 
 	case TypeDockerRaw:
-		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s\n", info.Name)
+		// Raw Docker pod
+		fmt.Fprintf(&builder, "    - name: app\n")
+		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
 		fmt.Fprintf(&builder, "      servicePorts:\n")
 		fmt.Fprintf(&builder, "        - %d\n", info.Port)
 
@@ -76,4 +84,11 @@ func GenerateYAML(info *ProjectInfo) (string, error) {
 	}
 
 	return builder.String(), nil
+}
+
+func getImageTag(info *ProjectInfo) string {
+	if info.ImageTag != "" {
+		return ":" + info.ImageTag
+	}
+	return ":latest"
 }

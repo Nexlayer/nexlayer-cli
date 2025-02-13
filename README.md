@@ -120,6 +120,16 @@ nexlayer validate --strict      # Enable strict validation
 nexlayer sync
 ```
 
+## 📚 Documentation
+
+### Core Documentation
+- [YAML Reference](docs/reference/schemas/yaml/README.md) - How to write your `nexlayer.yaml` file
+- [API Reference](docs/reference/api/README.md) - API endpoints used by the CLI
+
+### Technical Reference
+- YAML Schemas: [/docs/reference/schemas/yaml/](docs/reference/schemas/yaml/)
+- API Schemas: [/docs/reference/schemas/api/](docs/reference/schemas/api/)
+
 Full documentation at [nexlayer.dev/docs](https://nexlayer.dev/docs)
 ## 👷 Development
 

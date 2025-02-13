@@ -114,8 +114,8 @@ func GetPreferredProvider(ctx context.Context, requiredCaps Capability) *AIProvi
 
 	// Define provider priority order
 	priorityProviders := []AIProvider{
-		WindsurfEditor,  // Windsurf has the most capabilities
-		ZedEditor,       // Zed has deployment assistance
+		WindsurfEditor, // Windsurf has the most capabilities
+		ZedEditor,      // Zed has deployment assistance
 		CursorAI,       // Cursor is widely used
 		GitHubCopilot,  // Copilot is also popular
 		VSCodeAI,       // VSCode is common

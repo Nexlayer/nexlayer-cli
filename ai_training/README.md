@@ -1,11 +1,13 @@
 # Nexlayer AI Training
 
 ## Overview
-This directory contains schema files and examples used to train Nexlayer's AI assistant in generating and validating deployment templates. While the actual API schema is defined in `/pkg/validation/schema/template.v2.schema.json`, these training files help the AI understand our best practices and component configurations.
+This directory contains examples and resources used to train Nexlayer's AI assistant in generating and validating deployment templates. The official schema and template files are located in `/docs/reference/schemas/yaml/`, which serve as the central source of truth for our YAML configuration format.
 
 ## Schema Files
 
-### `schema/nexlayer_template_reference_v1.0.yaml`
+### Schema and Template Files
+
+The following files in `/docs/reference/schemas/yaml/` define our YAML format:
 This YAML file serves as a comprehensive reference for our template structure. It includes:
 - Detailed descriptions of each field and its purpose
 - Examples of proper usage

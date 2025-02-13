@@ -29,7 +29,7 @@ func LoadTemplateSpec() (*TemplateSpec, error) {
 		return nil, fmt.Errorf("failed to get executable path: %w", err)
 	}
 
-	specPath := filepath.Join(filepath.Dir(execPath), "..", "docs", "nexlayer_template_reference.yaml")
+	specPath := filepath.Join(filepath.Dir(execPath), "..", "docs", "reference", "schemas", "yaml", "template.v2.yaml")
 	data, err := os.ReadFile(specPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read template spec file: %w", err)

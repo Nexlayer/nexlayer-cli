@@ -171,21 +171,28 @@ func detectProject(progress *pterm.ProgressbarPrinter) (*detection.ProjectInfo, 
 
 // generateProjectYAML creates the Nexlayer configuration file
 func generateProjectYAML(projectName string, info *detection.ProjectInfo, ide string, llmProvider string) (string, error) {
+	// Try to generate YAML based on project detection
 	yamlContent, err := detection.GenerateYAML(info)
 	if err != nil {
 		pterm.Warning.Println("⚠️  Using basic template - some features may need manual configuration")
+		// Use a basic template following v1.2 schema
 		yamlContent = fmt.Sprintf(`application:
   name: %s
-  environment:
-    ide: %s
-    llm: %s
   pods:
     - name: app
+      type: frontend
       image: nginx:latest
       servicePorts:
         - 80
-`, projectName, ide, llmProvider)
+`, projectName)
 	}
+
+	// Validate the generated YAML
+	err = validateGeneratedYAML(yamlContent)
+	if err != nil {
+		return "", fmt.Errorf("generated YAML validation failed: %w", err)
+	}
+
 	return yamlContent, nil
 }
 

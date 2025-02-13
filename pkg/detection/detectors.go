@@ -36,15 +36,16 @@ const (
 
 // ProjectInfo contains detected information about a project
 type ProjectInfo struct {
-	Type         ProjectType          `json:"type"`
-	Name         string               `json:"name"`
-	Version      string               `json:"version,omitempty"`
-	Dependencies map[string]string    `json:"dependencies,omitempty"`
-	Scripts      map[string]string    `json:"scripts,omitempty"`
-	Port         int                  `json:"port,omitempty"`
-	HasDocker    bool                 `json:"has_docker"`
-	LLMProvider  string               `json:"llm_provider,omitempty"` // AI-powered IDE
-	LLMModel     string               `json:"llm_model,omitempty"`    // LLM Model being used
+	Type         ProjectType       `json:"type"`
+	Name         string            `json:"name"`
+	Version      string            `json:"version,omitempty"`
+	Dependencies map[string]string `json:"dependencies,omitempty"`
+	Scripts      map[string]string `json:"scripts,omitempty"`
+	Port         int               `json:"port,omitempty"`
+	HasDocker    bool              `json:"has_docker"`
+	LLMProvider  string            `json:"llm_provider,omitempty"` // AI-powered IDE
+	LLMModel     string            `json:"llm_model,omitempty"`    // LLM Model being used
+	ImageTag     string            `json:"image_tag,omitempty"`    // The Docker image tag to use (optional)
 }
 
 // ProjectDetector defines the interface for project detection

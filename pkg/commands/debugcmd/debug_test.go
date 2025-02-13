@@ -23,7 +23,9 @@ func TestDebugCommand(t *testing.T) {
     - name: app
       image: nginx:latest
       servicePorts:
-        - 80
+        - containerPort: 80
+          servicePort: 80
+          name: web
 `), 0644)
 	require.NoError(t, err)
 

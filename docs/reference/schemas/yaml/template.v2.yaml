@@ -1,72 +1,119 @@
-# Example Nexlayer Configuration (v1.2)
-# This is a complete example showcasing all available configuration options
+# Nexlayer YAML Schema v1.2 Examples
 
+---
+# 1. Simple Frontend Application
 application:
-  # Required: Name of your application (must be unique)
-  name: example-app
-  
-  # Optional: Permanent domain for your application
-  url: www.example.ai
-  
-  # Required only if using private images
-  registryLogin:
-    registry: ghcr.io
-    username: SomeUser1234
-    personalAccessToken: ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxx
-  
-  # Required: List of pods (services) that make up your application
+  name: simple-frontend
+  url: app.example.com
   pods:
-    # Frontend web application
-    - name: frontend
-      path: /
-      image: <% REGISTRY %>/myapp/frontend:v1
-      vars:
-        - key: API_URL
-          value: http://backend.pod:3000
-        - key: SITE_URL
-          value: <% URL %>/api
+    - name: web
+      type: frontend
+      image: myorg/frontend:latest
       servicePorts:
         - 3000
-    
-    # Backend API service
-    - name: backend
+
+---
+# 2. Backend API with Database
+application:
+  name: backend-api
+  registryLogin:
+    registry: docker.io
+    username: ${DOCKER_USERNAME}
+    personalAccessToken: ${DOCKER_TOKEN}
+  pods:
+    - name: api
+      type: backend
       path: /api
-      image: <% REGISTRY %>/myapp/backend:v1
+      image: myorg/api:latest
+      vars:
+        DATABASE_URL: postgresql://db.pod:5432/myapp
+        NODE_ENV: production
+      servicePorts:
+        - 8080
+    - name: db
+      type: database
+      image: postgres:15
       volumes:
         - name: data
-          size: 1Gi
-          mountPath: /app/data
-      secrets:
-        - name: db-creds
-          data: "base64_encoded_secret"
-          mountPath: /app/secrets
-          fileName: .env
-      vars:
-        - key: DB_HOST
-          value: database.pod
-        - key: DB_PORT
-          value: "5432"
-      servicePorts:
-        - 3000
-    
-    # Database service
-    - name: database
-      image: postgres:14
-      volumes:
-        - name: db-data
-          size: 5Gi
+          size: 10Gi
           mountPath: /var/lib/postgresql/data
-      secrets:
-        - name: postgres-password
-          data: "base64_encoded_password"
-          mountPath: /run/secrets
-          fileName: postgres-password
       vars:
-        - key: POSTGRES_DB
-          value: myapp
-        - key: POSTGRES_USER
-          value: myapp
-        - key: POSTGRES_PASSWORD_FILE
-          value: /run/secrets/postgres-password
+        POSTGRES_DB: myapp
+        POSTGRES_USER: ${DB_USER}
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
       servicePorts:
         - 5432
+
+---
+# 3. Worker Application with Redis
+application:
+  name: worker-app
+  pods:
+    - name: worker
+      type: worker
+      image: myorg/worker:latest
+      command: ["./worker"]
+      vars:
+        REDIS_URL: redis://queue.pod:6379
+    - name: queue
+      type: database
+      image: redis:7
+      servicePorts:
+        - 6379
+
+---
+# 4. AI/LLM Application
+application:
+  name: ai-app
+  url: ai.example.com
+  pods:
+    - name: web
+      type: frontend
+      path: /
+      image: myorg/ai-web:latest
+      vars:
+        API_URL: http://api.pod:8080
+      servicePorts:
+        - 3000
+    - name: api
+      type: backend
+      path: /api
+      image: myorg/ai-api:latest
+      vars:
+        MODEL_URL: http://model.pod:8000
+      servicePorts:
+        - 8080
+    - name: model
+      type: llm
+      image: myorg/llm:latest
+      volumes:
+        - name: models
+          size: 50Gi
+          mountPath: /models
+      vars:
+        MODEL_PATH: /models/llm-v1
+      servicePorts:
+        - 8000
+
+---
+# 5. Proxy with SSL
+application:
+  name: proxy-app
+  url: proxy.example.com
+  pods:
+    - name: proxy
+      type: proxy
+      image: nginx:alpine
+      path: /
+      volumes:
+        - name: certs
+          size: 1Gi
+          mountPath: /etc/nginx/certs
+      secrets:
+        - name: ssl-cert
+          data: ${SSL_CERT}
+          mountPath: /etc/nginx/certs
+          fileName: cert.pem
+      servicePorts:
+        - 80
+        - 443

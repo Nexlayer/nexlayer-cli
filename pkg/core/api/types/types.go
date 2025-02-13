@@ -38,8 +38,8 @@ type CreateAppRequest struct {
 
 // RegistryLogin represents private registry authentication
 type RegistryLogin struct {
-	Registry           string `yaml:"registry" validate:"required,hostname"`
-	Username           string `yaml:"username" validate:"required"`
+	Registry            string `yaml:"registry" validate:"required,hostname"`
+	Username            string `yaml:"username" validate:"required"`
 	PersonalAccessToken string `yaml:"personalAccessToken" validate:"required"`
 }
 
@@ -66,23 +66,23 @@ type EnvVar struct {
 
 // Pod represents a pod configuration in the template
 type Pod struct {
-	Name         string    `yaml:"name" validate:"required,podname"`
-	Path         string    `yaml:"path,omitempty" validate:"omitempty,startswith=/"`
-	Image        string    `yaml:"image" validate:"required,image"`
-	Volumes      []Volume  `yaml:"volumes,omitempty" validate:"omitempty,dive"`
-	Secrets      []Secret  `yaml:"secrets,omitempty" validate:"omitempty,dive"`
-	Vars         []EnvVar  `yaml:"vars,omitempty" validate:"omitempty,dive"`
-	ServicePorts []int     `yaml:"servicePorts" validate:"required,dive,gt=0,lt=65536"`
+	Name         string   `yaml:"name" validate:"required,podname"`
+	Path         string   `yaml:"path,omitempty" validate:"omitempty,startswith=/"`
+	Image        string   `yaml:"image" validate:"required,image"`
+	Volumes      []Volume `yaml:"volumes,omitempty" validate:"omitempty,dive"`
+	Secrets      []Secret `yaml:"secrets,omitempty" validate:"omitempty,dive"`
+	Vars         []EnvVar `yaml:"vars,omitempty" validate:"omitempty,dive"`
+	ServicePorts []int    `yaml:"servicePorts" validate:"required,dive,gt=0,lt=65536"`
 }
 
 // NexlayerYAML represents the structure of a Nexlayer deployment template
 // NexlayerYAML represents the structure of a Nexlayer deployment template
 // Application represents a Nexlayer application configuration
 type Application struct {
-	Name         string       `yaml:"name" validate:"required"`
-	URL          string       `yaml:"url,omitempty" validate:"omitempty,url"`
+	Name          string         `yaml:"name" validate:"required"`
+	URL           string         `yaml:"url,omitempty" validate:"omitempty,url"`
 	RegistryLogin *RegistryLogin `yaml:"registryLogin,omitempty" validate:"omitempty"`
-	Pods         []Pod        `yaml:"pods" validate:"required,dive"`
+	Pods          []Pod          `yaml:"pods" validate:"required,dive"`
 }
 
 // NexlayerYAML represents the structure of a Nexlayer deployment template
