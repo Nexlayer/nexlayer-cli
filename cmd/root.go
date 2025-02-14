@@ -10,10 +10,11 @@ import (
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/deploy"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/deployment"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/domain"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/feedback"
-	initcmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/initcmd"
-	savedomain "github.com/Nexlayer/nexlayer-cli/pkg/commands/save-domain"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/info"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/login"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/observability"
 	"github.com/spf13/cobra"
@@ -72,18 +73,39 @@ func NewRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "nexlayer",
 		Short: "Nexlayer CLI - Deploy AI applications with ease",
-		Long: `Nexlayer CLI provides a simple interface to deploy and manage your applications.
+		Long: `Nexlayer CLI - Deploy and manage your applications with ease.
 
 Core Commands:
-  init             Create a new Nexlayer project with nexlayer.yaml
-  deploy           Upload your YAML to start a deployment
-  deployments      List your deployments
-  deployment-info  Show details for a specific deployment
-  save-domain      Save a custom domain to your profile
-  feedback         Send feedback to Nexlayer team
+  deploy           Deploy an application [applicationID] --file <deployment.yaml>
+  list             List deployments [applicationID]
+  info             Get deployment info <namespace> <applicationID>
+  domain set       Configure custom domain <applicationID> --domain <custom_domain>
+  feedback         Send feedback --message "<your_feedback>"
+  login            Log in to Nexlayer
 
 AI Commands:
-  ai               AI-powered features for deployment assistance`,
+  ai               AI-powered features for Nexlayer
+    generate         Generate AI-powered deployment template <app-name>
+    detect           Detect AI assistants & project type
+
+Use "nexlayer [command] --help" for more information about a command.
+
+Examples:
+  # Deploy an application
+  nexlayer deploy myapp --file deployment.yaml
+
+  # List deployments
+  nexlayer list
+  nexlayer list myapp
+
+  # Get deployment info
+  nexlayer info default myapp
+
+  # Configure custom domain
+  nexlayer domain set myapp --domain example.com
+
+  # Generate deployment template
+  nexlayer ai generate myapp`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// Load configuration only when needed.
 			if cmd.Name() != "help" {
@@ -104,11 +126,12 @@ AI Commands:
 
 	// Register commands
 	cmd.AddCommand(
-		initcmd.NewCommand(),
 		deploy.NewCommand(apiClient),
-		deployment.NewCommand(apiClient),
-		savedomain.NewCommand(apiClient),
-		feedback.NewCommand(apiClient),
+		list.NewListCommand(apiClient),
+		info.NewInfoCommand(apiClient),
+		domain.NewDomainCommand(apiClient),
+		feedback.NewFeedbackCommand(apiClient),
+		login.NewLoginCommand(apiClient),
 		ai.NewCommand(),
 	)
 

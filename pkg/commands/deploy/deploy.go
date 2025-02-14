@@ -36,43 +36,19 @@ func NewCommand(apiClient api.APIClient) *cobra.Command {
 	var yamlFile string
 
 	cmd := &cobra.Command{
-		Use:   "deploy",
-		Short: "Deploy an application to Nexlayer",
-		Long: `Deploy an application to Nexlayer using a YAML configuration file.
+		Use:   "deploy [applicationID]",
+		Short: "Deploy an application",
+		Long: `Deploy an application using a deployment YAML file.
 
 Endpoint: POST /startUserDeployment/{applicationID?}
 
 Arguments:
-  --app      Optional: Application ID to deploy to. If not provided, uses Nexlayer profile
-  --config   Path to YAML configuration file
+  applicationID     Optional application ID
+  --file           Path to deployment YAML file
 
-The YAML file must follow the Nexlayer schema v2 format with required fields:
-  application:
-    name: string      # Unique deployment name
-    url: string      # Optional permanent domain
-    pods:            # List of pod configurations
-      - name: string   # Pod name (lowercase alphanumeric)
-        image: string  # Fully qualified image path
-        servicePorts: []
-
-If no config file is specified, it will look for one of these files:
-- deployment.yaml
-- deployment.yml
-- nexlayer.yaml
-- nexlayer.yml
-
-Response will include:
-- Deployment status message
-- Generated namespace
-- Application URL
-
-Examples:
-  # Deploy with application ID
-  nexlayer deploy --app my-app-123 --config deploy.yaml
-
-  # Deploy using Nexlayer profile
-  nexlayer deploy --config deploy.yaml`,
-		Args: cobra.ExactArgs(0),
+Example:
+  nexlayer deploy myapp --file deployment.yaml`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// If no file specified, try to find one
 			if yamlFile == "" {
@@ -91,13 +67,9 @@ Examples:
 		},
 	}
 
-	cmd.Flags().StringVarP(&yamlFile, "config", "c", "", "Path to YAML configuration file")
-	// Make app flag optional
-	var appID string
-	cmd.Flags().StringVar(&appID, "app", "", "Application ID (optional)")
-	
-	// Mark config flag as required
-	cmd.MarkFlagRequired("config")
+	cmd.Flags().StringVarP(&yamlFile, "file", "f", "", "Path to deployment YAML file")
+	// Mark file flag as required
+	cmd.MarkFlagRequired("file")
 
 	return cmd
 }

@@ -200,9 +200,17 @@ func GenerateTemplate(ctx context.Context, req TemplateRequest) (string, error) 
 // NewCommand creates the "ai" command with its subcommands.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ai",
+		Use:   "ai [subcommand]",
 		Short: "AI-powered features for Nexlayer",
-		Long:  "AI-powered features for Nexlayer CLI. Provides intelligent assistance for template generation, debugging, and optimization.",
+		Long: `AI-powered features for Nexlayer.
+
+Subcommands:
+  generate        Generate AI-powered deployment template
+  detect          Detect AI assistants & project type
+
+Examples:
+  nexlayer ai generate myapp
+  nexlayer ai detect`,
 	}
 
 	cmd.AddCommand(
@@ -215,8 +223,15 @@ func NewCommand() *cobra.Command {
 
 func newGenerateCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "generate [app-name]",
-		Short: "Generate deployment template using AI",
+		Use:   "generate <app-name>",
+		Short: "Generate AI-powered deployment template",
+		Long: `Generate an AI-powered deployment template for your application.
+
+Arguments:
+  app-name        Name of your application
+
+Example:
+  nexlayer ai generate myapp`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			appName := args[0]
@@ -251,7 +266,11 @@ func newGenerateCommand() *cobra.Command {
 func newDetectCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "detect",
-		Short: "Detect available AI assistants",
+		Short: "Detect AI assistants & project type",
+		Long: `Detect AI assistants and project type in the current directory.
+
+Example:
+  nexlayer ai detect`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			provider := GetPreferredProvider(cmd.Context(), CapDeploymentAssistance)
 			if provider == nil {
@@ -299,7 +318,7 @@ func DetectStack(dir string) (*detection.ProjectInfo, error) {
 func containsAny(slice []string, values ...string) bool {
 	for _, v := range values {
 		for _, s := range slice {
-			if strings.ToLower(s) == strings.ToLower(v) {
+			if strings.EqualFold(s, v) {
 				return true
 			}
 		}

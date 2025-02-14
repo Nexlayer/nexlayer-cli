@@ -48,6 +48,10 @@ application:
           data: string     # Required: Raw or Base64-encoded secret content
           mountPath: string # Required: Secret mount path (must start with '/')
           fileName: string  # Required: Secret file name
+      ports:           # Required: List of port configurations
+        - containerPort: int  # Required: Port inside the container
+          servicePort: int    # Required: Port exposed to other services
+          name: string        # Required: Unique name for the port
       vars:            # Optional: List of environment variables
         DATABASE_URL: postgresql://...
         SALT: mysalt

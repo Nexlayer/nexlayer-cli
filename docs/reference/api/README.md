@@ -54,9 +54,9 @@ This document details the Nexlayer API as defined by the OpenAPI 3.0.0 specifica
 
 #### Path Parameters
 
-| Parameter         | In   | Required | Type   | Description              |
-| ----------------- | ---- | -------- | ------ | ------------------------ |
-| `applicationID?`  | path | Yes      | string | The application ID. Note that the parameter name includes a trailing `?` indicating optional semantics in the naming, but it is required in the specification. |
+| Parameter         | In   | Type   | Description              |
+| ----------------- | ---- | ------ | ------------------------ |
+| `applicationID?`  | path | string | The application ID. This is a dynamic path parameter as indicated by the trailing `?`. |
 
 #### Request Body
 
@@ -312,13 +312,45 @@ curl -X GET "https://app.staging.nexlayer.io/getDeployments/{applicationID}" \
 
 ---
 
+## AI Commands
+
+Nexlayer CLI includes AI-powered features to assist with deployment configuration and optimization.
+
+### AI Template Generation
+
+Generate an optimized deployment template using AI:
+
+```bash
+nexlayer ai generate [app-name]
+```
+
+This command:
+- Analyzes your project structure and dependencies
+- Detects frameworks and runtime requirements
+- Generates an optimized `nexlayer.yaml` configuration
+
+### AI Project Detection
+
+Detect your project's stack and available AI assistants:
+
+```bash
+nexlayer ai detect
+```
+
+This command analyzes your project to:
+- Identify frameworks and languages
+- Detect dependencies and requirements
+- Determine optimal deployment settings
+
+---
+
 ## Usage Examples
 
 ### Starting a User Deployment
 
 To start a deployment, send a `POST` request to:
 
-```
+```http
 https://app.staging.nexlayer.io/startUserDeployment/{applicationID?}
 ```
 
@@ -333,22 +365,28 @@ A successful response (`200 OK`) will return JSON similar to:
   "namespace": "fantastic-fox",
   "url": "https://fantastic-fox-my-mern-app.alpha.nexlayer.io"
 }
-Sending Feedback
+```
+
+### Sending Feedback
+
 Send a POST request to:
 
-```
+```http
 https://app.staging.nexlayer.io/feedback
 ```
-Include your feedback as JSON in the request body with the content type application/json:
+Include your feedback as JSON in the request body with the content type `application/json`:
 
 ```json
 {
   "text": "Your feedback here..."
 }
-Saving a Custom Domain
+```
+
+### Saving a Custom Domain
+
 Send a POST request to:
 
-```
+```http
 https://app.staging.nexlayer.io/saveCustomDomain/{applicationID}
 ```
 Include a JSON object in the request body:
@@ -357,16 +395,21 @@ Include a JSON object in the request body:
 {
   "domain": "mydomain.com"
 }
+```
+
 A successful response (200 OK) returns:
 
 ```json
 {
   "message": "Custom domain saved successfully"
 }
-Retrieving Deployments
+```
+
+### Retrieving Deployments
+
 Send a GET request to:
 
-```
+```http
 https://app.staging.nexlayer.io/getDeployments/{applicationID}
 ```
 A successful response returns a JSON object listing deployments:
@@ -382,10 +425,13 @@ A successful response returns a JSON object listing deployments:
     }
   ]
 }
-Getting Deployment Information
+```
+
+### Getting Deployment Information
+
 Send a GET request to:
 
-```
+```http
 https://app.staging.nexlayer.io/getDeploymentInfo/{namespace}/{applicationID}
 ```
 A successful response returns detailed deployment information:

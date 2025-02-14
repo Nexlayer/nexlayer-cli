@@ -2,36 +2,35 @@
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
-package deployment
+package list
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/spf13/cobra"
 )
 
-// newListCommand creates a command that wraps GET /getDeployments
-func newListCommand(apiClient *api.Client) *cobra.Command {
+// NewListCommand creates a new list command
+func NewListCommand(client api.APIClient) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List all deployments",
-		Long:    "List all deployments (GET /getDeployments)",
+		Use:     "list [applicationID]",
+		Short:   "List deployments",
+		Long:    "Retrieve a list of all deployments for a specific application",
 		Aliases: []string{"ls"},
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Show progress
 			spinner := ui.NewSpinner("Fetching deployments...")
 			spinner.Start()
 			defer spinner.Stop()
 
-			// Get application ID from config
-			appID := "default" // TODO: Get from config
-
-			// Call GET /getDeployments
-			resp, err := apiClient.GetDeployments(cmd.Context(), appID)
+			// Get deployments
+			resp, err := client.ListDeployments(cmd.Context())
 			if err != nil {
 				return fmt.Errorf("failed to get deployments: %w", err)
 			}
@@ -47,14 +46,16 @@ func newListCommand(apiClient *api.Client) *cobra.Command {
 				return nil
 			}
 
-			table := ui.NewTable()
-			table.AddHeader("STATUS", "URL", "VERSION")
+			// Print table
+			fmt.Printf("%-20s %-30s %-15s\n", "STATUS", "URL", "VERSION")
+			fmt.Println(strings.Repeat("-", 65))
 			for _, d := range resp.Data {
-				table.AddRow(d.Status, d.URL, d.Version)
+				fmt.Printf("%-20s %-30s %-15s\n", d.Status, d.URL, d.Version)
 			}
-			return table.Render()
+			return nil
 		},
 	}
 
+	cmd.Flags().Bool("json", false, "Output in JSON format")
 	return cmd
 }

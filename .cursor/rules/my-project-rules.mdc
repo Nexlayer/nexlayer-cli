@@ -1,0 +1,139 @@
+---
+description: “Implement and maintain the Nexlayer-CLI according to the Workspace Guidelines: use Cobra for all commands, keep code modular under cmd/ and pkg/, ensure AI-powered features align with Nexlayer YAML schema, and follow the specified testing, logging, and security practices.
+globs: 
+---
+# Workspace Guidelines for Nexlayer-CLI Project
+
+These guidelines ensure that the **Nexlayer-CLI** codebase, API integrations, AI-powered features, and YAML schema documentation are maintained in a **consistent, secure, and scalable** manner. Follow these rules to streamline **development, testing, deployments, and AI-driven automation**.
+
+---
+
+## **Code Structure & CLI Framework**
+
+- **Cobra Framework**
+  - All commands must follow the `cobra.Command` structure within the `cmd/` directory.
+  - Each command's logic should be encapsulated within `pkg/commands/<command>` to maintain modularity.
+  - Subcommands must adhere to **Cobra best practices**:
+    - Support flags, aliases, and clear descriptions.
+    - Maintain a **consistent command structure**.
+
+- **Project Organization**
+  - The CLI must be built using `go build` and managed with a `go.mod` file.
+  - **No Bazel**; all dependency management must be version-locked within `go.mod`.
+  - Place integrated **API and YAML schema documentation** in a dedicated directory (e.g., `docs/api-reference.json`).
+  - **AI-powered features** for template generation and optimization must be structured within `pkg/ai/`.
+  
+- **Smart API Wrapper**
+  - Nexlayer-CLI is a **smart, intelligent wrapper** around the **Nexlayer Platform API**, designed to simplify deployment and configuration management.
+  - All CLI operations must interact with the official Nexlayer API endpoints, ensuring seamless execution and API compliance.
+  - The CLI should abstract complex API interactions and provide a streamlined user experience.
+
+---
+
+## **CLI Commands**
+
+1. **Deploy an Application**  
+   `nexlayer-cli deploy [applicationID] --file <deployment.yaml>`  
+   **(POST /startUserDeployment/{applicationID?})**  
+   **CLI Command:** `nexlayer deploy`  
+
+2. **List Deployments**  
+   `nexlayer-cli list [applicationID]`  
+   **(GET /getDeployments/{applicationID})**  
+   **CLI Command:** `nexlayer list`  
+
+3. **Get Deployment Info**  
+   `nexlayer-cli info <namespace> <applicationID>`  
+   **(GET /getDeploymentInfo/{namespace}/{applicationID})**  
+   **CLI Command:** `nexlayer info`  
+
+4. **Configure Custom Domain**  
+   `nexlayer-cli domain set <applicationID> --domain <custom_domain>`  
+   **(POST /saveCustomDomain/{applicationID})**  
+   **CLI Command:** `nexlayer domain`  
+
+5. **Send Feedback**  
+   `nexlayer-cli feedback send --message "<your_feedback>"`  
+   **(POST /feedback)**  
+   **CLI Command:** `nexlayer feedback`  
+
+6. **AI-Powered Features for Nexlayer**  
+   `nexlayer-cli ai [subcommand]`  
+   **CLI Command:** `nexlayer ai`  
+   - **Generate AI-powered Deployment Template**  
+     `nexlayer-cli ai generate <app-name>`  
+     **CLI Command:** `nexlayer ai generate`  
+   - **Detect AI Assistants & Project Type**  
+     `nexlayer-cli ai detect`  
+     **CLI Command:** `nexlayer ai detect`  
+
+7. **Log in to Nexlayer**  
+   `nexlayer-cli login`  
+   **CLI Command:** `nexlayer login`  
+
+8. **Help**  
+   `nexlayer-cli help`  
+   **CLI Command:** `nexlayer help`  
+
+---
+
+## **AI-Powered Features & Automation**
+
+- **AI-Generated Deployment Templates**
+  - The CLI must include an `ai generate` command that uses AI to produce a structured `nexlayer.yaml` template.
+  - AI-generated templates must align with **Nexlayer YAML Schema v1.2** and be validated before saving.
+  - **Stack detection logic** must identify the project type (`React`, `Django`, `FastAPI`, etc.) to **recommend optimal configurations**.
+
+- **Stack Detection & AI Assistance**
+  - The `ai detect` command should:
+    - Identify **project dependencies** and suggest an optimized Nexlayer deployment structure.
+    - Detect AI-powered IDEs or **external AI assistants** (e.g., GitHub Copilot, Cursor AI, Zed Editor) and provide compatibility suggestions.
+
+- **Intelligent Error Handling**
+  - When deployment or YAML validation **fails**, AI must provide:
+    - Automated **fix suggestions**.
+    - Example configurations based on **best practices**.
+    - **Real-time guidance** for debugging and optimizing deployments.
+
+---
+
+## **Testing**
+
+- **Testing Guidelines**
+  - Use Go’s built-in testing package for unit and integration tests.
+  - Every major function should have a corresponding `_test.go` file in the same package.
+  - Use `github.com/stretchr/testify` for assertions and test helpers.
+  - Write table-driven tests where applicable.
+  - Ensure tests cover:
+    - API interactions (`pkg/core/api`)
+    - Command execution (`pkg/commands`)
+    - Configuration parsing (`pkg/config`)
+  - CI/CD must enforce running `go test ./...` with a minimum of 80% test coverage.
+
+- **Error Handling & Structured Output**
+  - All errors must return structured JSON when the `--json` flag is used.
+  - Default CLI output should be human-readable.
+  - When `--json` is passed, errors must be structured as:
+    ```json
+    { "error": "<message>", "code": <int> }
+    ```
+  - Exit codes must be standardized:
+    - **0:** Success.
+    - **1:** General error.
+    - **2:** YAML validation failure.
+    - **3:** API request failure.
+
+---
+
+## **Logging & Security**
+
+- **Sensitive Data Protection**
+  - Logging must **never include** API keys, tokens, or **any sensitive credentials**.
+  - Redact **sensitive values** when printing configurations.
+
+---
+
+## **Final Thoughts**
+
+With these guidelines, **Nexlayer-CLI** will be **AI-powered, modular, efficient, and scalable**, ensuring **secure, rapid deployments** using the **Nexlayer API and YAML schema**.
+

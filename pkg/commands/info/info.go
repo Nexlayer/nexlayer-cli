@@ -2,7 +2,7 @@
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
-package deployment
+package info
 
 import (
 	"encoding/json"
@@ -14,27 +14,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newInfoCommand creates a command that wraps GET /getDeploymentInfo
-func newInfoCommand(apiClient *api.Client) *cobra.Command {
+// NewInfoCommand creates a new info command
+func NewInfoCommand(client api.ClientAPI) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "info [deployment-id]",
-		Short:   "Show deployment details",
-		Long:    "Show detailed information about a specific deployment (GET /getDeploymentInfo)",
+		Use:     "info <namespace> <applicationID>",
+		Short:   "Get deployment info",
+		Long:    "Get detailed information about a deployment for a specific application",
 		Aliases: []string{"status"},
-		Args:    cobra.ExactArgs(1),
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			deploymentID := args[0]
+			namespace := args[0]
+			applicationID := args[1]
 
 			// Show progress
 			spinner := ui.NewSpinner("Fetching deployment info...")
 			spinner.Start()
 			defer spinner.Stop()
 
-			// Get application ID from config
-			appID := "default" // TODO: Get from config
-
-			// Call GET /getDeploymentInfo
-			resp, err := apiClient.GetDeploymentInfo(cmd.Context(), deploymentID, appID)
+			// Call GET /getDeploymentInfo/{namespace}/{applicationID}
+			resp, err := client.GetDeploymentInfo(cmd.Context(), namespace, applicationID)
 			if err != nil {
 				return fmt.Errorf("failed to get deployment info: %w", err)
 			}
@@ -49,15 +47,10 @@ func newInfoCommand(apiClient *api.Client) *cobra.Command {
 			fmt.Printf("✨ Status:  %s\n", deployment.Status)
 			fmt.Printf("🌐 URL:     %s\n", deployment.URL)
 			fmt.Printf("📚 Version: %s\n", deployment.Version)
-
-			if len(deployment.PodStatuses) > 0 {
-				fmt.Println("\n📦 Pods:")
-				table := ui.NewTable()
-				table.AddHeader("NAME", "STATUS", "READY")
-				for _, pod := range deployment.PodStatuses {
-					table.AddRow(pod.Name, pod.Status, fmt.Sprintf("%v", pod.Ready))
-				}
-				table.Render()
+			
+			// Print additional details if available
+			if !deployment.LastUpdated.IsZero() {
+				fmt.Printf("🕒 Updated: %s\n", deployment.LastUpdated.Format("2006-01-02 15:04:05"))
 			}
 
 			return nil

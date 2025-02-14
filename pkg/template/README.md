@@ -20,8 +20,10 @@ application:
       vars:
         - key: REACT_APP_API_URL
           value: http://api:8080
-      servicePorts:
-        - 3000
+      ports:
+        - containerPort: 3000
+          servicePort: 3000
+          name: web
 ```
 
 ## Supported Pod Types

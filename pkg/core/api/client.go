@@ -22,6 +22,16 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
 )
 
+// ClientAPI is an interface that abstracts the methods required for API interactions.
+type ClientAPI interface {
+	StartDeployment(ctx context.Context, appID string, configPath string) (*schema.APIResponse[schema.DeploymentResponse], error)
+	SendFeedback(ctx context.Context, text string) error
+	SaveCustomDomain(ctx context.Context, appID string, domain string) (*schema.APIResponse[struct{}], error)
+	ListDeployments(ctx context.Context) (*schema.APIResponse[[]schema.Deployment], error)
+	GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*schema.APIResponse[schema.Deployment], error)
+	GetLogs(ctx context.Context, namespace string, appID string, follow bool, tail int) ([]string, error)
+}
+
 // APIClient defines the interface for interacting with the Nexlayer API.
 // The Nexlayer API provides endpoints for deploying applications, managing deployments,
 // sending feedback, and handling custom domains. Designed for easy integration into
@@ -55,6 +65,14 @@ type APIClient interface {
 	GetLogs(ctx context.Context, namespace string, appID string, follow bool, tail int) ([]string, error)
 }
 
+// APIClientForCommands interface is used for API client operations used in commands.
+type APIClientForCommands interface {
+	GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*schema.APIResponse[schema.Deployment], error)
+	GetDeployments(ctx context.Context, appID string) (*schema.APIResponse[[]schema.Deployment], error)
+	SaveCustomDomain(ctx context.Context, appID string, domain string) (*schema.APIResponse[struct{}], error)
+	// Add other methods as needed
+}
+
 // Client represents an API client for interacting with the Nexlayer API.
 // The Nexlayer API enables rapid deployment of full-stack AI-powered applications
 // by providing a simple template-based interface that abstracts away deployment complexity.
@@ -63,6 +81,12 @@ type Client struct {
 	httpClient *http.Client // HTTP client for making API requests
 	token      string       // Authentication token for API requests
 }
+
+// Ensure Client implements APIClientForCommands
+var _ APIClientForCommands = (*Client)(nil)
+
+// Ensure Client implements ClientAPI
+var _ ClientAPI = (*Client)(nil)
 
 // handleAPIError processes API error responses and returns a formatted error
 func (c *Client) handleAPIError(resp *http.Response) error {
