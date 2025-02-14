@@ -7,49 +7,53 @@ import (
 	"path/filepath"
 )
 
-// LLMMetadata represents the top-level structure for LLM-optimized metadata
+// LLMMetadata represents the top-level structure for LLM-optimized metadata.
 type LLMMetadata struct {
-	// Structured in natural language format for LLMs
+	// Structured in natural language format for LLMs.
 	Purpose string `json:"purpose"`
 	Version string `json:"version"`
-	
-	// Core capabilities and concepts
+
+	// Core capabilities and concepts.
 	Capabilities []Capability `json:"capabilities"`
-	
-	// Deployment patterns with examples
+
+	// Deployment patterns with examples.
 	DeploymentPatterns []DeploymentPattern `json:"deployment_patterns"`
-	
-	// API endpoints with natural language descriptions
+
+	// API endpoints with natural language descriptions.
 	APIEndpoints []APIEndpoint `json:"api_endpoints"`
-	
-	// Common user intents and how to handle them
+
+	// Common user intents and how to handle them.
 	UserIntents []UserIntent `json:"user_intents"`
+
+	// Additional deployment examples.
+	DeploymentExamples []DeploymentExample `json:"deployment_examples,omitempty"`
+
+	// Annotated deployment template (e.g., produced by the annotate tool).
+	AnnotatedTemplate map[string]interface{} `json:"annotated_template,omitempty"`
 }
 
 type Capability struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	Examples    []string `json:"examples"`
-	Keywords    []string `json:"keywords"` // For semantic search
+	Keywords    []string `json:"keywords"` // For semantic search.
 }
 
 type DeploymentPattern struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Template    string `json:"template"`
-	// Natural language explanation of the pattern
+	// Natural language explanation of the pattern.
 	Explanation string   `json:"explanation"`
 	UseCase     string   `json:"use_case"`
 	Keywords    []string `json:"keywords"`
 }
 
 type APIEndpoint struct {
-	Path        string `json:"path"`
-	Method      string `json:"method"`
-	Description string `json:"description"`
-	// Natural language examples of when to use this endpoint
-	UsageExamples []string `json:"usage_examples"`
-	// Common patterns in natural language
+	Path           string   `json:"path"`
+	Method         string   `json:"method"`
+	Description    string   `json:"description"`
+	UsageExamples  []string `json:"usage_examples"`
 	CommonPatterns []string `json:"common_patterns"`
 }
 
@@ -59,6 +63,11 @@ type UserIntent struct {
 	Actions     []string `json:"actions"`
 	Examples    []string `json:"examples"`
 	Suggestions []string `json:"suggestions"`
+}
+
+type DeploymentExample struct {
+	Description string   `json:"description"`
+	Keywords    []string `json:"keywords"`
 }
 
 func main() {
@@ -97,7 +106,7 @@ func main() {
 		APIEndpoints: []APIEndpoint{
 			{
 				Path:        "/startUserDeployment",
-				Method:     "POST",
+				Method:      "POST",
 				Description: "Start a new deployment from a YAML configuration",
 				UsageExamples: []string{
 					"When a user wants to deploy their application",
@@ -130,16 +139,57 @@ func main() {
 			},
 			// Add more intents...
 		},
+		DeploymentExamples: []DeploymentExample{
+			{
+				Description: "Example of a multi-tier deployment with a database and a backend service",
+				Keywords:    []string{"multi-tier", "database", "backend"},
+			},
+		},
+		AnnotatedTemplate: map[string]interface{}{
+			"application": map[string]interface{}{
+				"name": "web-app",
+				"url":  "https://web-app.example.com",
+				"_application_annotations": map[string]interface{}{
+					"_llm_description": "Root configuration for a Nexlayer application deployment",
+					"_llm_examples": []string{
+						"Simple web service",
+						"Multi-pod application",
+						"Stateful application with volumes",
+					},
+					"_llm_common_patterns": []string{
+						"Frontend with backend services",
+						"API with database",
+						"Static website",
+					},
+				},
+				"pods": []interface{}{
+					map[string]interface{}{
+						"name":  "frontend",
+						"image": "nginx",
+						"_pod_annotations": map[string]interface{}{
+							"_llm_description": "Frontend pod serving static content",
+						},
+					},
+					map[string]interface{}{
+						"name":  "backend",
+						"image": "node",
+						"_pod_annotations": map[string]interface{}{
+							"_llm_description": "Backend pod handling business logic",
+						},
+					},
+				},
+			},
+		},
 	}
 
-	// Create AI training metadata directory if it doesn't exist
+	// Create AI training metadata directory if it doesn't exist.
 	aiDir := filepath.Join("ai_training", "metadata")
-	if err := os.MkdirAll(aiDir, 0755); err != nil {
+	if err := os.MkdirAll(aiDir, 0o755); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create AI training directory: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Write LLM-optimized metadata
+	// Write LLM-optimized metadata.
 	llmFile := filepath.Join(aiDir, "llm_metadata.json")
 	data, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
@@ -147,10 +197,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := os.WriteFile(llmFile, data, 0644); err != nil {
+	if err := os.WriteFile(llmFile, data, 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to write metadata file: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("Generated LLM-optimized metadata in build/llm_metadata.json")
+	fmt.Printf("Generated LLM-optimized metadata in %s\n", llmFile)
 }

@@ -38,15 +38,11 @@ cd nexlayer-cli
 # Build the CLI
 echo "🔨 Building from source..."
 go mod download
-go build -o nexlayer-cli ./cmd/nexlayer
+go build -o nexlayer .
 
 # Install to system path
 echo "📥 Installing to /usr/local/bin..."
-sudo mv nexlayer-cli /usr/local/bin/
-
-# Create nexlayer symlink
-echo "🔗 Creating nexlayer command symlink..."
-sudo ln -sf /usr/local/bin/nexlayer-cli /usr/local/bin/nexlayer
+sudo mv nexlayer /usr/local/bin/
 
 # Verify installation
 if command -v nexlayer &> /dev/null; then

@@ -17,16 +17,16 @@ import (
 )
 
 type PackageInfo struct {
-	Name           string            `json:"name"`
-	Path           string            `json:"path"`
-	Files          []string         `json:"files"`
-	Functions      []FunctionInfo    `json:"functions"`
-	Interfaces     []InterfaceInfo  `json:"interfaces"`
-	Structs        []StructInfo     `json:"structs"`
-	Doc           string           `json:"doc"`
-	Responsibility string           `json:"responsibility"`
-	Imports        []string         `json:"imports"`
-	DependedOnBy   []string         `json:"dependedOnBy"`
+	Name           string          `json:"name"`
+	Path           string          `json:"path"`
+	Files          []string        `json:"files"`
+	Functions      []FunctionInfo  `json:"functions"`
+	Interfaces     []InterfaceInfo `json:"interfaces"`
+	Structs        []StructInfo    `json:"structs"`
+	Doc            string          `json:"doc"`
+	Responsibility string          `json:"responsibility"`
+	Imports        []string        `json:"imports"`
+	DependedOnBy   []string        `json:"dependedOnBy"`
 }
 
 type FunctionInfo struct {
@@ -43,24 +43,24 @@ type InterfaceInfo struct {
 }
 
 type StructInfo struct {
-	Name   string     `json:"name"`
-	Doc    string     `json:"doc"`
-	Fields []string   `json:"fields"`
+	Name   string   `json:"name"`
+	Doc    string   `json:"doc"`
+	Fields []string `json:"fields"`
 }
 
 type DependencyInfo struct {
-	Module    string   `json:"module"`
-	Version   string   `json:"version"`
-	Requires  []string `json:"requires"`
+	Module   string   `json:"module"`
+	Version  string   `json:"version"`
+	Requires []string `json:"requires"`
 }
 
 type Metadata struct {
-	ProjectName     string                 `json:"projectName"`
-	Version         string                 `json:"version"`
-	Packages        []PackageInfo          `json:"packages"`
-	Dependencies    []DependencyInfo       `json:"dependencies"`
-	CallGraphs      map[string][]string    `json:"callGraphs"`
-	BuildInfo       map[string]interface{} `json:"buildInfo"`
+	ProjectName  string                 `json:"projectName"`
+	Version      string                 `json:"version"`
+	Packages     []PackageInfo          `json:"packages"`
+	Dependencies []DependencyInfo       `json:"dependencies"`
+	CallGraphs   map[string][]string    `json:"callGraphs"`
+	BuildInfo    map[string]interface{} `json:"buildInfo"`
 }
 
 func main() {
@@ -73,7 +73,7 @@ func main() {
 func generateMetadata() error {
 	// Create AI training analysis directory if it doesn't exist
 	aiDir := filepath.Join("ai_training", "analysis")
-	if err := os.MkdirAll(aiDir, 0755); err != nil {
+	if err := os.MkdirAll(aiDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create AI training directory: %w", err)
 	}
 
@@ -125,7 +125,7 @@ func parseModuleInfo(metadata *Metadata) error {
 	// Parse module dependencies
 	lines := strings.Split(string(output), "\n")
 	deps := make(map[string]DependencyInfo)
-	
+
 	for _, line := range lines {
 		if line == "" {
 			continue
@@ -141,7 +141,7 @@ func parseModuleInfo(metadata *Metadata) error {
 		if len(moduleParts) > 1 {
 			version = moduleParts[1]
 		}
-		
+
 		dep, exists := deps[module]
 		if !exists {
 			dep = DependencyInfo{
@@ -172,7 +172,7 @@ func getPackageDoc(path string) string {
 
 func parsePackages(metadata *Metadata) error {
 	fset := token.NewFileSet()
-	
+
 	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -318,7 +318,7 @@ func generateCallGraphs(metadata *Metadata) error {
 
 	// Create AI training analysis directory if it doesn't exist
 	aiDir := filepath.Join(wd, "ai_training", "analysis")
-	if err := os.MkdirAll(aiDir, 0755); err != nil {
+	if err := os.MkdirAll(aiDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create AI training directory: %w", err)
 	}
 

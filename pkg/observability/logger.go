@@ -59,14 +59,14 @@ func WithRotation(maxSizeMB int64, maxAgeDays int) LoggerOption {
 func NewLogger(level LogLevel, opts ...LoggerOption) *Logger {
 	// Create logs directory if it doesn't exist.
 	logDir := filepath.Join(os.Getenv("HOME"), ".nexlayer", "logs")
-	if err := os.MkdirAll(logDir, 0755); err != nil {
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
 		fmt.Printf("Warning: Could not create log directory: %v\n", err)
 		return &Logger{level: level, writer: os.Stdout}
 	}
 
 	// Open log file.
 	logFile := filepath.Join(logDir, fmt.Sprintf("nexlayer-%s.log", time.Now().Format("2006-01-02")))
-	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		fmt.Printf("Warning: Could not open log file: %v\n", err)
 		return &Logger{level: level, writer: os.Stdout}
@@ -212,7 +212,7 @@ func (l *Logger) rotateLogFile() {
 
 			logDir := filepath.Dir(fw.Name())
 			archiveDir := filepath.Join(logDir, "archive")
-			if err := os.MkdirAll(archiveDir, 0755); err != nil {
+			if err := os.MkdirAll(archiveDir, 0o755); err != nil {
 				fmt.Fprintf(os.Stderr, "Error creating archive directory: %v\n", err)
 				return
 			}
@@ -224,7 +224,7 @@ func (l *Logger) rotateLogFile() {
 				return
 			}
 
-			newFile, err := os.OpenFile(fw.Name(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+			newFile, err := os.OpenFile(fw.Name(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error creating new log file: %v\n", err)
 				return

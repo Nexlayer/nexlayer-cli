@@ -8,14 +8,22 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"strings"
+	"time"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
-	tmpl "github.com/Nexlayer/nexlayer-cli/pkg/template"
 	"github.com/spf13/cobra"
-	yaml "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/analysis"
+	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
+	"github.com/Nexlayer/nexlayer-cli/pkg/knowledge"
+	tmpl "github.com/Nexlayer/nexlayer-cli/pkg/template"
 )
+
+// llmYamlPrompt provides structured instructions for AI-generated Nexlayer templates.
+const llmYamlPrompt = `You are an expert in cloud automation for Nexlayer AI Cloud Platform.
+Generate a deployment template YAML that seamlessly integrates into Nexlayer Cloud following the Nexlayer YAML Schema Template Documentation (v1.0).`
 
 // TemplateRequest represents a request to generate a Nexlayer deployment template.
 type TemplateRequest struct {
@@ -23,175 +31,187 @@ type TemplateRequest struct {
 	ProjectDir  string
 }
 
-// llmYamlPrompt provides structured instructions for AI-generated Nexlayer templates.
-const llmYamlPrompt = `You are an expert in cloud automation for Nexlayer AI Cloud Platform.
-Generate a deployment template YAML that seamlessly integrates into Nexlayer Cloud.
+// result types for parallel processing
+type aiResult struct {
+	response string
+	err      error
+}
 
-Overall Template Structure:
-application:
-  name: "<deployment-name>"
-  url: "<permanent-domain>"
-  registryLogin:
-    registry: "<docker-registry-url>"
-    username: "<registry-username>"
-    personalAccessToken: "<registry-access-token>"
-  pods:
-    - name: "<pod-name>"
-      path: "<public-route-path>"
-      image: "<docker-image>"
-      volumes:
-        - name: "<volume-name>"
-          size: "<volume-size>"
-          mountPath: "<mount-directory>"
-      secrets:
-        - name: "<secret-name>"
-          data: "<base64-encoded-data>"
-          mountPath: "<secret-directory>"
-          fileName: "<secret-file-name>"
-      vars:
-        - key: "<env-var-key>"
-          value: "<env-var-value>"
-      servicePorts: ["<port-number>"]
+type detectionResult struct {
+	info *detection.ProjectInfo
+	err  error
+}
 
-Supported Pod Types:
-- **Frontend**: react, angular, vue
-- **Backend**: express, django, fastapi
-- **Database**: mongodb, postgres, redis
-- **Other Services**: nginx (proxy/load balancer), llm (AI workloads)
+type analysisResult struct {
+	analysis *analysis.ProjectAnalysis
+	err      error
+}
 
-Example:
-application:
-  name: "my-ai-app"
-  url: "https://my-ai-app.nexlayer.ai"
-  registryLogin:
-    registry: "ghcr.io/nexlayer"
-    username: "nexlayer-user"
-    personalAccessToken: "ghp_xxx"
-  pods:
-    - name: "backend"
-      path: "/"
-      image: "ghcr.io/nexlayer/backend-app:latest"
-      servicePorts: [3000]
-`
+type graphResult struct {
+	graph *knowledge.Graph
+	err   error
+}
+
+// processResults handles waiting for and collecting all parallel processing results
+func processResults(ctx context.Context, detectChan chan detectionResult, analyzeChan chan analysisResult, graphChan chan graphResult, aiChan chan aiResult) (*detection.ProjectInfo, *analysis.ProjectAnalysis, *knowledge.Graph, string, error) {
+	select {
+	case <-ctx.Done():
+		return nil, nil, nil, "", ctx.Err()
+	case result := <-detectChan:
+		if result.err != nil {
+			return nil, nil, nil, "", fmt.Errorf("failed to detect project info: %w", result.err)
+		}
+		info := result.info
+
+		select {
+		case <-ctx.Done():
+			return nil, nil, nil, "", ctx.Err()
+		case result := <-analyzeChan:
+			if result.err != nil {
+				return nil, nil, nil, "", fmt.Errorf("failed to analyze project: %w", result.err)
+			}
+			analysis := result.analysis
+
+			select {
+			case <-ctx.Done():
+				return nil, nil, nil, "", ctx.Err()
+			case result := <-graphChan:
+				if result.err != nil {
+					return nil, nil, nil, "", fmt.Errorf("failed to build knowledge graph: %w", result.err)
+				}
+				graph := result.graph
+
+				var aiResponse string
+				select {
+				case <-ctx.Done():
+					return nil, nil, nil, "", ctx.Err()
+				case result := <-aiChan:
+					aiResponse = result.response
+				case <-time.After(5 * time.Second):
+					// Timeout waiting for AI response is acceptable
+				}
+
+				return info, analysis, graph, aiResponse, nil
+			}
+		}
+	}
+}
+
+// startAnalysis initiates the project analysis
+func startAnalysis(ctx context.Context, projectDir string) (*analysis.ProjectAnalysis, error) {
+	parser := analysis.NewParser()
+	return parser.AnalyzeProject(ctx, projectDir)
+}
+
+// buildKnowledgeGraph constructs the knowledge graph from analysis results
+func buildKnowledgeGraph(ctx context.Context, analysis *analysis.ProjectAnalysis, projectDir string) (*knowledge.Graph, error) {
+	graph := knowledge.NewGraph()
+	if err := graph.BuildFromAnalysis(ctx, analysis); err != nil {
+		return nil, fmt.Errorf("failed to build graph: %w", err)
+	}
+
+	// Run go-callvis in the background
+	if err := addCallGraphData(graph, projectDir); err != nil {
+		fmt.Printf("Warning: Failed to add call graph data: %v\n", err)
+	}
+
+	// Setup file watcher
+	if err := setupGraphWatcher(ctx, graph, projectDir); err != nil {
+		fmt.Printf("Warning: Failed to setup graph watcher: %v\n", err)
+	}
+
+	return graph, nil
+}
+
+// addCallGraphData adds call graph information to the knowledge graph
+func addCallGraphData(graph *knowledge.Graph, projectDir string) error {
+	cmd := exec.Command("go-callvis", "-focus", projectDir, "-group", "pkg,type", "-nostd", "-format", "json")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return err
+	}
+	return graph.AddCallGraphData(output)
+}
+
+// setupGraphWatcher initializes and starts the file watcher for the graph
+func setupGraphWatcher(ctx context.Context, graph *knowledge.Graph, projectDir string) error {
+	watcher, err := knowledge.NewWatcher(graph, projectDir)
+	if err != nil {
+		return err
+	}
+	return watcher.Start(ctx)
+}
 
 // GenerateTemplate uses AI assistance to generate a valid Nexlayer deployment template.
 func GenerateTemplate(ctx context.Context, req TemplateRequest) (string, error) {
 	// Create channels for parallel processing
-	type aiResult struct {
-		response string
-		err     error
-	}
-	type detectionResult struct {
-		info *detection.ProjectInfo
-		err  error
-	}
 	aiChan := make(chan aiResult, 1)
 	detectChan := make(chan detectionResult, 1)
+	analyzeChan := make(chan analysisResult, 1)
+	graphChan := make(chan graphResult, 1)
 
-	// Start stack detection (always needed)
+	// Start stack detection
 	go func() {
 		info, err := DetectStack(req.ProjectDir)
 		detectChan <- detectionResult{info, err}
 	}()
 
-	// Wait for detection first
-	info, err := func() (*detection.ProjectInfo, error) {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case result := <-detectChan:
-			return result.info, result.err
-		}
+	// Start tree-sitter analysis
+	go func() {
+		analysis, err := startAnalysis(ctx, req.ProjectDir)
+		analyzeChan <- analysisResult{analysis, err}
 	}()
-	if err != nil {
-		return "", fmt.Errorf("failed to detect project info: %v", err)
-	}
 
-	// Create template based on detected stack
-	var yamlTemplate tmpl.NexlayerYAML
-
-	// Map detected stack to pod type
-	var podType tmpl.PodType
-	switch info.Type {
-	case detection.TypeReact:
-		podType = tmpl.React
-	case detection.TypePython:
-		// Assume Django/FastAPI based on dependencies
-		if _, hasDjango := info.Dependencies["django"]; hasDjango {
-			podType = tmpl.Django
-		} else if _, hasFastAPI := info.Dependencies["fastapi"]; hasFastAPI {
-			podType = tmpl.FastAPI
-		} else {
-			podType = tmpl.Backend
+	// Start knowledge graph construction
+	go func() {
+		analysisRes := <-analyzeChan
+		if analysisRes.err != nil {
+			graphChan <- graphResult{nil, fmt.Errorf("analysis failed: %w", analysisRes.err)}
+			return
 		}
-	default:
-		// Unknown stack type, use AI for suggestions
-		go func() {
-			provider := GetPreferredProvider(ctx, CapDeploymentAssistance)
-			if provider == nil {
-				aiChan <- aiResult{"", fmt.Errorf("no AI provider configured")}
-				return
-			}
-			response, err := provider.GenerateText(ctx, llmYamlPrompt)
-			aiChan <- aiResult{response, err}
-		}()
 
-		// Wait for AI response
-		select {
-		case <-ctx.Done():
-			return "", ctx.Err()
-		case result := <-aiChan:
-			if result.err != nil {
-				// Use generic template if AI fails
-				podType = tmpl.Backend
-			} else {
-				// Parse AI response
-				if err := yaml.Unmarshal([]byte(result.response), &yamlTemplate); err != nil {
-					// Use generic template if parsing fails
-					podType = tmpl.Backend
+		graph, err := buildKnowledgeGraph(ctx, analysisRes.analysis, req.ProjectDir)
+		if err != nil {
+			graphChan <- graphResult{nil, err}
+			return
+		}
+
+		// Create LLM enricher and generate enhanced prompt
+		enricher := knowledge.NewLLMEnricher(graph)
+		if err := enricher.LoadMetadata("tools"); err == nil {
+			if enhancedPrompt, err := enricher.GeneratePrompt(ctx, llmYamlPrompt); err == nil {
+				// Get the AI provider
+				provider := NewDefaultProvider()
+				if response, err := provider.GenerateText(ctx, enhancedPrompt); err == nil {
+					aiChan <- aiResult{response, nil}
 				}
 			}
 		}
+
+		graphChan <- graphResult{graph, nil}
+	}()
+
+	// Wait for all results
+	info, analysis, graph, aiResponse, err := processResults(ctx, detectChan, analyzeChan, graphChan, aiChan)
+	if err != nil {
+		return "", err
 	}
 
-	// If we're using a predefined template
-	if podType != "" {
-		// Get default ports for the pod type
-		ports := tmpl.DefaultPorts[podType]
-		if len(ports) == 0 {
-			ports = []tmpl.Port{{ContainerPort: info.Port, ServicePort: info.Port, Name: "app"}}
-		}
-
-		// Get default environment variables
-		vars := tmpl.DefaultEnvVars[podType]
-
-		// Create template
-		yamlTemplate = tmpl.NexlayerYAML{
-			Application: tmpl.Application{
-				Name: req.ProjectName,
-				Pods: []tmpl.Pod{
-					{
-						Name:  "app",
-						Type:  podType,
-						Image: fmt.Sprintf("ghcr.io/nexlayer/%s:latest", req.ProjectName),
-						Ports: ports,
-						Vars:  vars,
-					},
-				},
-			},
+	// Try to use AI response first if available
+	if aiResponse != "" {
+		var aiTemplate tmpl.NexlayerYAML
+		if err := yaml.Unmarshal([]byte(aiResponse), &aiTemplate); err == nil {
+			return aiResponse, nil
 		}
 	}
 
-	// Add AI environment if detected
-	if info.LLMProvider != "" || info.LLMModel != "" {
-		// TODO: Update this once we add AI environment to template package
-		// template.Application.Environment = &template.Environment{...}
-	}
+	// Fall back to standard template generation
+	yamlTemplate := createTemplate(info, analysis, graph, req)
 
 	// Marshal final template
 	data, err := yaml.Marshal(&yamlTemplate)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal template: %v", err)
+		return "", fmt.Errorf("failed to marshal template: %w", err)
 	}
 
 	return string(data), nil
@@ -232,7 +252,7 @@ Arguments:
 
 Example:
   nexlayer ai generate myapp`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			appName := args[0]
 			workDir, err := os.Getwd()
@@ -240,24 +260,25 @@ Example:
 				return fmt.Errorf("failed to get working directory: %v", err)
 			}
 
-			// Create request with minimal info
+			// Create template request
 			req := TemplateRequest{
 				ProjectName: appName,
-				ProjectDir: workDir,
+				ProjectDir:  workDir,
 			}
 
-			// Generate template (detection and AI will run in parallel)
-			yamlOut, err := GenerateTemplate(cmd.Context(), req)
+			// Generate template
+			template, err := GenerateTemplate(cmd.Context(), req)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to generate template: %v", err)
 			}
 
-			// Write to nexlayer.yaml
-			if err := os.WriteFile("nexlayer.yaml", []byte(yamlOut), 0644); err != nil {
-				return fmt.Errorf("failed to write nexlayer.yaml: %v", err)
+			// Write template to file
+			filename := "nexlayer.yaml"
+			if err := os.WriteFile(filename, []byte(template), 0o644); err != nil {
+				return fmt.Errorf("failed to write template to file: %v", err)
 			}
 
-			fmt.Println("Successfully generated nexlayer.yaml")
+			fmt.Printf("Generated template saved to %s\n", filename)
 			return nil
 		},
 	}
@@ -267,19 +288,27 @@ func newDetectCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "detect",
 		Short: "Detect AI assistants & project type",
-		Long: `Detect AI assistants and project type in the current directory.
+		Long: `Detect available AI assistants and project type.
 
 Example:
   nexlayer ai detect`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			provider := GetPreferredProvider(cmd.Context(), CapDeploymentAssistance)
-			if provider == nil {
-				fmt.Println("ℹ️  No AI assistants detected")
-				fmt.Println("💡 Configure an AI assistant for enhanced template generation")
-				return nil
+			workDir, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("failed to get working directory: %v", err)
 			}
-			fmt.Printf("✨ Detected AI assistant: %s\n", provider.Name)
-			fmt.Printf("   Description: %s\n", provider.Description)
+
+			// Detect project info
+			info, err := DetectStack(workDir)
+			if err != nil {
+				return fmt.Errorf("failed to detect project info: %v", err)
+			}
+
+			fmt.Printf("Project Type: %s\n", info.Type)
+			if info.Port > 0 {
+				fmt.Printf("Default Port: %d\n", info.Port)
+			}
+
 			return nil
 		},
 	}
@@ -313,15 +342,4 @@ func DetectStack(dir string) (*detection.ProjectInfo, error) {
 	}
 
 	return info, nil
-}
-
-func containsAny(slice []string, values ...string) bool {
-	for _, v := range values {
-		for _, s := range slice {
-			if strings.EqualFold(s, v) {
-				return true
-			}
-		}
-	}
-	return false
 }

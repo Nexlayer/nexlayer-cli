@@ -43,10 +43,10 @@ func (et ErrorType) String() string {
 type Error struct {
 	Type    ErrorType `json:"type"`
 	Message string    `json:"message"`
-	Cause   error    `json:"cause,omitempty"`
-	File    string   `json:"file,omitempty"`
-	Line    int      `json:"line,omitempty"`
-	Stack   []string `json:"stack,omitempty"`
+	Cause   error     `json:"cause,omitempty"`
+	File    string    `json:"file,omitempty"`
+	Line    int       `json:"line,omitempty"`
+	Stack   []string  `json:"stack,omitempty"`
 }
 
 func (e *Error) Error() string {
@@ -60,7 +60,7 @@ func (e *Error) Error() string {
 func NewError(errType ErrorType, message string, cause error) *Error {
 	_, file, line, _ := runtime.Caller(1)
 	stack := make([]string, 0)
-	
+
 	// Capture stack trace
 	for i := 1; i < 5; i++ { // Limit to 4 levels
 		pc, file, line, ok := runtime.Caller(i)

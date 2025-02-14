@@ -89,7 +89,7 @@ func IsFirstRun() bool {
 	if err != nil {
 		return true
 	}
-	
+
 	nexlayerDir := filepath.Join(configDir, "nexlayer")
 	_, err = os.Stat(nexlayerDir)
 	return os.IsNotExist(err)

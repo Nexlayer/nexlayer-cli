@@ -16,7 +16,7 @@ import (
 var (
 	// Regex for validating pod names (lowercase alphanumeric, '-', '.')
 	podNameRegex = regexp.MustCompile(`^[a-z][a-z0-9\.\-]*$`)
-	
+
 	// Valid volume size units
 	validSizeUnits = []string{"Ki", "Mi", "Gi", "Ti"}
 )

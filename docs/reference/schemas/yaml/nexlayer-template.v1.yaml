@@ -1,0 +1,47 @@
+## Basic Structure
+
+Nexlayer base YAML template structure follows this pattern:
+
+```yaml
+application:
+  name: The name of the deployment (must be lowercase, alphanumeric, '-', '.')
+  url: Permanent domain URL (optional). No need to add this key if this is not going to be a permanent deployment.
+  registryLogin:
+    registry: The registry where private images are stored.
+    username: Registry username.
+    personalAccessToken: Read-only registry Personal Access Token.
+  pods:
+    - name: Pod name (must start with a lowercase letter and can include only alphanumeric characters, '-', '.')
+      path: Path to render pod at (such as '/' for frontend). Only required for forward-facing pods.
+      image: Docker image faor the pod. 
+        # For private images, use the following schema exactly as shown: '<% REGISTRY %>/some/path/image:tag'.
+        # Images will be tagged as private if they include '<% REGISTRY %>', which will be replaced with the registry specified above.
+      volumes:
+        # Array of volumes to be mounted for this pod. Example:
+        - name: Name of the volume (lowercase, alphanumeric, '-')
+          size: 1Gi  # Required: Volume size (e.g., "1Gi", "500Mi").
+          mountPath: /var/some/directory  # Required: Must start with '/'.
+      secrets:
+        # Array of secret files for this pod. Example:
+        - name: Secret name (lowercase, alphanumeric, '-')
+          data: Raw or Base64-encoded string for the secret (e.g., JSON files should be encoded).
+          mountPath: Mount path where the secret file will be stored (must start with '/').
+          fileName: Name of the secret file (e.g., "secret-file.txt"). 
+            # This will be available at "/var/secrets/my-secret-volume/secret-file.txt".
+      vars:
+        # Array of environment variables for this pod. Example:
+        - key: ENV_VAR_NAME
+          value: Value of the environment variable.
+        # Can use <pod-name>.pod to reference other pods dynamically. Example:
+        - key: API_URL
+          value: http://express.pod:3000  # Where 'express' is the name of another pod.
+        # Can use <% URL %> to reference the deployment’s base URL dynamically. Example:
+        - key: API_URL
+          value: <% URL %>/api
+    servicePorts:
+      # Array of ports to expose for this pod. Example:
+      - 3000  # Exposing port 3000.
+  entrypoint: Custom container entrypoint (optional).
+  command: Custom container command (optional).
+
+```

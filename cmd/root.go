@@ -16,16 +16,13 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/login"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/errors"
 	"github.com/Nexlayer/nexlayer-cli/pkg/observability"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 // Package cmd provides the command-line interface for the Nexlayer CLI.
-
-import (
-	"github.com/Nexlayer/nexlayer-cli/pkg/errors"
-)
 
 var (
 	// logger is the global structured logger instance
@@ -161,7 +158,7 @@ func Execute() {
 		if nexErr, ok := err.(*errors.Error); ok {
 			// Log with stack trace for internal errors
 			if nexErr.Type == errors.ErrorTypeInternal {
-				logger.Error(context.Background(), "Internal error occurred: %s [file=%s, line=%d]", 
+				logger.Error(context.Background(), "Internal error occurred: %s [file=%s, line=%d]",
 					nexErr.Error(), nexErr.File, nexErr.Line)
 			}
 			// For user errors, just show the message
@@ -215,7 +212,7 @@ func reportError(err error) {
 			if nexErr.Cause != nil {
 				fields["cause"] = nexErr.Cause.Error()
 			}
-			logger.Error(context.Background(), "Command error: %s [type=%s, file=%s, line=%d]", 
+			logger.Error(context.Background(), "Command error: %s [type=%s, file=%s, line=%d]",
 				nexErr.Message, nexErr.Type.String(), nexErr.File, nexErr.Line)
 			return
 		}

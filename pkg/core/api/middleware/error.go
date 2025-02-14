@@ -89,7 +89,7 @@ func (h *errorHandler) handleError(err error) error {
 		switch httpErr.StatusCode {
 		case http.StatusBadRequest:
 			return errors.UserError(
-				"Invalid request: " + h.cleanErrorMessage(httpErr.Message),
+				"Invalid request: "+h.cleanErrorMessage(httpErr.Message),
 				httpErr,
 			)
 		case http.StatusUnauthorized:

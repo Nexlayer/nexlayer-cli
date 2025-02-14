@@ -19,15 +19,15 @@ type Schema struct {
 	} `json:"application" yaml:"application"`
 	RegistryLogin *struct {
 		Registry            string `json:"registry" yaml:"registry"`
-		Username           string `json:"username" yaml:"username"`
+		Username            string `json:"username" yaml:"username"`
 		PersonalAccessToken string `json:"personalAccessToken" yaml:"personalAccessToken"`
 	} `json:"registryLogin,omitempty" yaml:"registryLogin,omitempty"`
 	Pods []struct {
-		Name         string `json:"name" yaml:"name"`
-		Type         string `json:"type,omitempty" yaml:"type,omitempty"`
-		Path         string `json:"path,omitempty" yaml:"path,omitempty"`
-		Image        string `json:"image" yaml:"image"`
-		Volumes      []struct {
+		Name    string `json:"name" yaml:"name"`
+		Type    string `json:"type,omitempty" yaml:"type,omitempty"`
+		Path    string `json:"path,omitempty" yaml:"path,omitempty"`
+		Image   string `json:"image" yaml:"image"`
+		Volumes []struct {
 			Name      string `json:"name" yaml:"name"`
 			Size      string `json:"size" yaml:"size"`
 			MountPath string `json:"mountPath" yaml:"mountPath"`
@@ -39,9 +39,9 @@ type Schema struct {
 			FileName  string `json:"fileName" yaml:"fileName"`
 		} `json:"secrets,omitempty" yaml:"secrets,omitempty"`
 		Vars         map[string]string `json:"vars,omitempty" yaml:"vars,omitempty"`
-		ServicePorts []int            `json:"servicePorts" yaml:"servicePorts"`
-		Entrypoint   string           `json:"entrypoint,omitempty" yaml:"entrypoint,omitempty"`
-		Command      string           `json:"command,omitempty" yaml:"command,omitempty"`
+		ServicePorts []int             `json:"servicePorts" yaml:"servicePorts"`
+		Entrypoint   string            `json:"entrypoint,omitempty" yaml:"entrypoint,omitempty"`
+		Command      string            `json:"command,omitempty" yaml:"command,omitempty"`
 	} `json:"pods" yaml:"pods"`
 }
 

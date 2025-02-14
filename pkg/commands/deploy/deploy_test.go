@@ -1,9 +1,11 @@
 package deploy
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
 	"github.com/stretchr/testify/assert"
 )
@@ -16,14 +18,14 @@ func (m *mockAPIClient) StartDeployment(ctx context.Context, appID string, confi
 		return &schema.APIResponse[schema.DeploymentResponse]{
 			Data: schema.DeploymentResponse{
 				Namespace: "profile-namespace",
-				URL:      "https://profile-app.nexlayer.dev",
+				URL:       "https://profile-app.nexlayer.dev",
 			},
 		}, nil
 	}
 	return &schema.APIResponse[schema.DeploymentResponse]{
 		Data: schema.DeploymentResponse{
 			Namespace: "test-namespace",
-			URL:      "https://test.nexlayer.dev",
+			URL:       "https://test.nexlayer.dev",
 		},
 	}, nil
 }
@@ -64,19 +66,40 @@ func (m *mockAPIClient) SendFeedback(ctx context.Context, text string) error {
 }
 
 func TestNewCommand(t *testing.T) {
-	client := &mockAPIClient{}
+	client := &commands.MockAPIClient{}
 	cmd := NewCommand(client)
 	assert.NotNil(t, cmd)
-	assert.Equal(t, "deploy", cmd.Use)
-	assert.NotEmpty(t, cmd.Short)
+	assert.Equal(t, "deploy [applicationID]", cmd.Use)
+	assert.Contains(t, cmd.Short, "Deploy")
 
-	// Test that --app flag is optional
-	appFlag := cmd.Flag("app")
-	assert.NotNil(t, appFlag)
-	assert.Contains(t, appFlag.Usage, "optional")
-	// Ensure flag is not marked as required in usage
-	assert.NotContains(t, appFlag.Usage, "required")
-	assert.NotEmpty(t, cmd.Long)
+	// Test required flags
+	configFlag := cmd.Flags().Lookup("config")
+	assert.NotNil(t, configFlag)
+
+	// Verify flag is required by attempting to execute without it
+	cmd.SetArgs([]string{"myapp"})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "required flag(s) \"config\" not set")
+
+	// Test deployment execution
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"myapp", "--config", "nexlayer.yaml"})
+
+	// Mock the API response
+	client.StartDeploymentFunc = func(ctx context.Context, appID string, configPath string) (*schema.APIResponse[schema.DeploymentResponse], error) {
+		return &schema.APIResponse[schema.DeploymentResponse]{
+			Data: schema.DeploymentResponse{
+				Namespace: "test",
+				URL:       "https://myapp.nexlayer.dev",
+			},
+		}, nil
+	}
+
+	err = cmd.Execute()
+	assert.NoError(t, err)
+	assert.Contains(t, buf.String(), "Deployment started")
 }
 
 func TestValidateDeployConfig(t *testing.T) {
@@ -97,8 +120,8 @@ func TestValidateDeployConfig(t *testing.T) {
 							Ports: []schema.Port{
 								{
 									ContainerPort: 80,
-									ServicePort: 80,
-									Name: "web",
+									ServicePort:   80,
+									Name:          "web",
 								},
 							},
 						},

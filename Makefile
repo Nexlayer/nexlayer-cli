@@ -9,8 +9,7 @@ all: build test ai-metadata
 # Standard build for CLI users
 build:
 	go build -v -ldflags "-X github.com/Nexlayer/nexlayer-cli/pkg/version.Version=$(VERSION)" \
-		-o bin/nexlayer-cli .
-	cd bin && ln -sf nexlayer-cli nexlayer
+		-o bin/nexlayer .
 
 # Generate LLM-optimized metadata
 ai-metadata:
@@ -45,8 +44,7 @@ release:
 	mkdir -p dist/$(GOOS)_$(GOARCH)
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
 		-ldflags "-X github.com/Nexlayer/nexlayer-cli/pkg/version.Version=$(VERSION)" \
-		-o dist/$(GOOS)_$(GOARCH)/nexlayer-cli .
-	cd dist/$(GOOS)_$(GOARCH) && ln -sf nexlayer-cli nexlayer
+		-o dist/$(GOOS)_$(GOARCH)/nexlayer .
 
 # Validate templates
 template-validate:
