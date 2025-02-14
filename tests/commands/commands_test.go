@@ -33,6 +33,8 @@ func (s *CommandTestSuite) SetupTest() {
 				Data: schema.Deployment{
 					Namespace: namespace,
 					Status:    "Running",
+					URL:       "https://test.nexlayer.dev",
+					Version:   "v1.0.0",
 				},
 			}, nil
 		},
@@ -43,9 +45,14 @@ func (s *CommandTestSuite) SetupTest() {
 					{
 						Namespace: "test",
 						Status:    "Running",
+						URL:       "https://test.nexlayer.dev",
+						Version:   "v1.0.0",
 					},
 				},
 			}, nil
+		},
+		SendFeedbackFunc: func(ctx context.Context, text string) error {
+			return nil
 		},
 	}
 	s.buffer = new(bytes.Buffer)
@@ -96,12 +103,28 @@ func (s *CommandTestSuite) TestDomainCommand() {
 func (s *CommandTestSuite) TestFeedbackCommand() {
 	cmd := feedback.NewFeedbackCommand(s.client)
 	assert.NotNil(s.T(), cmd)
-	assert.Equal(s.T(), "feedback send", cmd.Use)
+	assert.Equal(s.T(), "feedback", cmd.Use)
 	assert.Contains(s.T(), cmd.Short, "feedback")
 
+	// Test send subcommand
+	sendCmd, _, err := cmd.Find([]string{"send"})
+	assert.NoError(s.T(), err)
+	assert.NotNil(s.T(), sendCmd)
+	assert.Equal(s.T(), "send", sendCmd.Use)
+
 	// Test required message flag
-	msgFlag := cmd.Flags().Lookup("message")
+	msgFlag := sendCmd.Flags().Lookup("message")
 	assert.NotNil(s.T(), msgFlag)
+
+	// Setup mock expectations
+	s.client.SendFeedbackFunc = func(ctx context.Context, text string) error {
+		return nil
+	}
+
+	// Test successful feedback submission
+	cmd.SetArgs([]string{"send", "--message", "test feedback"})
+	err = cmd.Execute()
+	assert.NoError(s.T(), err)
 }
 
 // TestInfoCommand tests the info command
@@ -130,8 +153,9 @@ func (s *CommandTestSuite) TestLoginCommand() {
 
 	cmd.SetOut(s.buffer)
 	err := cmd.Execute()
+	// Since login is not implemented yet, we expect this specific error
 	assert.Error(s.T(), err)
-	assert.Contains(s.T(), err.Error(), "not yet implemented")
+	assert.Equal(s.T(), "login flow not yet implemented", err.Error())
 }
 
 // TestCommandSuite runs all command tests

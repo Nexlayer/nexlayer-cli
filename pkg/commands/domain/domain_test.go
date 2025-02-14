@@ -3,6 +3,7 @@ package domain_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands"
@@ -52,9 +53,7 @@ func (m *mockAPIClient) SaveCustomDomain(ctx context.Context, appID string, doma
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return &schema.APIResponse[struct{}]{
-		Data: struct{}{},
-	}, args.Error(1)
+	return args.Get(0).(*schema.APIResponse[struct{}]), args.Error(1)
 }
 
 func (m *mockAPIClient) ListDeployments(ctx context.Context) (*schema.APIResponse[[]schema.Deployment], error) {
@@ -84,13 +83,24 @@ func TestNewDomainCommand(t *testing.T) {
 
 func TestSetDomain(t *testing.T) {
 	client := &mockAPIClient{}
-	cmd := domain.NewDomainCommand(client)
+
+	// Setup mock responses
+	successResp := &schema.APIResponse[struct{}]{
+		Message: "Success",
+		Data:    struct{}{},
+	}
+
+	// Setup mock expectations
+	client.On("SaveCustomDomain", mock.Anything, "myapp", "example.com").Return(successResp, nil)
+	client.On("SaveCustomDomain", mock.Anything, "myapp", "").Return(nil, fmt.Errorf("domain cannot be empty"))
+	client.On("SaveCustomDomain", mock.Anything, "myapp", "invalid domain.com").Return(nil, fmt.Errorf("domain cannot contain spaces"))
 
 	tests := []struct {
 		name    string
 		args    []string
 		domain  string
 		wantErr bool
+		errMsg  string
 	}{
 		{
 			name:    "set custom domain",
@@ -103,39 +113,51 @@ func TestSetDomain(t *testing.T) {
 			args:    []string{"set", "myapp"},
 			domain:  "",
 			wantErr: true,
+			errMsg:  "domain cannot be empty",
 		},
 		{
 			name:    "missing application ID",
 			args:    []string{"set"},
 			domain:  "example.com",
 			wantErr: true,
+			errMsg:  "accepts 1 arg(s)",
 		},
 		{
 			name:    "invalid domain with spaces",
 			args:    []string{"set", "myapp"},
-			domain:  "my domain.com",
+			domain:  "invalid domain.com",
 			wantErr: true,
+			errMsg:  "domain cannot contain spaces",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cmd := domain.NewDomainCommand(client)
 			buf := new(bytes.Buffer)
 			cmd.SetOut(buf)
-			cmd.SetArgs(tt.args)
-			if tt.domain != "" {
-				cmd.Flags().Set("domain", tt.domain)
-			}
 
+			// Set command arguments including the domain flag if provided
+			args := tt.args
+			if tt.domain != "" {
+				args = append(args, "--domain", tt.domain)
+			}
+			cmd.SetArgs(args)
+
+			// Execute the command
 			err := cmd.Execute()
+
 			if tt.wantErr {
 				assert.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
 				return
 			}
 
 			assert.NoError(t, err)
-			assert.Contains(t, buf.String(), "Custom domain")
-			assert.Contains(t, buf.String(), "saved")
+			output := buf.String()
+			assert.Contains(t, output, fmt.Sprintf("✓ Custom domain %s saved for application %s", tt.domain, tt.args[1]))
 		})
 	}
 }

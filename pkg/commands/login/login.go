@@ -5,6 +5,8 @@
 package login
 
 import (
+	"fmt"
+
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/spf13/cobra"
 )
@@ -16,8 +18,7 @@ func NewLoginCommand(client api.APIClient) *cobra.Command {
 		Short: "Log in to Nexlayer",
 		Long:  "Log in to your Nexlayer account to access deployment features",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// TODO: Implement login flow
-			return nil
+			return fmt.Errorf("login flow not yet implemented")
 		},
 	}
 

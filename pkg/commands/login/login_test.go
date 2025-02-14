@@ -96,13 +96,23 @@ func TestNewCommand(t *testing.T) {
 
 func TestLoginCommand(t *testing.T) {
 	client := new(mockAPIClient)
-	cmd := NewCommand(client)
+	cmd := logincmd.NewLoginCommand(client)
 
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
 
-	// Currently, login is not implemented, so it should return an error
+	// Execute the command
 	err := cmd.Execute()
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not yet implemented")
+	assert.Equal(t, "login flow not yet implemented", err.Error())
+}
+
+func TestLoginCommandStructure(t *testing.T) {
+	client := new(mockAPIClient)
+	cmd := logincmd.NewLoginCommand(client)
+
+	assert.NotNil(t, cmd)
+	assert.Equal(t, "login", cmd.Use)
+	assert.Equal(t, "Log in to Nexlayer", cmd.Short)
+	assert.NotEmpty(t, cmd.Long)
 }

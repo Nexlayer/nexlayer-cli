@@ -3,6 +3,7 @@ package info_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -104,7 +105,23 @@ func TestNewInfoCommand(t *testing.T) {
 
 func TestGetDeploymentInfo(t *testing.T) {
 	client := &mockAPIClient{}
-	cmd := NewInfoCommand(client)
+	client.On("GetDeploymentInfo", mock.Anything, "default", "myapp").Return(&schema.APIResponse[schema.Deployment]{
+		Message: "Success",
+		Data: schema.Deployment{
+			Namespace:   "default",
+			Status:      "Running",
+			URL:         "https://myapp.nexlayer.dev",
+			Version:     "v1.0.0",
+			LastUpdated: time.Now(),
+			PodStatuses: []schema.PodStatus{
+				{
+					Name:   "web",
+					Status: "Running",
+					Ready:  true,
+				},
+			},
+		},
+	}, nil)
 
 	tests := []struct {
 		name     string
@@ -134,29 +151,35 @@ func TestGetDeploymentInfo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cmd := NewInfoCommand(client)
 			buf := new(bytes.Buffer)
 			cmd.SetOut(buf)
-			cmd.SetArgs(tt.args)
+
 			if tt.wantJSON {
-				cmd.Flags().Set("json", "true")
+				cmd.Flags().Bool("json", true, "")
 			}
 
+			cmd.SetArgs(tt.args)
 			err := cmd.Execute()
+
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
 			}
 
 			assert.NoError(t, err)
-			assert.NotEmpty(t, buf.String())
+			output := buf.String()
 
 			if tt.wantJSON {
-				assert.Contains(t, buf.String(), "{")
-				assert.Contains(t, buf.String(), "}")
+				assert.Contains(t, output, "{")
+				assert.Contains(t, output, "}")
+				var resp map[string]interface{}
+				err = json.Unmarshal([]byte(output), &resp)
+				assert.NoError(t, err)
 			} else {
-				assert.Contains(t, buf.String(), "Status:")
-				assert.Contains(t, buf.String(), "URL:")
-				assert.Contains(t, buf.String(), "Version:")
+				assert.Contains(t, output, "Status:")
+				assert.Contains(t, output, "URL:")
+				assert.Contains(t, output, "Version:")
 			}
 		})
 	}

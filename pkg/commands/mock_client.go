@@ -2,6 +2,8 @@ package commands
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
@@ -80,3 +82,10 @@ var (
 	_ api.APIClient = (*MockAPIClient)(nil)
 	_ api.ClientAPI = (*MockAPIClient)(nil)
 )
+
+// NewTestServer creates a test HTTP server for API testing
+func NewTestServer(handler http.Handler) (*httptest.Server, *MockAPIClient) {
+	server := httptest.NewServer(handler)
+	client := &MockAPIClient{}
+	return server, client
+}

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
@@ -15,24 +16,23 @@ import (
 )
 
 // NewInfoCommand creates a new info command
-func NewInfoCommand(client api.ClientAPI) *cobra.Command {
+func NewInfoCommand(client api.APIClient) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "info <namespace> <applicationID>",
-		Short:   "Get deployment info",
-		Long:    "Get detailed information about a deployment for a specific application",
-		Aliases: []string{"status"},
-		Args:    cobra.ExactArgs(2),
+		Use:   "info <namespace> <applicationID>",
+		Short: "Get deployment info",
+		Long:  "Retrieve detailed information about a specific deployment.",
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace := args[0]
-			applicationID := args[1]
+			appID := args[1]
 
 			// Show progress
 			spinner := ui.NewSpinner("Fetching deployment info...")
 			spinner.Start()
 			defer spinner.Stop()
 
-			// Call GET /getDeploymentInfo/{namespace}/{applicationID}
-			resp, err := client.GetDeploymentInfo(cmd.Context(), namespace, applicationID)
+			// Get deployment info
+			resp, err := client.GetDeploymentInfo(cmd.Context(), namespace, appID)
 			if err != nil {
 				return fmt.Errorf("failed to get deployment info: %w", err)
 			}
@@ -43,19 +43,22 @@ func NewInfoCommand(client api.ClientAPI) *cobra.Command {
 			}
 
 			// Print human-readable output
-			deployment := resp.Data
-			fmt.Printf("✨ Status:  %s\n", deployment.Status)
-			fmt.Printf("🌐 URL:     %s\n", deployment.URL)
-			fmt.Printf("📚 Version: %s\n", deployment.Version)
-			
-			// Print additional details if available
-			if !deployment.LastUpdated.IsZero() {
-				fmt.Printf("🕒 Updated: %s\n", deployment.LastUpdated.Format("2006-01-02 15:04:05"))
+			fmt.Printf("Status: %s\n", resp.Data.Status)
+			fmt.Printf("URL: %s\n", resp.Data.URL)
+			fmt.Printf("Version: %s\n", resp.Data.Version)
+			fmt.Printf("Last Updated: %s\n", resp.Data.LastUpdated.Format(time.RFC3339))
+
+			if len(resp.Data.PodStatuses) > 0 {
+				fmt.Println("\nPods:")
+				for _, pod := range resp.Data.PodStatuses {
+					fmt.Printf("  - %s: %s (Ready: %v)\n", pod.Name, pod.Status, pod.Ready)
+				}
 			}
 
 			return nil
 		},
 	}
 
+	cmd.Flags().Bool("json", false, "Output in JSON format")
 	return cmd
 }

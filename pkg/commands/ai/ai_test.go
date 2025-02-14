@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,104 +30,110 @@ func TestNewCommand(t *testing.T) {
 }
 
 func TestGenerateCommand(t *testing.T) {
-	cmd := NewCommand()
-	generateCmd, _, _ := cmd.Find([]string{"generate"})
-
 	tests := []struct {
 		name    string
 		args    []string
 		wantErr bool
+		want    string
 	}{
 		{
 			name:    "generate template",
-			args:    []string{"myapp"},
+			args:    []string{"generate", "myapp"},
 			wantErr: false,
+			want:    "Successfully generated",
 		},
 		{
 			name:    "missing app name",
-			args:    []string{},
+			args:    []string{"generate"},
 			wantErr: true,
+			want:    "requires exactly 1 arg(s)",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cmd := NewCommand()
 			buf := new(bytes.Buffer)
-			generateCmd.SetOut(buf)
-			generateCmd.SetArgs(tt.args)
+			cmd.SetOut(buf)
+			cmd.SetArgs(tt.args)
 
-			err := generateCmd.Execute()
+			err := cmd.Execute()
 			if tt.wantErr {
 				assert.Error(t, err)
+				if err != nil {
+					assert.Contains(t, err.Error(), tt.want)
+				}
 				return
 			}
 
 			assert.NoError(t, err)
-			assert.Contains(t, buf.String(), "Successfully generated")
-
-			// Clean up generated file
-			if len(tt.args) > 0 {
-				os.Remove("nexlayer.yaml")
-			}
+			assert.Contains(t, buf.String(), tt.want)
 		})
 	}
 }
 
 func TestDetectCommand(t *testing.T) {
 	cmd := NewCommand()
-	detectCmd, _, _ := cmd.Find([]string{"detect"})
-
 	buf := new(bytes.Buffer)
-	detectCmd.SetOut(buf)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"detect"})
 
-	err := detectCmd.Execute()
+	err := cmd.Execute()
 	assert.NoError(t, err)
 	output := buf.String()
-
-	// Should either detect an AI assistant or show "No AI assistants detected"
-	assert.True(t, 
-		assert.Contains(t, output, "No AI assistants detected") ||
-		assert.Contains(t, output, "Detected AI assistant"),
-	)
+	assert.True(t, strings.Contains(output, "No AI assistants detected") ||
+		strings.Contains(output, "Detected AI assistant"))
 }
 
 func TestGetPreferredProvider(t *testing.T) {
 	tests := []struct {
-		name        string
-		envVars     map[string]string
-		capability  Capability
-		wantNil    bool
+		name     string
+		envVars  map[string]string
+		wantName string
+		wantNil  bool
 	}{
 		{
 			name: "windsurf editor available",
 			envVars: map[string]string{
 				"WINDSURF_EDITOR_ACTIVE": "true",
 			},
-			capability: CapDeploymentAssistance,
-			wantNil:    false,
+			wantName: "Windsurf Editor",
+			wantNil:  false,
 		},
 		{
-			name: "no providers available",
-			envVars: map[string]string{},
-			capability: CapDeploymentAssistance,
-			wantNil:    true,
+			name:     "no providers available",
+			envVars:  map[string]string{},
+			wantName: "",
+			wantNil:  true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Set environment variables
-			for k, v := range tt.envVars {
-				os.Setenv(k, v)
-				defer os.Unsetenv(k)
+			// Save original env
+			origEnv := make(map[string]string)
+			for k := range tt.envVars {
+				origEnv[k] = os.Getenv(k)
 			}
 
-			provider := GetPreferredProvider(context.Background(), tt.capability)
+			// Set test env
+			for k, v := range tt.envVars {
+				os.Setenv(k, v)
+			}
+
+			// Restore env after test
+			defer func() {
+				for k, v := range origEnv {
+					os.Setenv(k, v)
+				}
+			}()
+
+			provider := GetPreferredProvider(context.Background(), CapDeploymentAssistance)
 			if tt.wantNil {
 				assert.Nil(t, provider)
 			} else {
 				assert.NotNil(t, provider)
-				assert.True(t, provider.Capabilities&tt.capability != 0)
+				assert.Equal(t, tt.wantName, provider.Name)
 			}
 		})
 	}

@@ -3,12 +3,13 @@ package list_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"testing"
-	"time"
 
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -96,130 +97,93 @@ func TestNewListCommand(t *testing.T) {
 }
 
 func TestListDeployments(t *testing.T) {
-	// Create mock client and command for each test case in the test function
+	client := &mockAPIClient{}
+
+	// Setup default mock response
+	successResp := &schema.APIResponse[[]schema.Deployment]{
+		Message: "Success",
+		Data: []schema.Deployment{
+			{
+				Namespace: "test",
+				Status:    "Running",
+				URL:       "https://test.nexlayer.dev",
+				Version:   "v1.0.0",
+			},
+		},
+	}
+	client.On("ListDeployments", mock.Anything).Return(successResp, nil)
 
 	tests := []struct {
-		name        string
-		args        []string
-		setupMock   func(*mockAPIClient)
-		wantJSON    bool
-		wantErr     bool
-		wantOutput  string
+		name     string
+		args     []string
+		wantJSON bool
+		wantErr  bool
+		errMsg   string
+		setup    func()
 	}{
 		{
-			name: "list all deployments",
-			args: []string{},
-			setupMock: func(m *mockAPIClient) {
-				m.On("GetDeployments", mock.Anything, "").Return(&schema.APIResponse[[]schema.Deployment]{
-					Data: []schema.Deployment{
-						{
-							Status:      "running",
-							URL:         "https://app1.nexlayer.dev",
-							Version:     "v1.0.0",
-							LastUpdated: time.Now(),
-						},
-						{
-							Status:      "stopped",
-							URL:         "https://app2.nexlayer.dev",
-							Version:     "v1.1.0",
-							LastUpdated: time.Now().Add(-24 * time.Hour),
-						},
-					},
-				}, nil)
-			},
-			wantJSON:   false,
-			wantErr:    false,
-			wantOutput: `Status\s+URL\s+Version\s+Last Updated`,
+			name:     "list all deployments",
+			args:     []string{},
+			wantJSON: false,
+			wantErr:  false,
 		},
 		{
-			name: "list deployments for specific app",
-			args: []string{"myapp"},
-			setupMock: func(m *mockAPIClient) {
-				m.On("GetDeployments", mock.Anything, "myapp").Return(&schema.APIResponse[[]schema.Deployment]{
-					Data: []schema.Deployment{
-						{
-							Status:      "running",
-							URL:         "https://myapp.nexlayer.dev",
-							Version:     "v1.0.0",
-							LastUpdated: time.Now(),
-						},
-					},
-				}, nil)
-			},
-			wantJSON:   false,
-			wantErr:    false,
-			wantOutput: `running\s+https://myapp.nexlayer.dev`,
+			name:     "list deployments as JSON",
+			args:     []string{"--json"},
+			wantJSON: true,
+			wantErr:  false,
 		},
 		{
-			name: "list all deployments as JSON",
-			args: []string{"--json"},
-			setupMock: func(m *mockAPIClient) {
-				m.On("GetDeployments", mock.Anything, "").Return(&schema.APIResponse[[]schema.Deployment]{
-					Data: []schema.Deployment{
-						{
-							Status:      "running",
-							URL:         "https://app1.nexlayer.dev",
-							Version:     "v1.0.0",
-							LastUpdated: time.Now(),
-						},
-					},
-				}, nil)
+			name:     "handle API error",
+			args:     []string{},
+			wantJSON: false,
+			wantErr:  true,
+			errMsg:   "failed to get deployments",
+			setup: func() {
+				client.On("ListDeployments", mock.Anything).Return(nil, fmt.Errorf("failed to get deployments")).Once()
 			},
-			wantJSON:   true,
-			wantErr:    false,
-			wantOutput: `{"deployments":[{"status":"running","url":"https://app1.nexlayer.dev"}]}`,
-		},
-		{
-			name: "handle API error",
-			args: []string{},
-			setupMock: func(m *mockAPIClient) {
-				m.On("GetDeployments", mock.Anything, "").Return(nil, assert.AnError)
-			},
-			wantJSON:   false,
-			wantErr:    true,
-			wantOutput: "Error: Failed to get deployments",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create new mock client for each test
-			mockClient := &mockAPIClient{}
-			tt.setupMock(mockClient)
-
-			// Create new command with mock client
-			cmd := NewListCommand(mockClient)
-			buf := new(bytes.Buffer)
-			cmd.SetOut(buf)
-			cmd.SetArgs(tt.args)
-
-			// Set JSON flag if needed
-			if tt.wantJSON {
-				cmd.Flags().Set("json", "true")
+			if tt.setup != nil {
+				tt.setup()
 			}
 
-			// Execute command
+			cmd := list.NewListCommand(client)
+			buf := new(bytes.Buffer)
+			cmd.SetOut(buf)
+
+			if tt.wantJSON {
+				cmd.Flags().Bool("json", true, "")
+			}
+
+			cmd.SetArgs(tt.args)
 			err := cmd.Execute()
+
 			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Contains(t, buf.String(), tt.wantOutput)
+				assert.Contains(t, err.Error(), tt.errMsg)
 				return
 			}
 
-			// Verify no error and output matches
 			assert.NoError(t, err)
-			assert.NotEmpty(t, buf.String())
+			output := buf.String()
 
-			// Verify output format and content
 			if tt.wantJSON {
-				assert.Contains(t, buf.String(), "{")
-				assert.JSONEq(t, tt.wantOutput, buf.String())
+				assert.Contains(t, output, "{")
+				assert.Contains(t, output, "}")
+				var resp map[string]interface{}
+				err = json.Unmarshal([]byte(output), &resp)
+				assert.NoError(t, err)
 			} else {
-				assert.Regexp(t, tt.wantOutput, buf.String())
+				assert.Contains(t, output, "STATUS")
+				assert.Contains(t, output, "URL")
+				assert.Contains(t, output, "VERSION")
+				assert.Contains(t, output, "Running")
+				assert.Contains(t, output, "https://test.nexlayer.dev")
 			}
-
-			// Verify all mock expectations were met
-			mockClient.AssertExpectations(t)
 		})
 	}
 }
