@@ -111,8 +111,9 @@ func TestAnalyzeProject(t *testing.T) {
 
 import "fmt"
 
-func main() {
+func main() string {
 	fmt.Println("Hello, World!")
+	return "success"
 }`,
 		"app.js": `
 const express = require('express');
@@ -126,6 +127,7 @@ app.listen(3000);`,
 		"script.py": `
 def greet(name):
 	print(f"Hello, {name}!")
+	return name
 
 if __name__ == "__main__":
 	greet("World")`,
@@ -133,7 +135,7 @@ if __name__ == "__main__":
 
 	for name, content := range files {
 		path := filepath.Join(tmpDir, name)
-		err := os.WriteFile(path, []byte(content), 0644)
+		err := os.WriteFile(path, []byte(content), 0o644)
 		assert.NoError(t, err)
 	}
 
@@ -143,7 +145,13 @@ if __name__ == "__main__":
 	assert.NoError(t, err)
 	assert.NotNil(t, analysis)
 
-	// Basic validation
-	assert.NotEmpty(t, analysis.Functions)
-	assert.NotEmpty(t, analysis.Imports)
+	// Validate Go analysis
+	assert.Contains(t, analysis.Functions, "main")
+	assert.Contains(t, analysis.Imports, "fmt")
+
+	// Validate JavaScript analysis
+	assert.Contains(t, analysis.Dependencies, "express")
+
+	// Validate Python analysis
+	assert.Contains(t, analysis.Functions, "greet")
 }

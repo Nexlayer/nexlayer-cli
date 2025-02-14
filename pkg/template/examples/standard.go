@@ -14,7 +14,7 @@ func StandardTemplate() *template.NexlayerYAML {
 			// REQUIRED: Unique deployment name
 			Name: "my-app",
 			// OPTIONAL: Permanent domain
-			URL:  "my-app.nexlayer.dev",
+			URL: "my-app.nexlayer.dev",
 			// REQUIRED for private images
 			RegistryLogin: &template.RegistryLogin{
 				Registry:            "docker.io/my-org",
@@ -25,11 +25,11 @@ func StandardTemplate() *template.NexlayerYAML {
 			Pods: []template.Pod{
 				{
 					// REQUIRED: Pod name (lowercase alphanumeric)
-					Name:  "frontend",
+					Name: "frontend",
 					// OPTIONAL: Route path for frontend
-					Path:  "/",
+					Path: "/",
 					// REQUIRED: Pod type
-					Type:  template.React,
+					Type: template.React,
 					// REQUIRED: Fully qualified image path
 					Image: "docker.io/my-org/frontend:latest",
 					Vars: []template.EnvVar{
@@ -46,11 +46,11 @@ func StandardTemplate() *template.NexlayerYAML {
 				},
 				{
 					// REQUIRED: Pod name (lowercase alphanumeric)
-					Name:  "backend",
+					Name: "backend",
 					// OPTIONAL: Route path for API
-					Path:  "/api",
+					Path: "/api",
 					// REQUIRED: Pod type
-					Type:  template.FastAPI,
+					Type: template.FastAPI,
 					// REQUIRED: Fully qualified image path
 					Image: "docker.io/my-org/backend:latest",
 					Vars: []template.EnvVar{

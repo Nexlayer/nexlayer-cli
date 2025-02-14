@@ -113,7 +113,6 @@ func (p *Parser) AnalyzeProject(ctx context.Context, projectDir string) (*Projec
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("project analysis failed: %w", err)
 	}

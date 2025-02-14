@@ -9,18 +9,18 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/Nexlayer/nexlayer-cli/pkg/validation/schema"
+	"github.com/go-playground/validator/v10"
 )
 
 var (
 	validate *validator.Validate
 	// Regex patterns for custom validations
-	imagePattern     = regexp.MustCompile(`^(?:([^/]+)/)?(?:([^/]+)/)?([^/]+)(?:[:@][^/]+)?$`)
+	imagePattern      = regexp.MustCompile(`^(?:([^/]+)/)?(?:([^/]+)/)?([^/]+)(?:[:@][^/]+)?$`)
 	volumeSizePattern = regexp.MustCompile(`^\d+[KMGT]i?$`)
-	filenamePattern  = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
-	envVarPattern    = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
-	podNamePattern   = regexp.MustCompile(`^[a-z][a-z0-9\.\-]*$`)
+	filenamePattern   = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+	envVarPattern     = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+	podNamePattern    = regexp.MustCompile(`^[a-z][a-z0-9\.\-]*$`)
 )
 
 func init() {

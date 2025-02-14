@@ -82,7 +82,7 @@ func TestNewDomainCommand(t *testing.T) {
 }
 
 func TestSetDomain(t *testing.T) {
-	client := &mockAPIClient{}
+	client := &commands.MockAPIClient{}
 
 	// Setup mock responses
 	successResp := &schema.APIResponse[struct{}]{
@@ -91,9 +91,15 @@ func TestSetDomain(t *testing.T) {
 	}
 
 	// Setup mock expectations
-	client.On("SaveCustomDomain", mock.Anything, "myapp", "example.com").Return(successResp, nil)
-	client.On("SaveCustomDomain", mock.Anything, "myapp", "").Return(nil, fmt.Errorf("domain cannot be empty"))
-	client.On("SaveCustomDomain", mock.Anything, "myapp", "invalid domain.com").Return(nil, fmt.Errorf("domain cannot contain spaces"))
+	client.SaveCustomDomainFunc = func(ctx context.Context, appID, domain string) (*schema.APIResponse[struct{}], error) {
+		if domain == "" {
+			return nil, fmt.Errorf("domain cannot be empty")
+		}
+		if domain == "invalid domain.com" {
+			return nil, fmt.Errorf("domain cannot contain spaces")
+		}
+		return successResp, nil
+	}
 
 	tests := []struct {
 		name    string

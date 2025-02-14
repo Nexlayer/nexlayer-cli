@@ -6,9 +6,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/feedback"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/feedback"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

@@ -7,88 +7,14 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
-// mockAPIClient is a mock implementation of api.APIClient
-type mockAPIClient struct {
-	mock.Mock
-}
-
-// Ensure mockAPIClient implements api.APIClient
-var _ api.APIClient = (*mockAPIClient)(nil)
-
-func (m *mockAPIClient) StartDeployment(ctx context.Context, appID string, configPath string) (*schema.APIResponse[schema.DeploymentResponse], error) {
-	args := m.Called(ctx, appID, configPath)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*schema.APIResponse[schema.DeploymentResponse]), args.Error(1)
-}
-
-func (m *mockAPIClient) ListDeployments(ctx context.Context) (*schema.APIResponse[[]schema.Deployment], error) {
-	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*schema.APIResponse[[]schema.Deployment]), args.Error(1)
-}
-
-func (m *mockAPIClient) GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*schema.APIResponse[schema.Deployment], error) {
-	args := m.Called(ctx, namespace, appID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*schema.APIResponse[schema.Deployment]), args.Error(1)
-}
-
-func (m *mockAPIClient) GetDeployments(ctx context.Context, appID string) (*schema.APIResponse[[]schema.Deployment], error) {
-	args := m.Called(ctx, appID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*schema.APIResponse[[]schema.Deployment]), args.Error(1)
-}
-
-func (m *mockAPIClient) SaveCustomDomain(ctx context.Context, appID string, domain string) (*schema.APIResponse[struct{}], error) {
-	args := m.Called(ctx, appID, domain)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return &schema.APIResponse[struct{}]{
-		Data: struct{}{},
-	}, args.Error(1)
-}
-
-func (m *mockAPIClient) GetLogs(ctx context.Context, namespace string, appID string, follow bool, tail int) ([]string, error) {
-	args := m.Called(ctx, namespace, appID, follow, tail)
-	return args.Get(0).([]string), args.Error(1)
-}
-
-func (m *mockAPIClient) SendFeedback(ctx context.Context, text string) error {
-	args := m.Called(ctx, text)
-	return args.Error(0)
-}
-
-func NewListCommand(client api.APIClient) *cobra.Command {
-	return &cobra.Command{
-		Use:   "list [applicationID]",
-		Short: "List deployments",
-		Long:  "List all deployments associated with the specified application ID.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// Command execution logic
-			return nil
-		},
-	}
-}
-
 func TestNewListCommand(t *testing.T) {
-	client := &mockAPIClient{}
+	client := &commands.MockAPIClient{}
 	cmd := list.NewListCommand(client)
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "list [applicationID]", cmd.Use)
@@ -97,7 +23,7 @@ func TestNewListCommand(t *testing.T) {
 }
 
 func TestListDeployments(t *testing.T) {
-	client := &mockAPIClient{}
+	client := &commands.MockAPIClient{}
 
 	// Setup default mock response
 	successResp := &schema.APIResponse[[]schema.Deployment]{
@@ -111,7 +37,6 @@ func TestListDeployments(t *testing.T) {
 			},
 		},
 	}
-	client.On("ListDeployments", mock.Anything).Return(successResp, nil)
 
 	tests := []struct {
 		name     string
@@ -126,12 +51,22 @@ func TestListDeployments(t *testing.T) {
 			args:     []string{},
 			wantJSON: false,
 			wantErr:  false,
+			setup: func() {
+				client.ListDeploymentsFunc = func(ctx context.Context) (*schema.APIResponse[[]schema.Deployment], error) {
+					return successResp, nil
+				}
+			},
 		},
 		{
 			name:     "list deployments as JSON",
 			args:     []string{"--json"},
 			wantJSON: true,
 			wantErr:  false,
+			setup: func() {
+				client.ListDeploymentsFunc = func(ctx context.Context) (*schema.APIResponse[[]schema.Deployment], error) {
+					return successResp, nil
+				}
+			},
 		},
 		{
 			name:     "handle API error",
@@ -140,7 +75,9 @@ func TestListDeployments(t *testing.T) {
 			wantErr:  true,
 			errMsg:   "failed to get deployments",
 			setup: func() {
-				client.On("ListDeployments", mock.Anything).Return(nil, fmt.Errorf("failed to get deployments")).Once()
+				client.ListDeploymentsFunc = func(ctx context.Context) (*schema.APIResponse[[]schema.Deployment], error) {
+					return nil, fmt.Errorf("failed to get deployments")
+				}
 			},
 		},
 	}
@@ -156,7 +93,7 @@ func TestListDeployments(t *testing.T) {
 			cmd.SetOut(buf)
 
 			if tt.wantJSON {
-				cmd.Flags().Bool("json", true, "")
+				_ = cmd.Flags().Set("json", "true")
 			}
 
 			cmd.SetArgs(tt.args)

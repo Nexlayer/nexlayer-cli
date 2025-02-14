@@ -8,10 +8,10 @@ type Config struct {
 
 // Application represents the application configuration
 type Application struct {
-	Name          string       `yaml:"name"`
-	URL           string       `yaml:"url,omitempty"`
+	Name          string        `yaml:"name"`
+	URL           string        `yaml:"url,omitempty"`
 	RegistryLogin *RegistryAuth `yaml:"registryLogin,omitempty"`
-	Pods          []Pod        `yaml:"pods"`
+	Pods          []Pod         `yaml:"pods"`
 }
 
 // RegistryAuth represents registry authentication configuration
@@ -23,14 +23,14 @@ type RegistryAuth struct {
 
 // Pod represents a pod configuration
 type Pod struct {
-	Name         string    `yaml:"name"`
-	Path         string    `yaml:"path,omitempty"`
-	Image        string    `yaml:"image"`
-	Volumes      []Volume  `yaml:"volumes,omitempty"`
-	Secrets      []Secret  `yaml:"secrets,omitempty"`
-	Vars         []EnvVar  `yaml:"vars,omitempty"`
-	ServicePorts []int     `yaml:"servicePorts"`
-	Command      []string  `yaml:"command,omitempty"`
+	Name         string   `yaml:"name"`
+	Path         string   `yaml:"path,omitempty"`
+	Image        string   `yaml:"image"`
+	Volumes      []Volume `yaml:"volumes,omitempty"`
+	Secrets      []Secret `yaml:"secrets,omitempty"`
+	Vars         []EnvVar `yaml:"vars,omitempty"`
+	ServicePorts []int    `yaml:"servicePorts"`
+	Command      []string `yaml:"command,omitempty"`
 }
 
 // Volume represents a persistent volume configuration

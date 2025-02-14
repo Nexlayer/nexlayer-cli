@@ -6,37 +6,25 @@ package ai
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"sync"
-	"time"
+
+	"github.com/spf13/cobra"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/registry"
-	"github.com/spf13/cobra"
 )
 
-// Capability represents an AI provider's capabilities.
-type Capability int
-
-const (
-	CapCodeGeneration Capability = 1 << iota
-	CapCodeCompletion
-	CapDeploymentAssistance
-	CapErrorDiagnosis
-)
-
-// AIProvider represents an AI code assistant provider.
-type AIProvider struct {
-	Name         string
-	Description  string
-	EnvVarKey    string
-	Capabilities Capability
+// Provider represents an AI code assistant provider.
+type Provider interface {
+	// GenerateText generates text using the AI provider.
+	GenerateText(ctx context.Context, prompt string) (string, error)
 }
 
-// GenerateText generates text using the AI provider.
-func (p *AIProvider) GenerateText(ctx context.Context, prompt string) (string, error) {
-	// TODO: Implement provider-specific text generation.
-	// For now, return a basic template matching the new Nexlayer schema.
+// DefaultProvider is a simple implementation of the Provider interface.
+type DefaultProvider struct{}
+
+// GenerateText generates text using the default provider.
+func (p *DefaultProvider) GenerateText(ctx context.Context, prompt string) (string, error) {
+	// Return a basic template matching the new Nexlayer schema.
 	return `application:
   name: "generated-app"
   pods:
@@ -45,106 +33,25 @@ func (p *AIProvider) GenerateText(ctx context.Context, prompt string) (string, e
       servicePorts: [80]`, nil
 }
 
-// providerCache caches the detected provider.
-type providerCache struct {
-	sync.RWMutex
-	provider   *AIProvider
-	expiration time.Time
+// NewDefaultProvider creates a new default provider.
+func NewDefaultProvider() Provider {
+	return &DefaultProvider{}
 }
 
-const cachePeriod = 5 * time.Minute
-
-var (
-	// cache is the global provider cache.
-	cache = &providerCache{}
-
-	// Predefined AI providers.
-	WindsurfEditor = AIProvider{
-		Name:         "Windsurf Editor",
-		Description:  "Built-in AI code assistant",
-		EnvVarKey:    "WINDSURF_EDITOR_ACTIVE",
-		Capabilities: CapCodeGeneration | CapCodeCompletion | CapDeploymentAssistance | CapErrorDiagnosis,
-	}
-
-	GitHubCopilot = AIProvider{
-		Name:         "GitHub Copilot",
-		Description:  "GitHub's AI pair programmer",
-		EnvVarKey:    "GITHUB_COPILOT_ACTIVE",
-		Capabilities: CapCodeGeneration | CapCodeCompletion,
-	}
-
-	ZedEditor = AIProvider{
-		Name:         "Zed Editor",
-		Description:  "Zed's built-in AI assistant",
-		EnvVarKey:    "ZED_AI_ACTIVE",
-		Capabilities: CapCodeGeneration | CapCodeCompletion | CapDeploymentAssistance,
-	}
-
-	CursorAI = AIProvider{
-		Name:         "Cursor AI",
-		Description:  "Cursor's AI code assistant",
-		EnvVarKey:    "CURSOR_AI_ACTIVE",
-		Capabilities: CapCodeGeneration | CapCodeCompletion,
-	}
-
-	VSCodeAI = AIProvider{
-		Name:         "VS Code AI",
-		Description:  "VS Code's AI assistant",
-		EnvVarKey:    "VSCODE_AI_ACTIVE",
-		Capabilities: CapCodeGeneration | CapCodeCompletion,
-	}
-
-	// AllProviders is a list of all available AI providers.
-	AllProviders = []AIProvider{
-		WindsurfEditor,
-		GitHubCopilot,
-		ZedEditor,
-		CursorAI,
-		VSCodeAI,
-	}
-)
-
-// GetPreferredProvider returns the first configured AI provider with the required capabilities.
-func GetPreferredProvider(ctx context.Context, requiredCaps Capability) *AIProvider {
-	// Check cache first.
-	cache.RLock()
-	if time.Now().Before(cache.expiration) {
-		provider := cache.provider
-		cache.RUnlock()
-		return provider
-	}
-	cache.RUnlock()
-
-	// Define provider priority order.
-	priorityProviders := []AIProvider{
-		WindsurfEditor, // Windsurf has the most capabilities.
-		ZedEditor,      // Zed has deployment assistance.
-		CursorAI,       // Cursor is widely used.
-		GitHubCopilot,  // Copilot is also popular.
-		VSCodeAI,       // VSCode is common.
-	}
-
-	// Try each provider in priority order.
-	for _, provider := range priorityProviders {
-		if os.Getenv(provider.EnvVarKey) != "" && provider.Capabilities&requiredCaps == requiredCaps {
-			// Log which provider we're using.
-			if os.Getenv("NEXLAYER_DEBUG") != "" {
-				fmt.Printf("Using AI provider: %s (%s)\n", provider.Name, provider.Description)
-			}
-
-			// Cache the result.
-			cache.Lock()
-			cache.provider = &provider
-			cache.expiration = time.Now().Add(cachePeriod)
-			cache.Unlock()
-			return &provider
+// GetPreferredProvider returns the preferred AI provider based on environment and capabilities.
+func GetPreferredProvider(ctx context.Context, cap Capability) *AIProvider {
+	// Check for Windsurf Editor
+	if os.Getenv("WINDSURF_EDITOR_ACTIVE") == "true" {
+		return &AIProvider{
+			Name:         "Windsurf Editor",
+			Description:  "AI-powered code editor",
+			EnvVarKey:    "WINDSURF_EDITOR_ACTIVE",
+			Capabilities: CapCodeGeneration | CapCodeCompletion | CapDeploymentAssistance,
 		}
 	}
 
-	// No provider found.
-	if os.Getenv("NEXLAYER_DEBUG") != "" {
-		fmt.Println("No AI provider found with required capabilities, using fallback template")
-	}
+	// Add more provider checks here if needed
+
 	return nil
 }
 

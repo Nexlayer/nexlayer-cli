@@ -214,7 +214,7 @@ func writeYAMLToFile(filename string, content string) error {
 		pterm.Info.Printf("📦 Backed up existing %s to %s\n", filename, backupFile)
 	}
 
-	if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("failed to write YAML file: %w", err)
 	}
 	pterm.Info.Println("✅ Configuration written to nexlayer.yaml")

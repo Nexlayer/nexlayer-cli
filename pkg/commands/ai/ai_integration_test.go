@@ -18,6 +18,13 @@ func TestGenerateTemplateWithAnalysis(t *testing.T) {
 
 	// Create test files
 	files := map[string]string{
+		"go.mod": `module test-app
+
+go 1.22.0
+
+require (
+	github.com/lib/pq v1.10.9
+)`,
 		"main.go": `package main
 
 import (
@@ -51,8 +58,12 @@ func initDB() error {
 
 	for name, content := range files {
 		path := filepath.Join(tmpDir, name)
-		err := os.WriteFile(path, []byte(content), 0644)
+		err := os.WriteFile(path, []byte(content), 0o644)
 		assert.NoError(t, err)
+		if filepath.Base(path) == "go.mod" {
+			err = os.Chmod(path, 0o644)
+			assert.NoError(t, err)
+		}
 	}
 
 	// Test template generation

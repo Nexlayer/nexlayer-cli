@@ -5,6 +5,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands"
 	logincmd "github.com/Nexlayer/nexlayer-cli/pkg/commands/login"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
@@ -86,7 +87,7 @@ func NewCommand(client api.APIClient) *cobra.Command {
 }
 
 func TestNewCommand(t *testing.T) {
-	client := new(mockAPIClient)
+	client := new(commands.MockAPIClient)
 	cmd := logincmd.NewLoginCommand(client)
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "login", cmd.Use)
@@ -95,7 +96,7 @@ func TestNewCommand(t *testing.T) {
 }
 
 func TestLoginCommand(t *testing.T) {
-	client := new(mockAPIClient)
+	client := new(commands.MockAPIClient)
 	cmd := logincmd.NewLoginCommand(client)
 
 	buf := new(bytes.Buffer)
@@ -108,7 +109,7 @@ func TestLoginCommand(t *testing.T) {
 }
 
 func TestLoginCommandStructure(t *testing.T) {
-	client := new(mockAPIClient)
+	client := new(commands.MockAPIClient)
 	cmd := logincmd.NewLoginCommand(client)
 
 	assert.NotNil(t, cmd)

@@ -84,8 +84,8 @@ func TestValidateNexlayerYAML(t *testing.T) {
 				Application: schema.Application{
 					Name: "myapp",
 					RegistryLogin: &schema.RegistryLogin{
-						Registry:           "ghcr.io",
-						Username:           "myuser",
+						Registry:            "ghcr.io",
+						Username:            "myuser",
 						PersonalAccessToken: "token123",
 					},
 					Pods: []schema.Pod{

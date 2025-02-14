@@ -15,21 +15,21 @@ type APIResponse[T any] struct {
 // DeploymentResponse represents the response from starting a deployment
 type DeploymentResponse struct {
 	Namespace string `json:"namespace"`
-	URL      string `json:"url"`
+	URL       string `json:"url"`
 }
 
 // Deployment represents a deployment in the system
 type Deployment struct {
-	Namespace    string       `json:"namespace"`
-	TemplateID   string       `json:"templateId"`
-	TemplateName string       `json:"templateName"`
-	Status       string       `json:"status"`
-	URL          string       `json:"url"`
-	CustomDomain string       `json:"customDomain"`
-	Version      string       `json:"version"`
-	CreatedAt    time.Time    `json:"createdAt"`
-	LastUpdated  time.Time    `json:"lastUpdated"`
-	PodStatuses  []PodStatus  `json:"podStatuses"`
+	Namespace    string      `json:"namespace"`
+	TemplateID   string      `json:"templateId"`
+	TemplateName string      `json:"templateName"`
+	Status       string      `json:"status"`
+	URL          string      `json:"url"`
+	CustomDomain string      `json:"customDomain"`
+	Version      string      `json:"version"`
+	CreatedAt    time.Time   `json:"createdAt"`
+	LastUpdated  time.Time   `json:"lastUpdated"`
+	PodStatuses  []PodStatus `json:"podStatuses"`
 }
 
 // PodStatus represents the status of a pod in a deployment
@@ -50,8 +50,8 @@ type NexlayerYAML struct {
 
 // RegistryLogin represents registry authentication details
 type RegistryLogin struct {
-	Registry           string `json:"registry"`
-	Username           string `json:"username"`
+	Registry            string `json:"registry"`
+	Username            string `json:"username"`
 	PersonalAccessToken string `json:"personalAccessToken"`
 }
 
@@ -72,13 +72,13 @@ type Port struct {
 
 // Pod represents a container configuration in a Nexlayer application
 type Pod struct {
-	Name    string    `json:"name"`
-	Path    string    `json:"path,omitempty"`
-	Image   string    `json:"image"`
-	Volumes []Volume  `json:"volumes,omitempty"`
-	Secrets []Secret  `json:"secrets,omitempty"`
-	Vars    []EnvVar  `json:"vars,omitempty"`
-	Ports   []Port    `json:"ports"`
+	Name    string   `json:"name"`
+	Path    string   `json:"path,omitempty"`
+	Image   string   `json:"image"`
+	Volumes []Volume `json:"volumes,omitempty"`
+	Secrets []Secret `json:"secrets,omitempty"`
+	Vars    []EnvVar `json:"vars,omitempty"`
+	Ports   []Port   `json:"ports"`
 }
 
 // Volume represents a persistent volume configuration
