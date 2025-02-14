@@ -30,7 +30,7 @@ const (
 type Parser struct {
 	mu       sync.RWMutex
 	parsers  map[Language]*sitter.Parser
-	queries  map[Language]*sitter.Query
+	queries  map[Language]map[string]*sitter.Query
 	language map[Language]*sitter.Language
 }
 
@@ -38,7 +38,7 @@ type Parser struct {
 func NewParser() *Parser {
 	p := &Parser{
 		parsers:  make(map[Language]*sitter.Parser),
-		queries:  make(map[Language]*sitter.Query),
+		queries:  make(map[Language]map[string]*sitter.Query),
 		language: make(map[Language]*sitter.Language),
 	}
 

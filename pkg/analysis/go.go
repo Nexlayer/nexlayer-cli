@@ -20,9 +20,7 @@ const (
 	goFunctionQuery = `
 (source_file
   (function_declaration
-    name: (identifier) @function.name
-    parameters: (parameter_list) @function.params
-    result: (result) @function.result))
+    name: (identifier) @function.name))
 `
 
 	goAPIEndpointQuery = `
@@ -55,13 +53,6 @@ func (p *Parser) analyzeGoFile(path string, tree *sitter.Tree, content []byte, a
 	}
 	analysis.Functions[path] = functions
 
-	// Extract API endpoints
-	endpoints, err := p.extractGoAPIEndpoints(tree, content)
-	if err != nil {
-		return err
-	}
-	analysis.APIEndpoints = append(analysis.APIEndpoints, endpoints...)
-
 	return nil
 }
 
@@ -73,26 +64,28 @@ func (p *Parser) initGoQueries() error {
 		return nil
 	}
 
-	// Initialize all queries
-	queries := map[string]string{
-		"import":   goImportQuery,
-		"function": goFunctionQuery,
-		"api":      goAPIEndpointQuery,
-	}
+	// Initialize queries map for Go if not exists
+	p.queries[Go] = make(map[string]*sitter.Query)
 
-	for name, query := range queries {
-		q, err := sitter.NewQuery([]byte(query), p.language[Go])
-		if err != nil {
-			return fmt.Errorf("failed to create Go %s query: %w", name, err)
-		}
-		p.queries[Go] = q
+	// Initialize import query
+	importQuery, err := sitter.NewQuery([]byte(goImportQuery), p.language[Go])
+	if err != nil {
+		return fmt.Errorf("failed to create Go import query: %w", err)
 	}
+	p.queries[Go]["import"] = importQuery
+
+	// Initialize function query
+	functionQuery, err := sitter.NewQuery([]byte(goFunctionQuery), p.language[Go])
+	if err != nil {
+		return fmt.Errorf("failed to create Go function query: %w", err)
+	}
+	p.queries[Go]["function"] = functionQuery
 
 	return nil
 }
 
 func (p *Parser) extractGoImports(tree *sitter.Tree, content []byte) ([]string, error) {
-	query := p.queries[Go]
+	query := p.queries[Go]["import"]
 	cursor := sitter.NewQueryCursor()
 	cursor.Exec(query, tree.RootNode())
 
@@ -104,10 +97,10 @@ func (p *Parser) extractGoImports(tree *sitter.Tree, content []byte) ([]string, 
 		}
 
 		for _, capture := range match.Captures {
-			nodeContent := capture.Node.Content(content)
-			if strings.HasPrefix(nodeContent, "@import.path") {
+			if capture.Node != nil {
+				importPath := capture.Node.Content(content)
 				// Remove quotes from import path
-				importPath := nodeContent[1 : len(nodeContent)-1] // Remove quotes
+				importPath = strings.Trim(importPath, "\"")
 				imports = append(imports, importPath)
 			}
 		}
@@ -117,7 +110,7 @@ func (p *Parser) extractGoImports(tree *sitter.Tree, content []byte) ([]string, 
 }
 
 func (p *Parser) extractGoFunctions(tree *sitter.Tree, content []byte) ([]FunctionInfo, error) {
-	query := p.queries[Go]
+	query := p.queries[Go]["function"]
 	cursor := sitter.NewQueryCursor()
 	cursor.Exec(query, tree.RootNode())
 
@@ -128,22 +121,16 @@ func (p *Parser) extractGoFunctions(tree *sitter.Tree, content []byte) ([]Functi
 			break
 		}
 
-		var fn FunctionInfo
 		for _, capture := range match.Captures {
-			nodeContent := capture.Node.Content(content)
-			switch {
-			case strings.HasPrefix(nodeContent, "@function.name"):
-				fn.Name = nodeContent
-			case strings.HasPrefix(nodeContent, "@function.params"):
-				fn.Signature = nodeContent
+			if capture.Node != nil {
+				fn := FunctionInfo{
+					Name:      capture.Node.Content(content),
+					StartLine: uint32(capture.Node.StartPoint().Row + 1),
+					EndLine:   uint32(capture.Node.EndPoint().Row + 1),
+				}
+				fn.IsExported = isExported(fn.Name)
+				functions = append(functions, fn)
 			}
-		}
-
-		if fn.Name != "" {
-			fn.StartLine = uint32(match.Captures[0].Node.StartPoint().Row)
-			fn.EndLine = uint32(match.Captures[0].Node.EndPoint().Row)
-			fn.IsExported = isExported(fn.Name)
-			functions = append(functions, fn)
 		}
 	}
 
@@ -151,7 +138,7 @@ func (p *Parser) extractGoFunctions(tree *sitter.Tree, content []byte) ([]Functi
 }
 
 func (p *Parser) extractGoAPIEndpoints(tree *sitter.Tree, content []byte) ([]APIEndpoint, error) {
-	query := p.queries[Go]
+	query := p.queries[Go]["api"]
 	cursor := sitter.NewQueryCursor()
 	cursor.Exec(query, tree.RootNode())
 

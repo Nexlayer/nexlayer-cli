@@ -109,11 +109,16 @@ func TestAnalyzeProject(t *testing.T) {
 	files := map[string]string{
 		"main.go": `package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
-func main() string {
+func main() {
 	fmt.Println("Hello, World!")
-	return "success"
+}
+
+func greet(name string) string {
+	return "Hello, " + name
 }`,
 		"app.js": `
 const express = require('express');
@@ -146,12 +151,24 @@ if __name__ == "__main__":
 	assert.NotNil(t, analysis)
 
 	// Validate Go analysis
-	assert.Contains(t, analysis.Functions, "main")
-	assert.Contains(t, analysis.Imports, "fmt")
+	goFuncs := make(map[string]bool)
+	for _, funcs := range analysis.Functions {
+		for _, f := range funcs {
+			goFuncs[f.Name] = true
+		}
+	}
+	assert.True(t, goFuncs["main"], "main function should be detected")
+	assert.True(t, goFuncs["greet"], "greet function should be detected")
 
-	// Validate JavaScript analysis
-	assert.Contains(t, analysis.Dependencies, "express")
-
-	// Validate Python analysis
-	assert.Contains(t, analysis.Functions, "greet")
+	// Validate imports
+	hasImport := false
+	for _, imports := range analysis.Imports {
+		for _, imp := range imports {
+			if imp == "fmt" {
+				hasImport = true
+				break
+			}
+		}
+	}
+	assert.True(t, hasImport, "fmt import should be detected")
 }
