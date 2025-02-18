@@ -4,7 +4,7 @@ Nexlayer base YAML template structure follows this pattern:
 
 ```yaml
 application:
-  name: The name of the deployment (must be lowercase, alphanumeric, '-', '.')
+  name: The name of the deployment
   url: Permanent domain URL (optional). No need to add this key if this is not going to be a permanent deployment.
   registryLogin:
     registry: The registry where private images are stored.
@@ -13,9 +13,11 @@ application:
   pods:
     - name: Pod name (must start with a lowercase letter and can include only alphanumeric characters, '-', '.')
       path: Path to render pod at (such as '/' for frontend). Only required for forward-facing pods.
-      image: Docker image faor the pod. 
+      image: Docker image for the pod. 
         # For private images, use the following schema exactly as shown: '<% REGISTRY %>/some/path/image:tag'.
         # Images will be tagged as private if they include '<% REGISTRY %>', which will be replaced with the registry specified above.
+      entrypoint: command to replace ENTRYPOINT of image
+      command: command to replace CMD of image
       volumes:
         # Array of volumes to be mounted for this pod. Example:
         - name: Name of the volume (lowercase, alphanumeric, '-')
@@ -24,7 +26,7 @@ application:
       secrets:
         # Array of secret files for this pod. Example:
         - name: Secret name (lowercase, alphanumeric, '-')
-          data: Raw or Base64-encoded string for the secret (e.g., JSON files should be encoded).
+          data: Raw text or Base64-encoded string for the secret (e.g., JSON files should be encoded).
           mountPath: Mount path where the secret file will be stored (must start with '/').
           fileName: Name of the secret file (e.g., "secret-file.txt"). 
             # This will be available at "/var/secrets/my-secret-volume/secret-file.txt".
@@ -35,7 +37,7 @@ application:
         # Can use <pod-name>.pod to reference other pods dynamically. Example:
         - key: API_URL
           value: http://express.pod:3000  # Where 'express' is the name of another pod.
-        # Can use <% URL %> to reference the deployment’s base URL dynamically. Example:
+        # Can use <% URL %> to reference the deployment's base URL dynamically. Example:
         - key: API_URL
           value: <% URL %>/api
     servicePorts:
@@ -43,5 +45,71 @@ application:
       - 3000  # Exposing port 3000.
   entrypoint: Custom container entrypoint (optional).
   command: Custom container command (optional).
-
 ```
+
+# Nexlayer YAML Template Overview
+
+Below is an overview of the Nexlayer base YAML template structure from above but in table format for better readability:
+
+---
+
+### Application Configuration
+
+| Key   | Description                                                                                             |
+|-------|---------------------------------------------------------------------------------------------------------|
+| `name` | The name of the deployment.                                                                            |
+| `url`  | Permanent domain URL (optional). Do not include if not using a permanent deployment.                   |
+
+---
+
+### Registry Login Configuration
+
+| Key                   | Description                                                     |
+|-----------------------|-----------------------------------------------------------------|
+| `registry`            | The registry where private images are stored.                   |
+| `username`            | Registry username.                                              |
+| `personalAccessToken` | Read-only registry Personal Access Token.                       |
+
+---
+
+### Pod Configuration
+
+| Key          | Description                                                                                                                                                       |
+|--------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `name`       | Pod name (must start with a lowercase letter and can include only alphanumeric characters, `-`, or `.`).                                                             |
+| `path`       | Path to render pod at (e.g., `/` for frontend). Only required for forward-facing pods.                                                                            |
+| `image`      | Docker image for the pod. For private images, use the schema: `<% REGISTRY %>/some/path/image:tag`. The `<% REGISTRY %>` token will be replaced dynamically.    |
+| `entrypoint` | Command to replace the image’s ENTRYPOINT.                                                                                                                        |
+| `command`    | Command to replace the image’s CMD.                                                                                                                               |
+
+---
+
+### Pod Volumes Configuration
+
+| Key         | Description                                                                                      |
+|-------------|--------------------------------------------------------------------------------------------------|
+| `name`      | Volume name (lowercase, alphanumeric, and `-`).                                                  |
+| `size`      | Required volume size (e.g., `1Gi`, `500Mi`).                                                     |
+| `mountPath` | Mount path for the volume (must start with `/`).                                                |
+
+---
+
+### Pod Secrets Configuration
+
+| Key         | Description                                                                                                                                       |
+|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| `name`      | Secret name (lowercase, alphanumeric, and `-`).                                                                                                   |
+| `data`      | Raw text or Base64-encoded string for the secret (e.g., encoded JSON).                                                                            |
+| `mountPath` | Mount path where the secret file will be stored (must start with `/`).                                                                            |
+| `fileName`  | Name of the secret file (e.g., `secret-file.txt`). The file will be available at `<mountPath>/<fileName>`.                                         |
+
+---
+
+### Pod Environment Variables Configuration
+
+| Key    | Description                                                                                                                                                                         |
+|--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `key`  | Environment variable name.                                                                                                                                                          |
+| `value`| Value of the environment variable. Can reference other pods using `<pod-name>.pod` (e.g., `http://express.pod:3000`) or the deployment’s base URL using `<% URL %>` (e.g., `<% URL %>/api`). |
+
+---

@@ -183,12 +183,13 @@ func generateProjectYAML(projectName string, info *detection.ProjectInfo) (strin
 	yamlContent, err := detection.GenerateYAMLFromTemplate(info)
 	if err != nil {
 		pterm.Warning.Println("⚠️  Using basic template - some features may need manual configuration")
-		// Use a basic template following v1.2 schema
+		// Use a basic template following v1.0 schema
 		yamlContent = fmt.Sprintf(`application:
   name: %s
   pods:
     - name: app
       type: frontend
+      path: /
       image: nginx:latest
       servicePorts:
         - 80

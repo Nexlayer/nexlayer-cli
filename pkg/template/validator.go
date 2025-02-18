@@ -81,27 +81,12 @@ func (v *Validator) Validate(yaml *NexlayerYAML) error {
 	// Validate port configurations
 	usedPorts := make(map[int]string)
 	for _, pod := range yaml.Application.Pods {
-		// Validate port names are unique within pod
-		usedNames := make(map[string]bool)
-		for _, port := range pod.Ports {
-			// Check service port uniqueness across all pods
-			if existingPod, exists := usedPorts[port.ServicePort]; exists {
-				return fmt.Errorf("service port %d is already used by pod '%s'", port.ServicePort, existingPod)
+		// Validate service ports are unique across all pods
+		for _, port := range pod.ServicePorts {
+			if existingPod, exists := usedPorts[port]; exists {
+				return fmt.Errorf("service port %d is already used by pod '%s'", port, existingPod)
 			}
-			usedPorts[port.ServicePort] = pod.Name
-
-			// Check port name uniqueness within pod
-			if usedNames[port.Name] {
-				return fmt.Errorf("port name '%s' is used multiple times in pod '%s'", port.Name, pod.Name)
-			}
-			usedNames[port.Name] = true
-		}
-
-		// Apply default ports if none specified
-		if len(pod.Ports) == 0 {
-			if defaultPorts, ok := DefaultPorts[pod.Type]; ok {
-				pod.Ports = defaultPorts
-			}
+			usedPorts[port] = pod.Name
 		}
 	}
 

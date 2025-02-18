@@ -7,7 +7,7 @@ package examples
 import "github.com/Nexlayer/nexlayer-cli/pkg/template"
 
 // StandardTemplate returns a standard example template that follows
-// the Nexlayer YAML schema v2 format
+// the Nexlayer YAML schema v1.0 format
 func StandardTemplate() *template.NexlayerYAML {
 	return &template.NexlayerYAML{
 		Application: template.Application{
@@ -36,13 +36,7 @@ func StandardTemplate() *template.NexlayerYAML {
 						{Key: "API_URL", Value: "http://backend.pod:8000"},
 						{Key: "NODE_ENV", Value: "production"},
 					},
-					Ports: []template.Port{
-						{
-							ContainerPort: 3000,
-							ServicePort:   3000,
-							Name:          "http",
-						},
-					},
+					ServicePorts: []int{3000},
 				},
 				{
 					// REQUIRED: Pod name (lowercase alphanumeric)
@@ -57,13 +51,7 @@ func StandardTemplate() *template.NexlayerYAML {
 						{Key: "DATABASE_URL", Value: "postgres://user:pass@db.pod:5432/db"},
 						{Key: "PORT", Value: "8000"},
 					},
-					Ports: []template.Port{
-						{
-							ContainerPort: 8000,
-							ServicePort:   8000,
-							Name:          "http",
-						},
-					},
+					ServicePorts: []int{8000},
 				},
 				{
 					Name:  "db",
@@ -76,25 +64,13 @@ func StandardTemplate() *template.NexlayerYAML {
 							MountPath: "/var/lib/postgresql/data",
 						},
 					},
-					Ports: []template.Port{
-						{
-							ContainerPort: 5432,
-							ServicePort:   5432,
-							Name:          "postgresql",
-						},
-					},
+					ServicePorts: []int{5432},
 				},
 				{
-					Name:  "llm",
-					Type:  template.Ollama,
-					Image: "ollama/ollama:latest",
-					Ports: []template.Port{
-						{
-							ContainerPort: 11434,
-							ServicePort:   11434,
-							Name:          "ollama",
-						},
-					},
+					Name:         "llm",
+					Type:         template.Ollama,
+					Image:        "ollama/ollama:latest",
+					ServicePorts: []int{11434},
 				},
 			},
 		},

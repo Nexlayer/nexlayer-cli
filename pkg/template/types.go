@@ -26,15 +26,15 @@ type RegistryLogin struct {
 
 // Pod represents a container in the deployment
 type Pod struct {
-	Name        string            `yaml:"name" validate:"required,podname"` // lowercase, alphanumeric, '-', or '.'
-	Type        PodType           `yaml:"type,omitempty" validate:"omitempty,podtype"`
-	Path        string            `yaml:"path,omitempty" validate:"omitempty,startswith=/"`
-	Image       string            `yaml:"image" validate:"required,image"` // Full image URL including registry and tag
-	Volumes     []Volume          `yaml:"volumes,omitempty" validate:"omitempty,dive"`
-	Secrets     []Secret          `yaml:"secrets,omitempty" validate:"omitempty,dive"`
-	Vars        []EnvVar          `yaml:"vars,omitempty" validate:"omitempty,dive"`
-	Ports       []Port            `yaml:"ports" validate:"required,dive"`
-	Annotations map[string]string `yaml:"annotations,omitempty"`
+	Name         string            `yaml:"name" validate:"required,podname"` // lowercase, alphanumeric, '-', or '.'
+	Type         PodType           `yaml:"type,omitempty" validate:"omitempty,podtype"`
+	Path         string            `yaml:"path,omitempty" validate:"omitempty,startswith=/"`
+	Image        string            `yaml:"image" validate:"required,image"` // Full image URL including registry and tag
+	Volumes      []Volume          `yaml:"volumes,omitempty" validate:"omitempty,dive"`
+	Secrets      []Secret          `yaml:"secrets,omitempty" validate:"omitempty,dive"`
+	Vars         []EnvVar          `yaml:"vars,omitempty" validate:"omitempty,dive"`
+	ServicePorts []int             `yaml:"servicePorts" validate:"required,dive,gt=0,lt=65536"`
+	Annotations  map[string]string `yaml:"annotations,omitempty"`
 }
 
 // Port represents a port configuration

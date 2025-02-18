@@ -22,7 +22,7 @@ var (
 )
 
 // ValidateTemplate performs comprehensive validation of a Nexlayer template
-// according to the v2.0 schema specification.
+// according to the v1.0 schema specification.
 func ValidateTemplate(template *template.NexlayerYAML) error {
 	// First validate against JSON Schema
 	if err := validateAgainstSchema(template); err != nil {
@@ -97,24 +97,23 @@ func validatePod(pod template.Pod, usedPorts map[int]string) error {
 		return fmt.Errorf("image is required")
 	}
 
-	// Validate service ports
-	if len(pod.Ports) == 0 {
+	// Validate path if present (new in v1.0)
+	if pod.Path != "" && !strings.HasPrefix(pod.Path, "/") {
+		return fmt.Errorf("path must start with '/' (got %q)", pod.Path)
+	}
+
+	// Validate service ports with new format
+	if len(pod.ServicePorts) == 0 {
 		return fmt.Errorf("at least one service port is required")
 	}
-	for _, port := range pod.Ports {
-		if port.ServicePort <= 0 || port.ServicePort > 65535 {
-			return fmt.Errorf("invalid service port number %d: must be between 1 and 65535", port.ServicePort)
+	for _, port := range pod.ServicePorts {
+		if port <= 0 || port > 65535 {
+			return fmt.Errorf("invalid port number %d: must be between 1 and 65535", port)
 		}
-		if port.ContainerPort <= 0 || port.ContainerPort > 65535 {
-			return fmt.Errorf("invalid container port number %d: must be between 1 and 65535", port.ContainerPort)
+		if existingPod, exists := usedPorts[port]; exists {
+			return fmt.Errorf("port %d is already in use by pod %q", port, existingPod)
 		}
-		if port.Name == "" {
-			return fmt.Errorf("port name is required")
-		}
-		if existingPod, exists := usedPorts[port.ServicePort]; exists {
-			return fmt.Errorf("service port %d is already in use by pod %q", port.ServicePort, existingPod)
-		}
-		usedPorts[port.ServicePort] = pod.Name
+		usedPorts[port] = pod.Name
 	}
 
 	// Validate volumes if present

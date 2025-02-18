@@ -63,10 +63,7 @@ func detectPodType(info *detection.ProjectInfo, analysis *analysis.ProjectAnalys
 // createPod creates a pod configuration based on detected settings
 func createPod(podType tmpl.PodType, analysis *analysis.ProjectAnalysis, info *detection.ProjectInfo, projectName string) tmpl.Pod {
 	// Get default ports for the pod type
-	ports := tmpl.DefaultPorts[podType]
-	if len(ports) == 0 && analysis != nil {
-		ports = detectPorts(analysis, info)
-	}
+	ports := detectPorts(analysis, info)
 
 	// Get default environment variables
 	vars := tmpl.DefaultEnvVars[podType]
@@ -77,33 +74,29 @@ func createPod(podType tmpl.PodType, analysis *analysis.ProjectAnalysis, info *d
 	}
 
 	return tmpl.Pod{
-		Name:  "app",
-		Type:  podType,
-		Image: fmt.Sprintf("ghcr.io/nexlayer/%s:latest", projectName),
-		Ports: ports,
-		Vars:  vars,
+		Name:         "app",
+		Type:         podType,
+		Image:        fmt.Sprintf("ghcr.io/nexlayer/%s:latest", projectName),
+		ServicePorts: ports,
+		Vars:         vars,
 	}
 }
 
 // detectPorts detects ports from analysis or project info
-func detectPorts(analysis *analysis.ProjectAnalysis, info *detection.ProjectInfo) []tmpl.Port {
-	var ports []tmpl.Port
+func detectPorts(analysis *analysis.ProjectAnalysis, info *detection.ProjectInfo) []int {
+	var ports []int
 
 	if len(analysis.APIEndpoints) > 0 {
 		for _, endpoint := range analysis.APIEndpoints {
 			if port := extractPortFromEndpoint(endpoint.Path); port > 0 {
-				ports = append(ports, tmpl.Port{
-					ContainerPort: port,
-					ServicePort:   port,
-					Name:          "api",
-				})
+				ports = append(ports, port)
 			}
 		}
 	}
 
 	// Fallback to info.Port if no ports detected
 	if len(ports) == 0 && info.Port > 0 {
-		ports = []tmpl.Port{{ContainerPort: info.Port, ServicePort: info.Port, Name: "app"}}
+		ports = []int{info.Port}
 	}
 
 	return ports
