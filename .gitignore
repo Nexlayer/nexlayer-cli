@@ -23,11 +23,14 @@ testing-cli-*/
 *-testing-*/
 sal-testing-*/
 
-# Test files
-testdata/
+# Test files and directories
+**/*_test.go
+**/*_test/
+**/test/
+**/tests/
+**/testdata/
 testing/
 tetsing/
-*_test/
 test_init/
 test.yaml
 testing-cli-wizard.yaml
@@ -35,6 +38,22 @@ testing-cli-*.yaml
 *.test
 coverage.out
 test-projects/
+**/*.test.js
+**/*.test.ts
+**/*.spec.js
+**/*.spec.ts
+**/__tests__/
+**/__mocks__/
+**/jest.config.js
+**/jest.setup.js
+**/.pytest_cache/
+**/pytest.ini
+**/test_*.py
+**/*_test.py
+**/mock_*.go
+**/mocks/
+**/fixtures/
+**/snapshots/
 
 # Build artifacts
 dist/
