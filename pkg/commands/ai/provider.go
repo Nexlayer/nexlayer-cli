@@ -9,8 +9,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/registry"
 )
 
 // Provider represents an AI code assistant provider.
@@ -51,11 +49,10 @@ func GetPreferredProvider(ctx context.Context, cap Capability) *AIProvider {
 	}
 
 	// Add more provider checks here if needed
-
 	return nil
 }
 
-// CommandProvider implements the registry.CommandProvider interface.
+// CommandProvider provides AI-related commands.
 type CommandProvider struct{}
 
 // NewProvider creates a new AI command provider.
@@ -63,23 +60,8 @@ func NewProvider() *CommandProvider {
 	return &CommandProvider{}
 }
 
-// Name returns the unique name of this command provider.
-func (p *CommandProvider) Name() string {
-	return "ai"
-}
-
-// Description returns a description of what commands this provider offers.
-func (p *CommandProvider) Description() string {
-	return "AI-powered features for generating and optimizing deployment templates"
-}
-
-// Dependencies returns a list of other provider names that this provider depends on.
-func (p *CommandProvider) Dependencies() []string {
-	return nil
-}
-
-// Commands returns the AI-related commands.
-func (p *CommandProvider) Commands(deps *registry.CommandDependencies) []*cobra.Command {
+// GetCommands returns the AI-related commands.
+func (p *CommandProvider) GetCommands() []*cobra.Command {
 	return []*cobra.Command{
 		NewCommand(),
 	}

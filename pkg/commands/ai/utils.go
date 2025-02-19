@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/analysis"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
 )
 
 // CallGraph represents the structure of the call graph JSON output
@@ -35,16 +35,19 @@ func parseCallGraph(data string) (*CallGraph, error) {
 }
 
 // enhancePromptWithAnalysis enhances the base prompt with project analysis information
-func enhancePromptWithAnalysis(basePrompt string, analysis *analysis.ProjectAnalysis) string {
+func enhancePromptWithAnalysis(basePrompt string, analysis *types.ProjectAnalysis) string {
 	var sb strings.Builder
 	sb.WriteString(basePrompt)
 	sb.WriteString("\n\nProject Analysis:\n")
 
-	// Add detected frameworks
-	if len(analysis.Frameworks) > 0 {
-		sb.WriteString("\nFrameworks:\n")
-		for _, fw := range analysis.Frameworks {
-			sb.WriteString(fmt.Sprintf("- %s\n", fw))
+	// Add detected functions
+	if len(analysis.Functions) > 0 {
+		sb.WriteString("\nFunctions:\n")
+		for file, functions := range analysis.Functions {
+			sb.WriteString(fmt.Sprintf("\nFile: %s\n", file))
+			for _, fn := range functions {
+				sb.WriteString(fmt.Sprintf("- %s\n", fn.Name))
+			}
 		}
 	}
 
@@ -56,11 +59,14 @@ func enhancePromptWithAnalysis(basePrompt string, analysis *analysis.ProjectAnal
 		}
 	}
 
-	// Add detected database types
-	if len(analysis.DatabaseTypes) > 0 {
-		sb.WriteString("\nDatabases:\n")
-		for _, db := range analysis.DatabaseTypes {
-			sb.WriteString(fmt.Sprintf("- %s\n", db))
+	// Add detected dependencies
+	if len(analysis.Dependencies) > 0 {
+		sb.WriteString("\nDependencies:\n")
+		for pkg, deps := range analysis.Dependencies {
+			sb.WriteString(fmt.Sprintf("\nPackage: %s\n", pkg))
+			for _, dep := range deps {
+				sb.WriteString(fmt.Sprintf("- %s@%s (%s)\n", dep.Name, dep.Version, dep.Type))
+			}
 		}
 	}
 

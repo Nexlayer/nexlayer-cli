@@ -6,7 +6,7 @@ package validation
 
 import (
 	"fmt"
-	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/schema"
@@ -67,20 +67,16 @@ func NewValidator(strict bool) *Validator {
 	}
 }
 
-// ValidateYAML performs comprehensive validation of a Nexlayer YAML configuration
+// ValidateYAML performs basic validation of a Nexlayer YAML configuration
 func (v *Validator) ValidateYAML(yaml *schema.NexlayerYAML) []ValidationError {
 	var errors []ValidationError
 
-	// Validate application
+	// Validate application name
 	if yaml.Application.Name == "" {
 		errors = append(errors, ValidationError{
 			Field:    "application.name",
 			Message:  "Application name is required",
 			Severity: "error",
-			Suggestions: []string{
-				"Add 'name' field under 'application' section",
-				"Use a descriptive name that reflects your application's purpose",
-			},
 		})
 	} else if !isValidName(yaml.Application.Name) {
 		errors = append(errors, ValidationError{
@@ -88,9 +84,9 @@ func (v *Validator) ValidateYAML(yaml *schema.NexlayerYAML) []ValidationError {
 			Message:  "Invalid application name format",
 			Severity: "error",
 			Suggestions: []string{
-				"Use only lowercase letters, numbers, and dashes",
-				"Start with a letter",
-				"Example: my-app-123",
+				"Must start with a lowercase letter",
+				"Can include only alphanumeric characters, '-', '.'",
+				"Example: my-app.v1",
 			},
 		})
 	}
@@ -99,13 +95,8 @@ func (v *Validator) ValidateYAML(yaml *schema.NexlayerYAML) []ValidationError {
 	if len(yaml.Application.Pods) == 0 {
 		errors = append(errors, ValidationError{
 			Field:    "application.pods",
-			Message:  "No pod configurations found",
+			Message:  "At least one pod configuration is required",
 			Severity: "error",
-			Suggestions: []string{
-				"Add at least one pod under 'pods' section",
-				"Each pod should define an 'image' and 'servicePorts'",
-				"Example:\n  pods:\n    - name: web\n      image: nginx:latest\n      servicePorts:\n        - 80",
-			},
 		})
 	}
 
@@ -114,16 +105,10 @@ func (v *Validator) ValidateYAML(yaml *schema.NexlayerYAML) []ValidationError {
 		errors = append(errors, podErrors...)
 	}
 
-	// Validate registry credentials if needed
-	if yaml.Application.RegistryLogin != nil {
-		credErrors := v.validateRegistryCredentials(*yaml.Application.RegistryLogin)
-		errors = append(errors, credErrors...)
-	}
-
 	return errors
 }
 
-// validatePod validates a single pod configuration
+// validatePod performs basic validation of a pod configuration
 func (v *Validator) validatePod(pod schema.Pod, index int) []ValidationError {
 	var errors []ValidationError
 	prefix := fmt.Sprintf("application.pods[%d]", index)
@@ -134,11 +119,6 @@ func (v *Validator) validatePod(pod schema.Pod, index int) []ValidationError {
 			Field:    prefix + ".name",
 			Message:  "Pod name is required",
 			Severity: "error",
-			Suggestions: []string{
-				"Add 'name' field to pod configuration",
-				"Use a descriptive name that reflects the pod's purpose",
-				"Example: web-server, api, database",
-			},
 		})
 	} else if !isValidName(pod.Name) {
 		errors = append(errors, ValidationError{
@@ -146,155 +126,310 @@ func (v *Validator) validatePod(pod schema.Pod, index int) []ValidationError {
 			Message:  "Invalid pod name format",
 			Severity: "error",
 			Suggestions: []string{
-				"Use only lowercase letters, numbers, and dashes",
-				"Start with a letter",
-				"Example: web-app-1, api-server, redis-cache",
+				"Must start with a lowercase letter",
+				"Can include only alphanumeric characters, '-', '.'",
+				"Example: web-server.v1",
 			},
 		})
 	}
 
 	if pod.Image == "" {
 		errors = append(errors, ValidationError{
-			Field:   prefix + ".image",
-			Message: "image is required",
+			Field:    prefix + ".image",
+			Message:  "Image is required",
+			Severity: "error",
 		})
 	} else if !isValidImageName(pod.Image) {
 		errors = append(errors, ValidationError{
-			Field:   prefix + ".image",
-			Message: "invalid image format. Expected format: [registry/]repository[:tag]",
+			Field:    prefix + ".image",
+			Message:  "Invalid image format",
+			Severity: "error",
+			Suggestions: []string{
+				"For private images: <% REGISTRY %>/path/image:tag",
+				"For public images: [registry/]repository:tag",
+				"Example private: <% REGISTRY %>/myapp/api:v1.0.0",
+				"Example public: nginx:latest",
+			},
 		})
-	}
-
-	// Validate volumes
-	for j, vol := range pod.Volumes {
-		volErrors := v.validateVolume(vol, fmt.Sprintf("%s.volumes[%d]", prefix, j))
-		errors = append(errors, volErrors...)
 	}
 
 	// Validate service ports
 	if len(pod.ServicePorts) == 0 {
 		errors = append(errors, ValidationError{
-			Field:   prefix + ".servicePorts",
-			Message: "at least one service port is required",
+			Field:    prefix + ".servicePorts",
+			Message:  "At least one service port is required",
+			Severity: "error",
 		})
 	}
 
-	for _, port := range pod.ServicePorts {
-		if port < 1 || port > 65535 {
-			errors = append(errors, ValidationError{
-				Field:   prefix + ".servicePorts",
-				Message: fmt.Sprintf("invalid port number: %d (must be between 1 and 65535)", port),
-			})
-		}
+	for j, port := range pod.ServicePorts {
+		portErrors := v.validateServicePort(port, fmt.Sprintf("%s.servicePorts[%d]", prefix, j))
+		errors = append(errors, portErrors...)
+	}
+
+	// Validate volumes if present
+	for j, volume := range pod.Volumes {
+		volumeErrors := v.validateVolume(volume, fmt.Sprintf("%s.volumes[%d]", prefix, j))
+		errors = append(errors, volumeErrors...)
 	}
 
 	return errors
 }
 
-// validateVolume validates a volume configuration
-func (v *Validator) validateVolume(vol schema.Volume, prefix string) []ValidationError {
+// validateServicePort performs basic validation of a service port configuration
+func (v *Validator) validateServicePort(port schema.ServicePort, prefix string) []ValidationError {
 	var errors []ValidationError
 
-	if vol.Name == "" {
+	if port.Name == "" {
 		errors = append(errors, ValidationError{
-			Field:   prefix + ".name",
-			Message: "volume name is required",
-		})
-	} else if !isValidName(vol.Name) {
-		errors = append(errors, ValidationError{
-			Field:   prefix + ".name",
-			Message: "volume name must be lowercase alphanumeric with dashes only",
+			Field:    prefix + ".name",
+			Message:  "Port name is required",
+			Severity: "error",
 		})
 	}
 
-	if vol.Size == "" {
+	if port.Port < 1 || port.Port > 65535 {
 		errors = append(errors, ValidationError{
-			Field:   prefix + ".size",
-			Message: "volume size is required",
-		})
-	} else if !isValidVolumeSize(vol.Size) {
-		errors = append(errors, ValidationError{
-			Field:   prefix + ".size",
-			Message: "invalid volume size format. Expected format: number + unit (e.g., 1Gi, 500Mi)",
+			Field:    prefix + ".port",
+			Message:  fmt.Sprintf("Invalid port number: %d (must be between 1 and 65535)", port.Port),
+			Severity: "error",
 		})
 	}
 
-	if vol.MountPath == "" {
+	if port.TargetPort < 1 || port.TargetPort > 65535 {
 		errors = append(errors, ValidationError{
-			Field:   prefix + ".mountPath",
-			Message: "volume mount path is required",
+			Field:    prefix + ".targetPort",
+			Message:  fmt.Sprintf("Invalid target port number: %d (must be between 1 and 65535)", port.TargetPort),
+			Severity: "error",
 		})
 	}
 
 	return errors
 }
 
-// validateRegistryCredentials validates registry login credentials
-func (v *Validator) validateRegistryCredentials(creds schema.RegistryLogin) []ValidationError {
+// validateVolume performs validation of a volume configuration
+func (v *Validator) validateVolume(volume schema.Volume, prefix string) []ValidationError {
 	var errors []ValidationError
-	prefix := "application.registryLogin"
 
-	if creds.Registry == "" {
+	if volume.Name == "" {
 		errors = append(errors, ValidationError{
-			Field:   prefix + ".registry",
-			Message: "registry URL is required",
+			Field:    prefix + ".name",
+			Message:  "Volume name is required",
+			Severity: "error",
+		})
+	} else if !isValidVolumeName(volume.Name) {
+		errors = append(errors, ValidationError{
+			Field:    prefix + ".name",
+			Message:  "Invalid volume name format",
+			Severity: "error",
+			Suggestions: []string{
+				"Must start with a lowercase letter",
+				"Can include only lowercase letters, numbers, and hyphens",
+				"Example: data-volume-1",
+			},
 		})
 	}
 
-	if creds.Username == "" {
+	if volume.Path == "" {
 		errors = append(errors, ValidationError{
-			Field:   prefix + ".username",
-			Message: "registry username is required",
+			Field:    prefix + ".path",
+			Message:  "Volume path is required",
+			Severity: "error",
+			Suggestions: []string{
+				"Must start with '/'",
+				"Example: /var/lib/data",
+			},
+		})
+	} else if !strings.HasPrefix(volume.Path, "/") {
+		errors = append(errors, ValidationError{
+			Field:    prefix + ".path",
+			Message:  "Volume path must start with '/'",
+			Severity: "error",
 		})
 	}
 
-	if creds.PersonalAccessToken == "" {
+	if volume.Size != "" && !isValidVolumeSize(volume.Size) {
 		errors = append(errors, ValidationError{
-			Field:   prefix + ".personalAccessToken",
-			Message: "registry personal access token is required",
+			Field:    prefix + ".size",
+			Message:  "Invalid volume size format",
+			Severity: "error",
+			Suggestions: []string{
+				"Use a positive integer with a valid unit (Ki, Mi, Gi, Ti)",
+				"Example: 1Gi",
+				"Example: 500Mi",
+			},
 		})
 	}
 
 	return errors
 }
 
-// Helper functions for validation
+// isValidName checks if a name follows Nexlayer schema requirements
+// - must start with a lowercase letter
+// - can include only alphanumeric characters, '-', '.'
 func isValidName(name string) bool {
-	return regexp.MustCompile(`^[a-z][a-z0-9-]*[a-z0-9]$`).MatchString(name)
-}
-
-func isValidImageName(image string) bool {
-	// Allow template variables
-	if strings.Contains(image, "<%") && strings.Contains(image, "%>") {
-		return true
-	}
-
-	// Split image name into parts
-	parts := strings.Split(image, ":")
-	if len(parts) > 2 {
-		return false // More than one colon
-	}
-
-	// Validate repository name
-	repo := parts[0]
-	if repo == "" || strings.HasPrefix(repo, "/") || strings.HasSuffix(repo, "/") {
+	if name == "" {
 		return false
 	}
 
-	// Check path components (max 3: registry/namespace/repository)
-	pathParts := strings.Split(repo, "/")
-	if len(pathParts) > 3 {
+	// Must start with a lowercase letter
+	if name[0] < 'a' || name[0] > 'z' {
 		return false
 	}
 
-	// Validate tag if present
-	if len(parts) == 2 && parts[1] == "" {
-		return false // Empty tag after colon
+	// Only allow lowercase letters, numbers, hyphens, and dots
+	for _, r := range name {
+		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '.') {
+			return false
+		}
 	}
 
 	return true
 }
 
+// isValidVolumeName checks if a volume name follows Nexlayer schema requirements
+// - must start with a lowercase letter
+// - can include only lowercase letters, numbers, and hyphens
+func isValidVolumeName(name string) bool {
+	if name == "" {
+		return false
+	}
+
+	// Must start with a lowercase letter
+	if name[0] < 'a' || name[0] > 'z' {
+		return false
+	}
+
+	// Only allow lowercase letters, numbers, and hyphens
+	for _, r := range name {
+		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-') {
+			return false
+		}
+	}
+
+	return true
+}
+
+// isValidSecretName checks if a secret name follows Nexlayer schema requirements
+// - must start with a lowercase letter
+// - can include only lowercase letters, numbers, and hyphens
+func isValidSecretName(name string) bool {
+	if name == "" {
+		return false
+	}
+
+	// Must start with a lowercase letter
+	if name[0] < 'a' || name[0] > 'z' {
+		return false
+	}
+
+	// Only allow lowercase letters, numbers, and hyphens
+	for _, r := range name {
+		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-') {
+			return false
+		}
+	}
+
+	return true
+}
+
+// isValidImageName checks if a Docker image name is valid for Nexlayer
+// Format: <% REGISTRY %>/path/image:tag for private images
+// Format: standard Docker image name for public images
+func isValidImageName(image string) bool {
+	if image == "" {
+		return false
+	}
+
+	// Handle private registry images
+	if strings.Contains(image, "<% REGISTRY %>") {
+		parts := strings.Split(image, ":")
+		if len(parts) != 2 {
+			return false // Must have a tag
+		}
+		repo := strings.TrimPrefix(parts[0], "<% REGISTRY %>/")
+		if repo == "" || strings.HasPrefix(repo, "/") || strings.HasSuffix(repo, "/") {
+			return false // Invalid path after registry
+		}
+		return true
+	}
+
+	// Handle public images
+	parts := strings.Split(image, ":")
+	if len(parts) > 2 {
+		return false // Too many colons
+	}
+
+	// Check repository part
+	repo := parts[0]
+	if strings.HasPrefix(repo, "/") || strings.HasSuffix(repo, "/") {
+		return false // Cannot start or end with slash
+	}
+
+	// Count slashes (max 2 for registry/repository)
+	if strings.Count(repo, "/") > 2 {
+		return false
+	}
+
+	// Check each component
+	components := strings.Split(repo, "/")
+	for _, comp := range components {
+		if comp == "" {
+			return false // Empty component
+		}
+		// Allow letters, numbers, dots, and dashes in each component
+		for _, r := range comp {
+			if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+				(r >= '0' && r <= '9') || r == '.' || r == '-') {
+				return false
+			}
+		}
+	}
+
+	// Check tag if present
+	if len(parts) == 2 {
+		tag := parts[1]
+		if tag == "" {
+			return false // Empty tag
+		}
+		// Allow letters, numbers, dots, and dashes in tag
+		for _, r := range tag {
+			if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+				(r >= '0' && r <= '9') || r == '.' || r == '-') {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// isValidVolumeSize checks if a volume size is valid
+// Format: number + unit (Ki, Mi, Gi, Ti)
 func isValidVolumeSize(size string) bool {
-	return regexp.MustCompile(`^\d+[KMGT]i$`).MatchString(size)
+	if size == "" {
+		return false
+	}
+
+	// Must end with valid unit
+	validUnits := []string{"Ki", "Mi", "Gi", "Ti"}
+	hasValidUnit := false
+	for _, unit := range validUnits {
+		if strings.HasSuffix(size, unit) {
+			hasValidUnit = true
+			size = strings.TrimSuffix(size, unit)
+			break
+		}
+	}
+	if !hasValidUnit {
+		return false
+	}
+
+	// Remaining part must be a positive integer
+	number, err := strconv.Atoi(size)
+	if err != nil || number <= 0 {
+		return false
+	}
+
+	return true
 }

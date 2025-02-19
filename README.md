@@ -59,6 +59,47 @@ Run `nexlayer init` in your project directory to automatically configure it for 
 - Set up health checks and environment variables
 - Validate your configuration against best practices
 
+### YAML Schema Compliance
+
+Nexlayer uses a standardized YAML schema for deployment templates. Key features include:
+- **Private Registry Support**: Use `<% REGISTRY %>` placeholder for private images
+- **Dynamic Pod References**: Reference other pods using `<pod-name>.pod` format
+- **URL References**: Use `<% URL %>` to reference your deployment's base URL
+- **Flexible Port Configuration**: Support for both simple and detailed port formats
+- **Automatic Validation**: Built-in schema validation with helpful error messages
+
+Example template:
+```yaml
+application:
+  name: my-app
+  url: my-app.nexlayer.dev
+  registryLogin:
+    registry: ghcr.io/my-org
+    username: myuser
+    personalAccessToken: pat_token
+  pods:
+    - name: frontend
+      type: nextjs
+      path: /
+      image: <% REGISTRY %>/frontend:latest
+      servicePorts:
+        - 3000  # Simple port format
+      vars:
+        - key: API_URL
+          value: http://api.pod:8000
+    - name: api
+      type: backend
+      path: /api
+      image: <% REGISTRY %>/api:latest
+      servicePorts:
+        - name: http
+          port: 8000
+          targetPort: 8000
+      vars:
+        - key: DATABASE_URL
+          value: postgresql://postgres:postgres@postgres.pod:5432/app
+```
+
 ### Development Mode
 
 During development, you can use the watch command to automatically redeploy when files change:

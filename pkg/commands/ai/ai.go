@@ -6,19 +6,22 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/analysis"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/analysis"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
 	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
 	"github.com/Nexlayer/nexlayer-cli/pkg/knowledge"
-	tmpl "github.com/Nexlayer/nexlayer-cli/pkg/template"
+	"github.com/Nexlayer/nexlayer-cli/pkg/template"
 )
 
 // llmYamlPrompt provides structured instructions for AI-generated Nexlayer templates.
@@ -43,7 +46,7 @@ type detectionResult struct {
 }
 
 type analysisResult struct {
-	analysis *analysis.ProjectAnalysis
+	analysis *types.ProjectAnalysis
 	err      error
 }
 
@@ -53,7 +56,7 @@ type graphResult struct {
 }
 
 // processResults handles waiting for and collecting all parallel processing results
-func processResults(ctx context.Context, detectChan chan detectionResult, analyzeChan chan analysisResult, graphChan chan graphResult, aiChan chan aiResult) (*detection.ProjectInfo, *analysis.ProjectAnalysis, *knowledge.Graph, string, error) {
+func processResults(ctx context.Context, detectChan chan detectionResult, analyzeChan chan analysisResult, graphChan chan graphResult, aiChan chan aiResult) (*detection.ProjectInfo, *types.ProjectAnalysis, *knowledge.Graph, string, error) {
 	select {
 	case <-ctx.Done():
 		return nil, nil, nil, "", ctx.Err()
@@ -98,13 +101,13 @@ func processResults(ctx context.Context, detectChan chan detectionResult, analyz
 }
 
 // startAnalysis initiates the project analysis
-func startAnalysis(ctx context.Context, projectDir string) (*analysis.ProjectAnalysis, error) {
+func startAnalysis(ctx context.Context, projectDir string) (*types.ProjectAnalysis, error) {
 	parser := analysis.NewParser()
 	return parser.AnalyzeProject(ctx, projectDir)
 }
 
 // buildKnowledgeGraph constructs the knowledge graph from analysis results
-func buildKnowledgeGraph(ctx context.Context, analysis *analysis.ProjectAnalysis, projectDir string) (*knowledge.Graph, error) {
+func buildKnowledgeGraph(ctx context.Context, analysis *types.ProjectAnalysis, projectDir string) (*knowledge.Graph, error) {
 	graph := knowledge.NewGraph()
 	if err := graph.BuildFromAnalysis(ctx, analysis); err != nil {
 		return nil, fmt.Errorf("failed to build graph: %w", err)
@@ -199,17 +202,71 @@ func GenerateTemplate(ctx context.Context, req TemplateRequest) (string, error) 
 
 	// Try to use AI response first if available
 	if aiResponse != "" {
-		var aiTemplate tmpl.NexlayerYAML
+		var aiTemplate template.NexlayerYAML
 		if err := yaml.Unmarshal([]byte(aiResponse), &aiTemplate); err == nil {
 			return aiResponse, nil
 		}
 	}
 
+	// Convert detection.ProjectInfo to our local ProjectInfo
+	projectInfo := &ProjectInfo{
+		Name: info.Name,
+		Type: string(info.Type),
+		Port: info.Port,
+	}
+
+	// Convert analysis.ProjectAnalysis to our AnalysisResult
+	analysisResult := &AnalysisResult{
+		Components: make([]*Component, 0),
+	}
+
+	// Add components from analysis
+	for _, functions := range analysis.Functions {
+		for _, fn := range functions {
+			// Create a component for each detected function
+			component := &Component{
+				Name:  fn.Name,
+				Type:  "function",
+				Image: fmt.Sprintf("ghcr.io/nexlayer/%s:latest", req.ProjectName),
+				Ports: []int{projectInfo.Port},
+			}
+			analysisResult.Components = append(analysisResult.Components, component)
+		}
+	}
+
+	// Convert knowledge.Graph to our GraphResult
+	graphResult := &GraphResult{
+		Nodes: make([]*GraphNode, 0),
+	}
+
+	if graph != nil {
+		for _, node := range graph.Nodes {
+			graphNode := &GraphNode{
+				Name:        node.Name,
+				EnvVars:     make(map[string]string),
+				Annotations: make(map[string]string),
+			}
+			// Add any environment variables and annotations from node properties
+			if props := node.Properties; props != nil {
+				if envVars, ok := props["env"].(map[string]string); ok {
+					graphNode.EnvVars = envVars
+				}
+				if annotations, ok := props["annotations"].(map[string]string); ok {
+					graphNode.Annotations = annotations
+				}
+			}
+			graphResult.Nodes = append(graphResult.Nodes, graphNode)
+		}
+	}
+
 	// Fall back to standard template generation
-	yamlTemplate := createTemplate(info, analysis, graph, req)
+	tmpl, err := createTemplate(projectInfo, analysisResult, graphResult)
+	if err != nil {
+		return "", fmt.Errorf("failed to create template: %w", err)
+	}
 
 	// Marshal final template
-	data, err := yaml.Marshal(&yamlTemplate)
+	data, err := yaml.Marshal(tmpl)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal template: %w", err)
 	}
@@ -226,11 +283,39 @@ type ProjectInfo struct {
 
 // detectProject detects project information from a directory
 func detectProject(dir string) (*ProjectInfo, error) {
-	// For now, use a simple detection based on package.json or go.mod
+	// Get project name from directory
+	projectName := filepath.Base(dir)
+	// Clean the project name
+	projectName = strings.ToLower(projectName)
+	projectName = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			return r
+		}
+		return '-'
+	}, projectName)
+
+	// Check for package.json (Next.js/Node.js)
 	if _, err := os.Stat(filepath.Join(dir, "package.json")); err == nil {
-		// Node.js project
+		// Read package.json to determine if it's Next.js
+		data, err := os.ReadFile(filepath.Join(dir, "package.json"))
+		if err == nil {
+			var pkg struct {
+				Dependencies map[string]string `json:"dependencies"`
+			}
+			if err := json.Unmarshal(data, &pkg); err == nil {
+				if _, hasNext := pkg.Dependencies["next"]; hasNext {
+					return &ProjectInfo{
+						Name: projectName,
+						Type: "nextjs",
+						Port: 3000,
+					}, nil
+				}
+			}
+		}
+
+		// Default to Node.js
 		return &ProjectInfo{
-			Name: filepath.Base(dir),
+			Name: projectName,
 			Type: "node",
 			Port: 3000,
 		}, nil
@@ -239,7 +324,7 @@ func detectProject(dir string) (*ProjectInfo, error) {
 	if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 		// Go project
 		return &ProjectInfo{
-			Name: filepath.Base(dir),
+			Name: projectName,
 			Type: "go",
 			Port: 8080,
 		}, nil
@@ -247,7 +332,7 @@ func detectProject(dir string) (*ProjectInfo, error) {
 
 	// Default to unknown
 	return &ProjectInfo{
-		Name: filepath.Base(dir),
+		Name: projectName,
 		Type: "unknown",
 	}, nil
 }
@@ -280,37 +365,36 @@ func newGenerateCommand() *cobra.Command {
 			}
 
 			// Detect project type
-			projectInfo, err := detectProject(cwd)
+			info, err := DetectStack(cwd)
 			if err != nil {
 				return fmt.Errorf("failed to detect project: %w", err)
 			}
 
-			// Analyze project
-			analysis := &AnalysisResult{
-				Components: []*Component{
-					{
-						Name:  "app",
-						Type:  projectInfo.Type,
-						Image: fmt.Sprintf("ghcr.io/nexlayer/%s:latest", projectInfo.Name),
-						Ports: []int{projectInfo.Port},
-					},
-				},
-			}
+			// Create template generator
+			generator := template.NewGenerator()
 
 			// Generate template
-			tmpl, err := createTemplate(projectInfo, analysis, nil)
+			yamlTemplate, err := generator.GenerateFromProjectInfo(info.Name, string(info.Type), info.Port)
 			if err != nil {
-				return fmt.Errorf("failed to create template: %w", err)
+				return fmt.Errorf("failed to generate template: %w", err)
 			}
 
-			// Write template to file
-			data, err := yaml.Marshal(tmpl)
+			// Add database if needed
+			if hasDatabase(info) {
+				if err := generator.AddPod(yamlTemplate, template.PodTypePostgres, 0); err != nil {
+					return fmt.Errorf("failed to add database: %w", err)
+				}
+			}
+
+			// Marshal template to YAML
+			yamlData, err := yaml.Marshal(yamlTemplate)
 			if err != nil {
 				return fmt.Errorf("failed to marshal template: %w", err)
 			}
 
+			// Write template to file
 			outputFile := "nexlayer.yaml"
-			if err := os.WriteFile(outputFile, data, 0644); err != nil {
+			if err := os.WriteFile(outputFile, yamlData, 0644); err != nil {
 				return fmt.Errorf("failed to write template: %w", err)
 			}
 
@@ -320,6 +404,19 @@ func newGenerateCommand() *cobra.Command {
 	}
 
 	return cmd
+}
+
+// hasDatabase checks if the project needs a database
+func hasDatabase(info *detection.ProjectInfo) bool {
+	// Check dependencies for database-related packages
+	for _, dep := range info.Dependencies {
+		switch dep {
+		case "pg", "postgres", "postgresql", "sequelize", "typeorm", "prisma",
+			"mongoose", "mongodb", "mysql", "mysql2", "sqlite3", "redis":
+			return true
+		}
+	}
+	return false
 }
 
 // newDetectCommand creates a new detect command
