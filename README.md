@@ -106,18 +106,27 @@ nexlayer init
 nexlayer init [name]
 
 # Deploy your application
-nexlayer deploy
+nexlayer deploy [appID] --file deployment.yaml
 
 # View status and logs
-nexlayer status
-nexlayer logs -f [pod]
+nexlayer list [appID]        # List deployments
+nexlayer info <namespace> <appID>  # Get deployment info
 
-# Validate configuration
-nexlayer validate [file]        # Validate config file
-nexlayer validate --strict      # Enable strict validation
+# Configure custom domain
+nexlayer domain set <appID> --domain example.com
 
-# Keep config in sync
-nexlayer sync
+# AI Features
+nexlayer ai generate <app-name>  # Generate deployment template
+nexlayer ai detect              # Detect project type
+
+# Utility Commands
+nexlayer feedback              # Send feedback
+nexlayer completion [shell]    # Generate shell completion scripts
+
+# Shell completion
+nexlayer completion bash > ~/.bash_completion
+nexlayer completion zsh > "${fpath[1]}/_nexlayer"
+nexlayer completion fish > ~/.config/fish/completions/nexlayer.fish
 ```
 
 ## 📚 Documentation

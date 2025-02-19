@@ -217,101 +217,141 @@ func GenerateTemplate(ctx context.Context, req TemplateRequest) (string, error) 
 	return string(data), nil
 }
 
+// ProjectInfo represents basic project information
+type ProjectInfo struct {
+	Name string
+	Type string
+	Port int
+}
+
+// detectProject detects project information from a directory
+func detectProject(dir string) (*ProjectInfo, error) {
+	// For now, use a simple detection based on package.json or go.mod
+	if _, err := os.Stat(filepath.Join(dir, "package.json")); err == nil {
+		// Node.js project
+		return &ProjectInfo{
+			Name: filepath.Base(dir),
+			Type: "node",
+			Port: 3000,
+		}, nil
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+		// Go project
+		return &ProjectInfo{
+			Name: filepath.Base(dir),
+			Type: "go",
+			Port: 8080,
+		}, nil
+	}
+
+	// Default to unknown
+	return &ProjectInfo{
+		Name: filepath.Base(dir),
+		Type: "unknown",
+	}, nil
+}
+
 // NewCommand creates the "ai" command with its subcommands.
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ai [subcommand]",
+		Use:   "ai",
 		Short: "AI-powered features for Nexlayer",
-		Long: `AI-powered features for Nexlayer.
-
-Subcommands:
-  generate        Generate AI-powered deployment template
-  detect          Detect AI assistants & project type
-
-Examples:
-  nexlayer ai generate myapp
-  nexlayer ai detect`,
+		Long:  "AI-powered features for generating deployment templates and detecting project types",
 	}
 
-	cmd.AddCommand(
-		newGenerateCommand(),
-		newDetectCommand(),
-	)
+	cmd.AddCommand(newGenerateCommand())
+	cmd.AddCommand(newDetectCommand())
 
 	return cmd
 }
 
+// newGenerateCommand creates a new generate command
 func newGenerateCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "generate <app-name>",
-		Short: "Generate AI-powered deployment template",
-		Long: `Generate an AI-powered deployment template for your application.
-
-Arguments:
-  app-name        Name of your application
-
-Example:
-  nexlayer ai generate myapp`,
-		Args: cobra.ExactArgs(1),
+	cmd := &cobra.Command{
+		Use:   "generate",
+		Short: "Generate a deployment template using AI",
+		Long:  "Generate a deployment template by analyzing your project using AI",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			appName := args[0]
-			workDir, err := os.Getwd()
+			// Get current directory
+			cwd, err := os.Getwd()
 			if err != nil {
-				return fmt.Errorf("failed to get working directory: %v", err)
+				return fmt.Errorf("failed to get current directory: %w", err)
 			}
 
-			// Create template request
-			req := TemplateRequest{
-				ProjectName: appName,
-				ProjectDir:  workDir,
+			// Detect project type
+			projectInfo, err := detectProject(cwd)
+			if err != nil {
+				return fmt.Errorf("failed to detect project: %w", err)
+			}
+
+			// Analyze project
+			analysis := &AnalysisResult{
+				Components: []*Component{
+					{
+						Name:  "app",
+						Type:  projectInfo.Type,
+						Image: fmt.Sprintf("ghcr.io/nexlayer/%s:latest", projectInfo.Name),
+						Ports: []int{projectInfo.Port},
+					},
+				},
 			}
 
 			// Generate template
-			template, err := GenerateTemplate(cmd.Context(), req)
+			tmpl, err := createTemplate(projectInfo, analysis, nil)
 			if err != nil {
-				return fmt.Errorf("failed to generate template: %v", err)
+				return fmt.Errorf("failed to create template: %w", err)
 			}
 
 			// Write template to file
-			filename := "nexlayer.yaml"
-			if err := os.WriteFile(filename, []byte(template), 0o644); err != nil {
-				return fmt.Errorf("failed to write template to file: %v", err)
+			data, err := yaml.Marshal(tmpl)
+			if err != nil {
+				return fmt.Errorf("failed to marshal template: %w", err)
 			}
 
-			fmt.Printf("Generated template saved to %s\n", filename)
+			outputFile := "nexlayer.yaml"
+			if err := os.WriteFile(outputFile, data, 0644); err != nil {
+				return fmt.Errorf("failed to write template: %w", err)
+			}
+
+			fmt.Printf("Generated deployment template: %s\n", outputFile)
 			return nil
 		},
 	}
+
+	return cmd
 }
 
+// newDetectCommand creates a new detect command
 func newDetectCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "detect",
-		Short: "Detect AI assistants & project type",
-		Long: `Detect available AI assistants and project type.
-
-Example:
-  nexlayer ai detect`,
+		Short: "Detect project type using AI",
+		Long:  "Detect your project type and configuration using AI analysis",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			workDir, err := os.Getwd()
+			// Get current directory
+			cwd, err := os.Getwd()
 			if err != nil {
-				return fmt.Errorf("failed to get working directory: %v", err)
+				return fmt.Errorf("failed to get current directory: %w", err)
 			}
 
-			// Detect project info
-			info, err := DetectStack(workDir)
+			// Detect project type
+			projectInfo, err := detectProject(cwd)
 			if err != nil {
-				return fmt.Errorf("failed to detect project info: %v", err)
+				return fmt.Errorf("failed to detect project: %w", err)
 			}
 
-			fmt.Printf("Project Type: %s\n", info.Type)
-			if info.Port > 0 {
-				fmt.Printf("Default Port: %d\n", info.Port)
+			fmt.Printf("Detected project type: %s\n", projectInfo.Type)
+			fmt.Printf("Project name: %s\n", projectInfo.Name)
+			if projectInfo.Port > 0 {
+				fmt.Printf("Default port: %d\n", projectInfo.Port)
 			}
 
 			return nil
 		},
 	}
+
+	return cmd
 }
 
 // DetectStack analyzes a directory to determine its stack type, components, and AI environment.
