@@ -44,10 +44,16 @@ build/
 # IDE files
 .idea/
 .vscode/
+.cursor/
 .cursor/rules
 *.swp
 *.swo
 .DS_Store
+ai-ide-rules
+.ai-ide-rules
+.windsurfrules
+.aiderrules
+.zedrules
 
 # OS files
 Thumbs.db
