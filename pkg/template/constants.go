@@ -66,6 +66,9 @@ const (
 const (
 	DefaultRegistry = "ghcr.io/nexlayer"
 	DefaultTag      = "latest"
+	// Template placeholders
+	RegistryPlaceholder = "<% REGISTRY %>"
+	URLPlaceholder      = "<% URL %>"
 )
 
 // Default ports for different pod types

@@ -62,7 +62,7 @@ func (g *Generator) createPodForType(name, podType string, port int) (*Pod, erro
 		Name: "web",
 		Type: podType,
 		// Use schema-compliant registry format for private images
-		Image: fmt.Sprintf("<% REGISTRY %>/%s:%s", name, g.Tag),
+		Image: fmt.Sprintf("%s/%s:%s", RegistryPlaceholder, name, g.Tag),
 		ServicePorts: []ServicePort{
 			{
 				Name:       "http",
@@ -86,7 +86,7 @@ func (g *Generator) createPodForType(name, podType string, port int) (*Pod, erro
 		// Add URL reference for frontend
 		pod.Vars = append(pod.Vars, EnvVar{
 			Key:   "PUBLIC_URL",
-			Value: "<% URL %>",
+			Value: URLPlaceholder,
 		})
 
 	case PodTypeNode, PodTypeExpress:
@@ -128,11 +128,30 @@ func (g *Generator) createPodForType(name, podType string, port int) (*Pod, erro
 		pod.Volumes = []Volume{
 			{
 				Name:     fmt.Sprintf("%s-data", pod.Name),
-				Path:     "/data",
+				Path:     fmt.Sprintf("/var/lib/%s/data", pod.Name),
 				Size:     "1Gi",
 				Type:     VolumeTypePersistent,
 				ReadOnly: false,
 			},
+		}
+		// Add default environment variables for databases
+		switch podType {
+		case PodTypePostgres:
+			pod.Vars = append(pod.Vars, []EnvVar{
+				{Key: "POSTGRES_USER", Value: "postgres"},
+				{Key: "POSTGRES_PASSWORD", Value: "<% DB_PASSWORD %>"},
+				{Key: "POSTGRES_DB", Value: "app"},
+			}...)
+		case PodTypeMongoDB:
+			pod.Vars = append(pod.Vars, []EnvVar{
+				{Key: "MONGO_INITDB_ROOT_USERNAME", Value: "root"},
+				{Key: "MONGO_INITDB_ROOT_PASSWORD", Value: "<% MONGO_ROOT_PASSWORD %>"},
+			}...)
+		case PodTypeRedis:
+			pod.Vars = append(pod.Vars, EnvVar{
+				Key:   "REDIS_PASSWORD",
+				Value: "<% REDIS_PASSWORD %>",
+			})
 		}
 	}
 
@@ -207,10 +226,10 @@ func (g *Generator) SetTag(tmpl *NexlayerYAML, tag string) {
 		parts := strings.Split(pod.Image, ":")
 		if len(parts) > 1 {
 			// Replace tag
-			tmpl.Application.Pods[i].Image = parts[0] + ":" + tag
+			tmpl.Application.Pods[i].Image = fmt.Sprintf("%s:%s", parts[0], tag)
 		} else {
 			// Add tag if none exists
-			tmpl.Application.Pods[i].Image = pod.Image + ":" + tag
+			tmpl.Application.Pods[i].Image = fmt.Sprintf("%s:%s", pod.Image, tag)
 		}
 	}
 }

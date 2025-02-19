@@ -4,7 +4,11 @@
 
 package examples
 
-import "github.com/Nexlayer/nexlayer-cli/pkg/template"
+import (
+	"fmt"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/template"
+)
 
 // StandardTemplate returns a standard example template that follows
 // the Nexlayer YAML schema v1.0 format
@@ -17,9 +21,9 @@ func StandardTemplate() *template.NexlayerYAML {
 			URL: "my-app.nexlayer.dev",
 			// REQUIRED for private images
 			RegistryLogin: &template.RegistryLogin{
-				Registry: "docker.io/my-org",
-				Username: "myuser",
-				Password: "mytoken",
+				Registry:            "docker.io/my-org",
+				Username:            "myuser",
+				PersonalAccessToken: "mytoken",
 			},
 			// REQUIRED: List of pod configurations
 			Pods: []template.Pod{
@@ -31,7 +35,7 @@ func StandardTemplate() *template.NexlayerYAML {
 					// REQUIRED: Pod type
 					Type: "react",
 					// REQUIRED: Fully qualified image path
-					Image: "docker.io/my-org/frontend:latest",
+					Image: fmt.Sprintf("%s/frontend:latest", template.RegistryPlaceholder),
 					Vars: []template.EnvVar{
 						{Key: "API_URL", Value: "http://backend.pod:8000"},
 						{Key: "NODE_ENV", Value: "production"},
@@ -48,9 +52,9 @@ func StandardTemplate() *template.NexlayerYAML {
 					// REQUIRED: Pod type
 					Type: "fastapi",
 					// REQUIRED: Fully qualified image path
-					Image: "docker.io/my-org/backend:latest",
+					Image: fmt.Sprintf("%s/backend:latest", template.RegistryPlaceholder),
 					Vars: []template.EnvVar{
-						{Key: "DATABASE_URL", Value: "postgres://user:pass@db.pod:5432/db"},
+						{Key: "DATABASE_URL", Value: "postgresql://user:pass@db.pod:5432/db"},
 						{Key: "PORT", Value: "8000"},
 					},
 					ServicePorts: []template.ServicePort{
