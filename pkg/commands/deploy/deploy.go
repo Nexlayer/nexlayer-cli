@@ -1,4 +1,7 @@
-// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
+// Copyright (c) 2025 Nexlayer. All rights reserved.
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
+
 package deploy
 
 import (
@@ -7,7 +10,6 @@ import (
 	"os"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
-
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/spf13/cobra"
 )

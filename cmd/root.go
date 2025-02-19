@@ -13,6 +13,7 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/domain"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/feedback"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/info"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/initcmd"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/login"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
@@ -130,6 +131,7 @@ Examples:
 		feedback.NewFeedbackCommand(apiClient),
 		login.NewLoginCommand(apiClient),
 		ai.NewCommand(),
+		initcmd.NewCommand(),
 	)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {

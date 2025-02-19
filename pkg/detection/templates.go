@@ -20,9 +20,12 @@ func GenerateYAMLFromTemplate(info *ProjectInfo) (string, error) {
 	if info.Type == "" {
 		fmt.Fprintf(&builder, "    - name: app\n")
 		fmt.Fprintf(&builder, "      type: frontend\n")
-		fmt.Fprintf(&builder, "      image: nginx:latest\n")
+		fmt.Fprintf(&builder, "      image: docker.io/library/nginx:latest\n")
 		fmt.Fprintf(&builder, "      servicePorts:\n")
 		fmt.Fprintf(&builder, "        - 80\n")
+		fmt.Fprintf(&builder, "      vars:\n")
+		fmt.Fprintf(&builder, "        - key: NODE_ENV\n")
+		fmt.Fprintf(&builder, "          value: production\n")
 		return builder.String(), nil
 	}
 
@@ -32,10 +35,11 @@ func GenerateYAMLFromTemplate(info *ProjectInfo) (string, error) {
 		// Frontend pod
 		fmt.Fprintf(&builder, "    - name: web\n")
 		fmt.Fprintf(&builder, "      type: frontend\n")
-		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
+		fmt.Fprintf(&builder, "      image: docker.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
 		fmt.Fprintf(&builder, "      path: /\n")
 		fmt.Fprintf(&builder, "      vars:\n")
-		fmt.Fprintf(&builder, "        NODE_ENV: production\n")
+		fmt.Fprintf(&builder, "        - key: NODE_ENV\n")
+		fmt.Fprintf(&builder, "          value: production\n")
 		fmt.Fprintf(&builder, "      servicePorts:\n")
 		fmt.Fprintf(&builder, "        - %d\n", info.Port)
 
@@ -43,10 +47,11 @@ func GenerateYAMLFromTemplate(info *ProjectInfo) (string, error) {
 		// Backend API pod
 		fmt.Fprintf(&builder, "    - name: api\n")
 		fmt.Fprintf(&builder, "      type: backend\n")
-		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
+		fmt.Fprintf(&builder, "      image: docker.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
 		fmt.Fprintf(&builder, "      path: /api\n")
 		fmt.Fprintf(&builder, "      vars:\n")
-		fmt.Fprintf(&builder, "        NODE_ENV: production\n")
+		fmt.Fprintf(&builder, "        - key: NODE_ENV\n")
+		fmt.Fprintf(&builder, "          value: production\n")
 		fmt.Fprintf(&builder, "      servicePorts:\n")
 		fmt.Fprintf(&builder, "        - %d\n", info.Port)
 
@@ -54,10 +59,11 @@ func GenerateYAMLFromTemplate(info *ProjectInfo) (string, error) {
 		// Python backend pod
 		fmt.Fprintf(&builder, "    - name: api\n")
 		fmt.Fprintf(&builder, "      type: backend\n")
-		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
+		fmt.Fprintf(&builder, "      image: docker.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
 		fmt.Fprintf(&builder, "      path: /api\n")
 		fmt.Fprintf(&builder, "      vars:\n")
-		fmt.Fprintf(&builder, "        PYTHON_ENV: production\n")
+		fmt.Fprintf(&builder, "        - key: PYTHON_ENV\n")
+		fmt.Fprintf(&builder, "          value: production\n")
 		fmt.Fprintf(&builder, "      servicePorts:\n")
 		fmt.Fprintf(&builder, "        - %d\n", info.Port)
 
@@ -65,17 +71,18 @@ func GenerateYAMLFromTemplate(info *ProjectInfo) (string, error) {
 		// Go backend pod
 		fmt.Fprintf(&builder, "    - name: api\n")
 		fmt.Fprintf(&builder, "      type: backend\n")
-		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
+		fmt.Fprintf(&builder, "      image: docker.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
 		fmt.Fprintf(&builder, "      path: /api\n")
 		fmt.Fprintf(&builder, "      vars:\n")
-		fmt.Fprintf(&builder, "        GO_ENV: production\n")
+		fmt.Fprintf(&builder, "        - key: GO_ENV\n")
+		fmt.Fprintf(&builder, "          value: production\n")
 		fmt.Fprintf(&builder, "      servicePorts:\n")
 		fmt.Fprintf(&builder, "        - %d\n", info.Port)
 
 	case TypeDockerRaw:
 		// Raw Docker pod
 		fmt.Fprintf(&builder, "    - name: app\n")
-		fmt.Fprintf(&builder, "      image: ghcr.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
+		fmt.Fprintf(&builder, "      image: docker.io/nexlayer/%s%s\n", info.Name, getImageTag(info))
 		fmt.Fprintf(&builder, "      servicePorts:\n")
 		fmt.Fprintf(&builder, "        - %d\n", info.Port)
 

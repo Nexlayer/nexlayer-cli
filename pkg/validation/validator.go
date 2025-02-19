@@ -9,8 +9,32 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/schema"
+	"gopkg.in/yaml.v2"
 )
+
+var (
+	// DefaultValidator is the package-level validator instance
+	DefaultValidator = NewValidator(false)
+)
+
+// ValidateYAMLString validates a YAML string against the Nexlayer schema
+func ValidateYAMLString(yamlContent string) ([]ValidationError, error) {
+	var config schema.NexlayerYAML
+	if err := yaml.Unmarshal([]byte(yamlContent), &config); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+	}
+	return DefaultValidator.ValidateYAML(&config), nil
+}
+
+// ValidateYAMLBytes validates a YAML byte slice against the Nexlayer schema
+func ValidateYAMLBytes(yamlBytes []byte) ([]ValidationError, error) {
+	var config schema.NexlayerYAML
+	if err := yaml.Unmarshal(yamlBytes, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+	}
+	return DefaultValidator.ValidateYAML(&config), nil
+}
 
 // ValidationError represents a validation error with context and suggestions
 type ValidationError struct {
@@ -148,30 +172,18 @@ func (v *Validator) validatePod(pod schema.Pod, index int) []ValidationError {
 	}
 
 	// Validate service ports
-	if len(pod.Ports) == 0 {
+	if len(pod.ServicePorts) == 0 {
 		errors = append(errors, ValidationError{
 			Field:   prefix + ".servicePorts",
 			Message: "at least one service port is required",
 		})
 	}
 
-	for _, port := range pod.Ports {
-		if port.ServicePort < 1 || port.ServicePort > 65535 {
+	for _, port := range pod.ServicePorts {
+		if port < 1 || port > 65535 {
 			errors = append(errors, ValidationError{
-				Field:   prefix + ".ports.servicePort",
-				Message: fmt.Sprintf("invalid service port number: %d (must be between 1 and 65535)", port.ServicePort),
-			})
-		}
-		if port.ContainerPort < 1 || port.ContainerPort > 65535 {
-			errors = append(errors, ValidationError{
-				Field:   prefix + ".ports.containerPort",
-				Message: fmt.Sprintf("invalid container port number: %d (must be between 1 and 65535)", port.ContainerPort),
-			})
-		}
-		if port.Name == "" {
-			errors = append(errors, ValidationError{
-				Field:   prefix + ".ports.name",
-				Message: "port name is required",
+				Field:   prefix + ".servicePorts",
+				Message: fmt.Sprintf("invalid port number: %d (must be between 1 and 65535)", port),
 			})
 		}
 	}
@@ -248,36 +260,41 @@ func (v *Validator) validateRegistryCredentials(creds schema.RegistryLogin) []Va
 
 // Helper functions for validation
 func isValidName(name string) bool {
-	match, _ := regexp.MatchString("^[a-z0-9][a-z0-9-]*[a-z0-9]$", name)
-	return match
+	return regexp.MustCompile(`^[a-z][a-z0-9-]*[a-z0-9]$`).MatchString(name)
 }
 
 func isValidImageName(image string) bool {
-	// Basic image name validation
-	// Format: [registry/]repository[:tag]
-	parts := strings.Split(image, "/")
-	if len(parts) > 3 {
+	// Allow template variables
+	if strings.Contains(image, "<%") && strings.Contains(image, "%>") {
+		return true
+	}
+
+	// Split image name into parts
+	parts := strings.Split(image, ":")
+	if len(parts) > 2 {
+		return false // More than one colon
+	}
+
+	// Validate repository name
+	repo := parts[0]
+	if repo == "" || strings.HasPrefix(repo, "/") || strings.HasSuffix(repo, "/") {
 		return false
 	}
 
-	for _, part := range parts {
-		if part == "" {
-			return false
-		}
+	// Check path components (max 3: registry/namespace/repository)
+	pathParts := strings.Split(repo, "/")
+	if len(pathParts) > 3 {
+		return false
 	}
 
-	// Check tag format if present
-	if strings.Contains(parts[len(parts)-1], ":") {
-		tagParts := strings.Split(parts[len(parts)-1], ":")
-		if len(tagParts) != 2 || tagParts[0] == "" || tagParts[1] == "" {
-			return false
-		}
+	// Validate tag if present
+	if len(parts) == 2 && parts[1] == "" {
+		return false // Empty tag after colon
 	}
 
 	return true
 }
 
 func isValidVolumeSize(size string) bool {
-	match, _ := regexp.MatchString("^[0-9]+(Ki|Mi|Gi|Ti)$", size)
-	return match
+	return regexp.MustCompile(`^\d+[KMGT]i$`).MatchString(size)
 }

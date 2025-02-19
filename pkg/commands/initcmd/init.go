@@ -11,13 +11,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
 	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/Nexlayer/nexlayer-cli/pkg/validation"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 )
 
 // NewCommand initializes a new Nexlayer project
@@ -155,6 +153,12 @@ func getProjectName() string {
 		}
 		return '-'
 	}, name)
+
+	// Ensure name starts with a letter
+	if len(name) > 0 && (name[0] < 'a' || name[0] > 'z') {
+		name = "app-" + name
+	}
+
 	return name
 }
 
@@ -183,17 +187,15 @@ func generateProjectYAML(projectName string, info *detection.ProjectInfo) (strin
 	yamlContent, err := detection.GenerateYAMLFromTemplate(info)
 	if err != nil {
 		pterm.Warning.Println("⚠️  Using basic template - some features may need manual configuration")
-		// Use a basic template following v1.0 schema
-		yamlContent = fmt.Sprintf(`application:
-  name: %s
-  pods:
-    - name: app
-      type: frontend
-      path: /
-      image: nginx:latest
-      servicePorts:
-        - 80
-`, projectName)
+		// Use the reference template from docs
+		templatePath := "docs/reference/schemas/yaml/nexlayer-template.v1.yaml"
+		templateContent, err := os.ReadFile(templatePath)
+		if err != nil {
+			return "", fmt.Errorf("failed to read reference template: %w", err)
+		}
+
+		// Use the reference template, replacing the application name
+		yamlContent = strings.Replace(string(templateContent), "example-app", projectName, 1)
 	}
 
 	// Validate the generated YAML
@@ -224,13 +226,11 @@ func writeYAMLToFile(filename string, content string) error {
 
 // validateGeneratedYAML checks for YAML syntax errors
 func validateGeneratedYAML(yamlContent string) error {
-	var config schema.NexlayerYAML
-	if err := yaml.Unmarshal([]byte(yamlContent), &config); err != nil {
-		return fmt.Errorf("failed to parse generated YAML: %w", err)
+	validationErrors, err := validation.ValidateYAMLString(yamlContent)
+	if err != nil {
+		return fmt.Errorf("failed to validate YAML: %w", err)
 	}
 
-	validator := validation.NewValidator(false)
-	validationErrors := validator.ValidateYAML(&config)
 	if len(validationErrors) > 0 {
 		pterm.Warning.Println("⚠️  Validation found issues:")
 
