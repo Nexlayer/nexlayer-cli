@@ -92,7 +92,7 @@ func runInitCommand(cmd *cobra.Command, args []string) error {
 	// Detect IDE being used
 	ide := DetectIDE()
 	if ide != "Unknown" {
-		fmt.Printf("🖥️  Detected AI-powered IDE: %s\n", ide)
+		fmt.Fprintf(cmd.OutOrStdout(), "🖥️  Detected AI-powered IDE: %s\n", ide)
 	}
 
 	// Detect Project Type
@@ -141,17 +141,17 @@ func runInitCommand(cmd *cobra.Command, args []string) error {
 
 	// Completion message
 	progress.Stop()
-	pterm.Success.Printf("\n✨ Your Nexlayer project is ready!\n")
-	pterm.Info.Println("\nDeploy with:")
-	fmt.Println("  nexlayer deploy")
+	fmt.Fprintln(cmd.OutOrStdout(), "✨ Your Nexlayer project is ready!")
+	fmt.Fprintln(cmd.OutOrStdout(), "\nDeploy with:")
+	fmt.Fprintln(cmd.OutOrStdout(), "  nexlayer deploy")
 	return nil
 }
 
 // hasDatabase checks if the project needs a database
 func hasDatabase(info *detection.ProjectInfo) bool {
 	// Check dependencies for database-related packages
-	for _, dep := range info.Dependencies {
-		switch dep {
+	for name := range info.Dependencies {
+		switch name {
 		case "pg", "postgres", "postgresql", "sequelize", "typeorm", "prisma",
 			"mongoose", "mongodb", "mysql", "mysql2", "sqlite3", "redis":
 			return true

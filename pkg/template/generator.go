@@ -92,7 +92,7 @@ func (g *Generator) createPodForType(name, podType string, port int) (*Pod, erro
 	case PodTypeNode, PodTypeExpress:
 		pod.Name = "api"
 		pod.Path = "/api"
-		pod.Type = PodTypeBackend
+		pod.Type = podType // Keep original type for Node.js
 		// Add dynamic pod reference for database if needed
 		pod.Vars = append(pod.Vars, EnvVar{
 			Key:   "DATABASE_URL",
