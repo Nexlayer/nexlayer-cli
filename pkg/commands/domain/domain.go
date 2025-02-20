@@ -6,10 +6,11 @@ package domain
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/schema"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
+	"github.com/Nexlayer/nexlayer-cli/pkg/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -75,14 +76,26 @@ Example:
 	return cmd
 }
 
-// ValidateDomain checks if a domain name is valid
+// ValidateDomain checks if a domain name is valid using the centralized validation system
 func ValidateDomain(domain string) error {
 	if domain == "" {
 		return fmt.Errorf("domain cannot be empty")
 	}
 
-	if strings.Contains(domain, " ") {
-		return fmt.Errorf("domain cannot contain spaces")
+	// Create a minimal YAML with just the domain to validate
+	yaml := &schema.NexlayerYAML{
+		Application: schema.Application{
+			Name: "temp",
+			URL:  domain,
+		},
+	}
+
+	validator := validation.NewValidator(true)
+	errors := validator.ValidateYAML(yaml)
+
+	if len(errors) > 0 {
+		// Return the first error for backward compatibility
+		return fmt.Errorf("domain validation failed: %s: %s", errors[0].Field, errors[0].Message)
 	}
 
 	return nil

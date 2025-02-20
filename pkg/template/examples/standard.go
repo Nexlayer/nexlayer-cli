@@ -4,10 +4,14 @@
 
 package examples
 
-import "github.com/Nexlayer/nexlayer-cli/pkg/template"
+import (
+	"fmt"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/template"
+)
 
 // StandardTemplate returns a standard example template that follows
-// the Nexlayer YAML schema v2 format
+// the Nexlayer YAML schema v1.0 format
 func StandardTemplate() *template.NexlayerYAML {
 	return &template.NexlayerYAML{
 		Application: template.Application{
@@ -29,19 +33,15 @@ func StandardTemplate() *template.NexlayerYAML {
 					// OPTIONAL: Route path for frontend
 					Path: "/",
 					// REQUIRED: Pod type
-					Type: template.React,
+					Type: "react",
 					// REQUIRED: Fully qualified image path
-					Image: "docker.io/my-org/frontend:latest",
+					Image: fmt.Sprintf("%s/frontend:latest", template.RegistryPlaceholder),
 					Vars: []template.EnvVar{
 						{Key: "API_URL", Value: "http://backend.pod:8000"},
 						{Key: "NODE_ENV", Value: "production"},
 					},
-					Ports: []template.Port{
-						{
-							ContainerPort: 3000,
-							ServicePort:   3000,
-							Name:          "http",
-						},
+					ServicePorts: []template.ServicePort{
+						{Name: "http", Port: 3000, TargetPort: 3000},
 					},
 				},
 				{
@@ -50,50 +50,38 @@ func StandardTemplate() *template.NexlayerYAML {
 					// OPTIONAL: Route path for API
 					Path: "/api",
 					// REQUIRED: Pod type
-					Type: template.FastAPI,
+					Type: "fastapi",
 					// REQUIRED: Fully qualified image path
-					Image: "docker.io/my-org/backend:latest",
+					Image: fmt.Sprintf("%s/backend:latest", template.RegistryPlaceholder),
 					Vars: []template.EnvVar{
-						{Key: "DATABASE_URL", Value: "postgres://user:pass@db.pod:5432/db"},
+						{Key: "DATABASE_URL", Value: "postgresql://user:pass@db.pod:5432/db"},
 						{Key: "PORT", Value: "8000"},
 					},
-					Ports: []template.Port{
-						{
-							ContainerPort: 8000,
-							ServicePort:   8000,
-							Name:          "http",
-						},
+					ServicePorts: []template.ServicePort{
+						{Name: "http", Port: 8000, TargetPort: 8000},
 					},
 				},
 				{
 					Name:  "db",
-					Type:  template.Postgres,
+					Type:  "postgres",
 					Image: "postgres:latest",
 					Volumes: []template.Volume{
 						{
-							Name:      "pg-data-volume",
-							Size:      "5Gi",
-							MountPath: "/var/lib/postgresql/data",
+							Name: "pg-data-volume",
+							Path: "/var/lib/postgresql/data",
+							Size: "5Gi",
 						},
 					},
-					Ports: []template.Port{
-						{
-							ContainerPort: 5432,
-							ServicePort:   5432,
-							Name:          "postgresql",
-						},
+					ServicePorts: []template.ServicePort{
+						{Name: "postgres", Port: 5432, TargetPort: 5432},
 					},
 				},
 				{
 					Name:  "llm",
-					Type:  template.Ollama,
+					Type:  "ollama",
 					Image: "ollama/ollama:latest",
-					Ports: []template.Port{
-						{
-							ContainerPort: 11434,
-							ServicePort:   11434,
-							Name:          "ollama",
-						},
+					ServicePorts: []template.ServicePort{
+						{Name: "api", Port: 11434, TargetPort: 11434},
 					},
 				},
 			},

@@ -13,6 +13,7 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/domain"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/feedback"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/info"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/initcmd"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/login"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
@@ -77,17 +78,24 @@ Core Commands:
   list             List deployments [applicationID]
   info             Get deployment info <namespace> <applicationID>
   domain set       Configure custom domain <applicationID> --domain <custom_domain>
-  feedback         Send feedback --message "<your_feedback>"
-  login            Log in to Nexlayer
+  init            Initialize a new Nexlayer project
+  login           Log in to Nexlayer
 
 AI Commands:
   ai               AI-powered features for Nexlayer
     generate         Generate AI-powered deployment template <app-name>
     detect           Detect AI assistants & project type
 
+Utility Commands:
+  feedback         Send feedback about the CLI
+  completion      Generate shell completion scripts (bash, zsh, fish, powershell)
+
 Use "nexlayer [command] --help" for more information about a command.
 
 Examples:
+  # Initialize a new project
+  nexlayer init
+
   # Deploy an application
   nexlayer deploy myapp --file deployment.yaml
 
@@ -102,7 +110,10 @@ Examples:
   nexlayer domain set myapp --domain example.com
 
   # Generate deployment template
-  nexlayer ai generate myapp`,
+  nexlayer ai generate myapp
+
+  # Enable shell completion (bash)
+  nexlayer completion bash > ~/.bash_completion`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// Load configuration only when needed.
 			if cmd.Name() != "help" {
@@ -130,6 +141,7 @@ Examples:
 		feedback.NewFeedbackCommand(apiClient),
 		login.NewLoginCommand(apiClient),
 		ai.NewCommand(),
+		initcmd.NewCommand(),
 	)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {

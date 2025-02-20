@@ -5,62 +5,75 @@
 package ai
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/analysis"
+	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
 )
 
-// CallGraph represents the structure of the call graph JSON output
-type CallGraph struct {
-	Nodes []struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	} `json:"nodes"`
-	Edges []struct {
-		Source string `json:"source"`
-		Target string `json:"target"`
-	} `json:"edges"`
-}
-
-// parseCallGraph parses the JSON call graph data into a CallGraph struct
-func parseCallGraph(data string) (*CallGraph, error) {
-	var graph CallGraph
-	err := json.Unmarshal([]byte(data), &graph)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse call graph JSON: %v", err)
+// enhancePromptWithAnalysis enhances the base prompt with project analysis information.
+// It adds structured information about functions, API endpoints, and dependencies to help
+// the AI provider generate more accurate and context-aware responses.
+func enhancePromptWithAnalysis(basePrompt string, analysis *detection.ProjectAnalysis) string {
+	if analysis == nil {
+		return basePrompt
 	}
-	return &graph, nil
-}
 
-// enhancePromptWithAnalysis enhances the base prompt with project analysis information
-func enhancePromptWithAnalysis(basePrompt string, analysis *analysis.ProjectAnalysis) string {
 	var sb strings.Builder
 	sb.WriteString(basePrompt)
 	sb.WriteString("\n\nProject Analysis:\n")
 
-	// Add detected frameworks
-	if len(analysis.Frameworks) > 0 {
-		sb.WriteString("\nFrameworks:\n")
-		for _, fw := range analysis.Frameworks {
-			sb.WriteString(fmt.Sprintf("- %s\n", fw))
+	// Add detected functions with file context
+	if len(analysis.Functions) > 0 {
+		sb.WriteString("\nFunctions:\n")
+		for file, functions := range analysis.Functions {
+			if len(functions) == 0 {
+				continue
+			}
+			sb.WriteString(fmt.Sprintf("\nFile: %s\n", file))
+			for _, fn := range functions {
+				// Include additional function details if available
+				details := []string{fn.Name}
+				if fn.IsExported {
+					details = append(details, "exported")
+				}
+				if fn.Signature != "" {
+					details = append(details, fmt.Sprintf("signature: %s", fn.Signature))
+				}
+				sb.WriteString(fmt.Sprintf("- %s\n", strings.Join(details, ", ")))
+			}
 		}
 	}
 
-	// Add detected API endpoints
+	// Add detected API endpoints with method and path
 	if len(analysis.APIEndpoints) > 0 {
 		sb.WriteString("\nAPI Endpoints:\n")
 		for _, ep := range analysis.APIEndpoints {
-			sb.WriteString(fmt.Sprintf("- %s %s\n", ep.Method, ep.Path))
+			// Include endpoint parameters if available
+			if len(ep.Parameters) > 0 {
+				var params []string
+				for k, v := range ep.Parameters {
+					params = append(params, fmt.Sprintf("%s: %s", k, v))
+				}
+				sb.WriteString(fmt.Sprintf("- %s %s [%s]\n", ep.Method, ep.Path, strings.Join(params, ", ")))
+			} else {
+				sb.WriteString(fmt.Sprintf("- %s %s\n", ep.Method, ep.Path))
+			}
 		}
 	}
 
-	// Add detected database types
-	if len(analysis.DatabaseTypes) > 0 {
-		sb.WriteString("\nDatabases:\n")
-		for _, db := range analysis.DatabaseTypes {
-			sb.WriteString(fmt.Sprintf("- %s\n", db))
+	// Add detected dependencies with version information
+	if len(analysis.Dependencies) > 0 {
+		sb.WriteString("\nDependencies:\n")
+		for pkg, deps := range analysis.Dependencies {
+			if len(deps) == 0 {
+				continue
+			}
+			sb.WriteString(fmt.Sprintf("\nPackage: %s\n", pkg))
+			for _, dep := range deps {
+				// Include dependency type and version
+				sb.WriteString(fmt.Sprintf("- %s@%s (%s)\n", dep.Name, dep.Version, dep.Type))
+			}
 		}
 	}
 

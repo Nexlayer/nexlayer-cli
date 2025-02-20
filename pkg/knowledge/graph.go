@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/analysis"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
 )
 
 // Node represents a code entity in the knowledge graph
@@ -48,7 +48,7 @@ func NewGraph() *Graph {
 }
 
 // BuildFromAnalysis constructs the graph from project analysis
-func (g *Graph) BuildFromAnalysis(ctx context.Context, projectAnalysis *analysis.ProjectAnalysis) error {
+func (g *Graph) BuildFromAnalysis(ctx context.Context, projectAnalysis *types.ProjectAnalysis) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 

@@ -8,16 +8,15 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
 	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
+	"github.com/Nexlayer/nexlayer-cli/pkg/template"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/Nexlayer/nexlayer-cli/pkg/validation"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // NewCommand initializes a new Nexlayer project
@@ -34,7 +33,7 @@ func NewCommand() *cobra.Command {
 
 // DetectIDE checks which AI-powered IDE is currently being used
 func DetectIDE() string {
-	// 1️⃣ Check environment variables
+	// Check environment variables
 	if os.Getenv("CURSOR") != "" {
 		return "Cursor"
 	}
@@ -51,7 +50,7 @@ func DetectIDE() string {
 		return "Aider"
 	}
 
-	// 2️⃣ Check running processes
+	// Check running processes
 	processes := []string{"cursor", "code", "windsurf", "zed", "aider"}
 	for _, process := range processes {
 		cmd := exec.Command("pgrep", "-x", process)
@@ -60,7 +59,7 @@ func DetectIDE() string {
 		}
 	}
 
-	// 3️⃣ Check configuration files in the project directory
+	// Check configuration files in the project directory
 	configFiles := map[string]string{
 		".cursor":           "Cursor",
 		".vscode":           "VSCode",
@@ -80,9 +79,6 @@ func DetectIDE() string {
 
 // runInitCommand handles the execution of the init command
 func runInitCommand(cmd *cobra.Command, args []string) error {
-	// Determine project name from current directory
-	projectName := getProjectName()
-
 	// Display welcome message
 	ui.RenderWelcome("Welcome to Nexlayer CLI!\nLet's set up your project configuration.")
 
@@ -106,26 +102,39 @@ func runInitCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Detect the LLM provider
-	llmProvider := detection.DetectAIIDE()
-
-	// Generate YAML based on detected project
+	// Create template generator
 	progress.UpdateTitle("Generating Nexlayer configuration...")
-	var _ string = llmProvider
-	yamlContent, err := generateProjectYAML(projectName, info)
+	generator := template.NewGenerator()
+
+	// Generate template
+	tmpl, err := generator.GenerateFromProjectInfo(info.Name, string(info.Type), info.Port)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to generate template: %w", err)
 	}
 	progress.Add(20)
 
+	// Add database if needed
+	if hasDatabase(info) {
+		if err := generator.AddPod(tmpl, template.PodTypePostgres, 0); err != nil {
+			return fmt.Errorf("failed to add database: %w", err)
+		}
+	}
+	progress.Add(20)
+
+	// Marshal template to YAML
+	yamlData, err := yaml.Marshal(tmpl)
+	if err != nil {
+		return fmt.Errorf("failed to marshal template: %w", err)
+	}
+
 	// Write YAML to file
-	if err := writeYAMLToFile("nexlayer.yaml", yamlContent); err != nil {
+	if err := writeYAMLToFile("nexlayer.yaml", string(yamlData)); err != nil {
 		return err
 	}
 	progress.Add(20)
 
 	// Validate YAML
-	if err := validateGeneratedYAML(yamlContent); err != nil {
+	if err := validateGeneratedYAML(string(yamlData)); err != nil {
 		return err
 	}
 	progress.Add(20)
@@ -138,70 +147,17 @@ func runInitCommand(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// getProjectName determines the project name from the current directory
-func getProjectName() string {
-	dir, err := os.Getwd()
-	if err != nil {
-		pterm.Error.Println("Unable to determine current directory. Defaulting to 'new-project'.")
-		return "new-project"
-	}
-	// Clean the directory name to be a valid project name
-	name := filepath.Base(dir)
-	// Convert to lowercase and replace invalid characters with hyphens
-	name = strings.ToLower(name)
-	name = strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
-			return r
+// hasDatabase checks if the project needs a database
+func hasDatabase(info *detection.ProjectInfo) bool {
+	// Check dependencies for database-related packages
+	for _, dep := range info.Dependencies {
+		switch dep {
+		case "pg", "postgres", "postgresql", "sequelize", "typeorm", "prisma",
+			"mongoose", "mongodb", "mysql", "mysql2", "sqlite3", "redis":
+			return true
 		}
-		return '-'
-	}, name)
-	return name
-}
-
-// detectProject attempts to detect the project type
-func detectProject(progress *pterm.ProgressbarPrinter) (*detection.ProjectInfo, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current directory: %w", err)
 	}
-
-	detector := detection.NewDetectorRegistry()
-	progress.Add(20)
-
-	info, err := detector.DetectProject(dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect project type: %w", err)
-	}
-
-	pterm.Success.Printf("✅ Found %s project\n", info.Type)
-	return info, nil
-}
-
-// generateProjectYAML creates the Nexlayer configuration file
-func generateProjectYAML(projectName string, info *detection.ProjectInfo) (string, error) {
-	// Try to generate YAML based on project detection
-	yamlContent, err := detection.GenerateYAMLFromTemplate(info)
-	if err != nil {
-		pterm.Warning.Println("⚠️  Using basic template - some features may need manual configuration")
-		// Use a basic template following v1.2 schema
-		yamlContent = fmt.Sprintf(`application:
-  name: %s
-  pods:
-    - name: app
-      type: frontend
-      image: nginx:latest
-      servicePorts:
-        - 80
-`, projectName)
-	}
-
-	// Validate the generated YAML
-	err = validateGeneratedYAML(yamlContent)
-	if err != nil {
-		return "", fmt.Errorf("generated YAML validation failed: %w", err)
-	}
-
-	return yamlContent, nil
+	return false
 }
 
 // writeYAMLToFile writes the YAML content to a file
@@ -223,13 +179,11 @@ func writeYAMLToFile(filename string, content string) error {
 
 // validateGeneratedYAML checks for YAML syntax errors
 func validateGeneratedYAML(yamlContent string) error {
-	var config schema.NexlayerYAML
-	if err := yaml.Unmarshal([]byte(yamlContent), &config); err != nil {
-		return fmt.Errorf("failed to parse generated YAML: %w", err)
+	validationErrors, err := validation.ValidateYAMLString(yamlContent)
+	if err != nil {
+		return fmt.Errorf("failed to validate YAML: %w", err)
 	}
 
-	validator := validation.NewValidator(false)
-	validationErrors := validator.ValidateYAML(&config)
 	if len(validationErrors) > 0 {
 		pterm.Warning.Println("⚠️  Validation found issues:")
 
@@ -249,4 +203,23 @@ func validateGeneratedYAML(yamlContent string) error {
 
 	pterm.Success.Println("✅ Validation passed")
 	return nil
+}
+
+// detectProject attempts to detect the project type
+func detectProject(progress *pterm.ProgressbarPrinter) (*detection.ProjectInfo, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	detector := detection.NewDetectorRegistry()
+	progress.Add(20)
+
+	info, err := detector.DetectProject(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect project type: %w", err)
+	}
+
+	pterm.Success.Printf("✅ Found %s project\n", info.Type)
+	return info, nil
 }

@@ -1,181 +1,166 @@
 // Copyright (c) 2025 Nexlayer. All rights reserved.
-// Use of this source code is governed by an MIT-style license
-// that can be found in the LICENSE file.
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
 
 package ai
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/analysis"
-	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
-	"github.com/Nexlayer/nexlayer-cli/pkg/knowledge"
-	tmpl "github.com/Nexlayer/nexlayer-cli/pkg/template"
+	"github.com/Nexlayer/nexlayer-cli/pkg/template"
 )
 
+// Component represents a detected application component
+type Component struct {
+	Name    string
+	Type    string
+	Image   string
+	Ports   []int
+	EnvVars []template.EnvVar
+	Volumes []template.Volume
+	Secrets []template.Secret
+}
+
+// AnalysisResult represents the project analysis output
+type AnalysisResult struct {
+	Components []*Component
+}
+
+// GraphResult represents the knowledge graph output
+type GraphResult struct {
+	Nodes []*GraphNode
+}
+
+// GraphNode represents a node in the knowledge graph
+type GraphNode struct {
+	Name        string
+	EnvVars     map[string]string
+	Annotations map[string]string
+}
+
 // createTemplate creates a template based on project analysis
-func createTemplate(info *detection.ProjectInfo, analysis *analysis.ProjectAnalysis, graph *knowledge.Graph, req TemplateRequest) tmpl.NexlayerYAML {
-	var yamlTemplate tmpl.NexlayerYAML
-
-	// Map detected stack to pod type
-	podType := detectPodType(info, analysis)
-
-	// Create template with detected pod type
-	if podType != "" {
-		pod := createPod(podType, analysis, info, req.ProjectName)
-		yamlTemplate = tmpl.NexlayerYAML{
-			Application: tmpl.Application{
-				Name: req.ProjectName,
-				Pods: []tmpl.Pod{pod},
-			},
-		}
-
-		// Use knowledge graph for additional insights if available
-		if graph != nil {
-			enrichTemplateWithGraph(&yamlTemplate, graph)
-		}
+func createTemplate(projectInfo *ProjectInfo, analysis *AnalysisResult, graph *GraphResult) (*template.NexlayerYAML, error) {
+	// Create a new template parser
+	parser, err := template.NewParser("")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create template parser: %w", err)
 	}
 
-	return yamlTemplate
+	// Load the base template
+	if err := parser.LoadTemplate(); err != nil {
+		return nil, fmt.Errorf("failed to load template: %w", err)
+	}
+
+	// Create detected settings
+	detected := &template.NexlayerYAML{
+		Application: template.Application{
+			Name: projectInfo.Name,
+			Pods: []template.Pod{},
+		},
+	}
+
+	// Add detected pods
+	for _, component := range analysis.Components {
+		pod := template.Pod{
+			Name: component.Name,
+			Type: detectPodType(projectInfo, component),
+		}
+
+		// Set image if available
+		if component.Image != "" {
+			pod.Image = component.Image
+		}
+
+		// Add service ports
+		for _, port := range component.Ports {
+			pod.ServicePorts = append(pod.ServicePorts, template.ServicePort{
+				Name:       fmt.Sprintf("%s-%d", component.Name, port),
+				Port:       port,
+				TargetPort: port,
+			})
+		}
+
+		// Add environment variables
+		for _, env := range component.EnvVars {
+			pod.Vars = append(pod.Vars, env)
+		}
+
+		// Add volumes if needed
+		if len(component.Volumes) > 0 {
+			pod.Volumes = append(pod.Volumes, component.Volumes...)
+		}
+
+		// Add secrets if needed
+		if len(component.Secrets) > 0 {
+			pod.Secrets = append(pod.Secrets, component.Secrets...)
+		}
+
+		detected.Application.Pods = append(detected.Application.Pods, pod)
+	}
+
+	// Enrich with graph insights
+	if graph != nil {
+		enrichTemplateWithGraph(detected, graph)
+	}
+
+	// Merge with base template
+	final, err := parser.MergeWithDetected(detected)
+	if err != nil {
+		return nil, fmt.Errorf("failed to merge template: %w", err)
+	}
+
+	return final, nil
 }
 
 // detectPodType determines the pod type based on project info and analysis
-func detectPodType(info *detection.ProjectInfo, analysis *analysis.ProjectAnalysis) tmpl.PodType {
+func detectPodType(info *ProjectInfo, component *Component) string {
+	// First check if we have an explicit type from analysis
+	if component.Type != "" {
+		return component.Type
+	}
+
+	// Detect based on project info
 	switch info.Type {
-	case detection.TypeReact:
-		return tmpl.React
-	case detection.TypePython:
-		if analysis != nil && len(analysis.Frameworks) > 0 {
-			if containsAny(analysis.Frameworks, "django") {
-				return tmpl.Django
-			} else if containsAny(analysis.Frameworks, "fastapi") {
-				return tmpl.FastAPI
-			}
-			return tmpl.Backend
-		}
-		return tmpl.Backend
+	case "nextjs":
+		return "nextjs"
+	case "react":
+		return "react"
+	case "node":
+		return "node"
+	case "python":
+		return "python"
+	case "go":
+		return "golang"
 	default:
-		return tmpl.Backend
+		// Default to raw type if we can't determine
+		return "raw"
 	}
-}
-
-// createPod creates a pod configuration based on detected settings
-func createPod(podType tmpl.PodType, analysis *analysis.ProjectAnalysis, info *detection.ProjectInfo, projectName string) tmpl.Pod {
-	// Get default ports for the pod type
-	ports := tmpl.DefaultPorts[podType]
-	if len(ports) == 0 && analysis != nil {
-		ports = detectPorts(analysis, info)
-	}
-
-	// Get default environment variables
-	vars := tmpl.DefaultEnvVars[podType]
-
-	// Add database environment variables if needed
-	if analysis != nil && len(analysis.DatabaseTypes) > 0 {
-		vars = append(vars, generateDatabaseEnvVars(analysis.DatabaseTypes)...)
-	}
-
-	return tmpl.Pod{
-		Name:  "app",
-		Type:  podType,
-		Image: fmt.Sprintf("ghcr.io/nexlayer/%s:latest", projectName),
-		Ports: ports,
-		Vars:  vars,
-	}
-}
-
-// detectPorts detects ports from analysis or project info
-func detectPorts(analysis *analysis.ProjectAnalysis, info *detection.ProjectInfo) []tmpl.Port {
-	var ports []tmpl.Port
-
-	if len(analysis.APIEndpoints) > 0 {
-		for _, endpoint := range analysis.APIEndpoints {
-			if port := extractPortFromEndpoint(endpoint.Path); port > 0 {
-				ports = append(ports, tmpl.Port{
-					ContainerPort: port,
-					ServicePort:   port,
-					Name:          "api",
-				})
-			}
-		}
-	}
-
-	// Fallback to info.Port if no ports detected
-	if len(ports) == 0 && info.Port > 0 {
-		ports = []tmpl.Port{{ContainerPort: info.Port, ServicePort: info.Port, Name: "app"}}
-	}
-
-	return ports
 }
 
 // enrichTemplateWithGraph adds graph-based insights to the template
-func enrichTemplateWithGraph(yamlTemplate *tmpl.NexlayerYAML, graph *knowledge.Graph) {
+func enrichTemplateWithGraph(tmpl *template.NexlayerYAML, graph *GraphResult) {
+	// Add any insights from the graph analysis to enrich the template
 	for _, node := range graph.Nodes {
-		if node.Type == "api_endpoint" {
-			yamlTemplate.Application.Pods[0].Annotations = node.Annotations
-			break
-		}
-	}
-}
+		for i, pod := range tmpl.Application.Pods {
+			if pod.Name == node.Name {
+				// Add any additional environment variables
+				for k, v := range node.EnvVars {
+					tmpl.Application.Pods[i].Vars = append(tmpl.Application.Pods[i].Vars, template.EnvVar{
+						Key:   k,
+						Value: v,
+					})
+				}
 
-// generateDatabaseEnvVars generates environment variables for database configuration
-func generateDatabaseEnvVars(dbTypes []string) []tmpl.EnvVar {
-	var vars []tmpl.EnvVar
-	for _, dbType := range dbTypes {
-		switch strings.ToLower(dbType) {
-		case "postgres", "postgresql":
-			vars = append(vars, []tmpl.EnvVar{
-				{Key: "DB_HOST", Value: "localhost"},
-				{Key: "DB_PORT", Value: "5432"},
-				{Key: "DB_NAME", Value: "app"},
-				{Key: "DB_USER", Value: "postgres"},
-				{Key: "DB_PASSWORD", Value: "<% DB_PASSWORD %>"},
-			}...)
-		case "mysql", "mariadb":
-			vars = append(vars, []tmpl.EnvVar{
-				{Key: "DB_HOST", Value: "localhost"},
-				{Key: "DB_PORT", Value: "3306"},
-				{Key: "DB_NAME", Value: "app"},
-				{Key: "DB_USER", Value: "root"},
-				{Key: "DB_PASSWORD", Value: "<% DB_PASSWORD %>"},
-			}...)
-		case "mongodb":
-			vars = append(vars, []tmpl.EnvVar{
-				{Key: "MONGODB_URI", Value: "mongodb://localhost:27017/app"},
-			}...)
-		}
-	}
-	return vars
-}
-
-// extractPortFromEndpoint extracts port number from endpoint path
-func extractPortFromEndpoint(path string) int {
-	// Simple port extraction from URL-like paths
-	// e.g., "http://localhost:3000" -> 3000
-	parts := strings.Split(path, ":")
-	if len(parts) > 1 {
-		lastPart := parts[len(parts)-1]
-		// Remove any trailing path
-		if idx := strings.Index(lastPart, "/"); idx != -1 {
-			lastPart = lastPart[:idx]
-		}
-		var port int
-		if _, err := fmt.Sscanf(lastPart, "%d", &port); err == nil {
-			return port
-		}
-	}
-	return 0
-}
-
-// containsAny checks if any of the items are in the slice
-func containsAny(slice []string, items ...string) bool {
-	for _, item := range items {
-		for _, s := range slice {
-			if strings.Contains(strings.ToLower(s), strings.ToLower(item)) {
-				return true
+				// Add any annotations
+				if len(node.Annotations) > 0 {
+					if tmpl.Application.Pods[i].Annotations == nil {
+						tmpl.Application.Pods[i].Annotations = make(map[string]string)
+					}
+					for k, v := range node.Annotations {
+						tmpl.Application.Pods[i].Annotations[k] = v
+					}
+				}
 			}
 		}
 	}
-	return false
 }

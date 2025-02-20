@@ -58,6 +58,48 @@ Run `nexlayer init` in your project directory to automatically configure it for 
 - Configure appropriate container images
 - Set up health checks and environment variables
 - Validate your configuration against best practices
+- Automatically detect custom ports from configuration files (e.g., package.json for Node.js projects)
+
+### YAML Schema Compliance
+
+Nexlayer uses a standardized YAML schema for deployment templates. Key features include:
+- **Private Registry Support**: Use `<% REGISTRY %>` placeholder for private images
+- **Dynamic Pod References**: Reference other pods using `<pod-name>.pod` format
+- **URL References**: Use `<% URL %>` to reference your deployment's base URL
+- **Flexible Port Configuration**: Support for both simple and detailed port formats
+- **Automatic Validation**: Built-in schema validation with helpful error messages
+
+Example template:
+```yaml
+application:
+  name: my-app
+  url: my-app.nexlayer.dev
+  registryLogin:
+    registry: ghcr.io/my-org
+    username: myuser
+    personalAccessToken: pat_token
+  pods:
+    - name: frontend
+      type: nextjs
+      path: /
+      image: <% REGISTRY %>/frontend:latest
+      servicePorts:
+        - 3000  # Simple port format
+      vars:
+        - key: API_URL
+          value: http://api.pod:8000
+    - name: api
+      type: backend
+      path: /api
+      image: <% REGISTRY %>/api:latest
+      servicePorts:
+        - name: http
+          port: 8000
+          targetPort: 8000
+      vars:
+        - key: DATABASE_URL
+          value: postgresql://postgres:postgres@postgres.pod:5432/app
+```
 
 ### Development Mode
 
@@ -106,18 +148,27 @@ nexlayer init
 nexlayer init [name]
 
 # Deploy your application
-nexlayer deploy
+nexlayer deploy [appID] --file deployment.yaml
 
 # View status and logs
-nexlayer status
-nexlayer logs -f [pod]
+nexlayer list [appID]        # List deployments
+nexlayer info <namespace> <appID>  # Get deployment info
 
-# Validate configuration
-nexlayer validate [file]        # Validate config file
-nexlayer validate --strict      # Enable strict validation
+# Configure custom domain
+nexlayer domain set <appID> --domain example.com
 
-# Keep config in sync
-nexlayer sync
+# AI Features
+nexlayer ai generate <app-name>  # Generate deployment template
+nexlayer ai detect              # Detect project type
+
+# Utility Commands
+nexlayer feedback              # Send feedback
+nexlayer completion [shell]    # Generate shell completion scripts
+
+# Shell completion
+nexlayer completion bash > ~/.bash_completion
+nexlayer completion zsh > "${fpath[1]}/_nexlayer"
+nexlayer completion fish > ~/.config/fish/completions/nexlayer.fish
 ```
 
 ## 📚 Documentation
