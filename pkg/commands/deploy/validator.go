@@ -1,46 +1,53 @@
+// Copyright (c) 2025 Nexlayer. All rights reserved.
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
+
 package deploy
 
 import (
 	"fmt"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/template"
 	"github.com/Nexlayer/nexlayer-cli/pkg/validation"
 )
 
 // validateDeployConfig validates the deployment configuration
-func validateDeployConfig(yaml *schema.NexlayerYAML) error {
+func validateDeployConfig(yaml *template.NexlayerYAML) error {
 	if yaml == nil {
 		return fmt.Errorf("deployment configuration is required")
 	}
 
 	// Use the centralized validation system
-	validator := validation.NewValidator(true)
-	errors := validator.ValidateYAML(yaml)
-
+	errors := validation.ValidateYAML(yaml)
 	if len(errors) > 0 {
-		// Return the first error for backward compatibility
-		return fmt.Errorf("validation failed: %s: %s", errors[0].Field, errors[0].Message)
+		// Format all validation errors
+		var errMsg string
+		for _, err := range errors {
+			errMsg += fmt.Sprintf("\n- %s", err.Message)
+			if err.Suggestion != "" {
+				errMsg += fmt.Sprintf("\n  Suggestion: %s", err.Suggestion)
+			}
+		}
+		return fmt.Errorf("validation failed:%s", errMsg)
 	}
 
 	return nil
 }
 
 // validatePod validates a pod configuration using the centralized validation system
-func validatePod(pod schema.Pod) error {
+func validatePod(pod template.Pod) error {
 	// Create a minimal YAML with just the pod to validate
-	yaml := &schema.NexlayerYAML{
-		Application: schema.Application{
+	yaml := &template.NexlayerYAML{
+		Application: template.Application{
 			Name: "temp",
-			Pods: []schema.Pod{pod},
+			Pods: []template.Pod{pod},
 		},
 	}
 
-	validator := validation.NewValidator(true)
-	errors := validator.ValidateYAML(yaml)
-
+	errors := validation.ValidateYAML(yaml)
 	if len(errors) > 0 {
 		// Return the first error for backward compatibility
-		return fmt.Errorf("pod validation failed: %s: %s", errors[0].Field, errors[0].Message)
+		return fmt.Errorf("pod validation failed: %s", errors[0].Message)
 	}
 
 	return nil
