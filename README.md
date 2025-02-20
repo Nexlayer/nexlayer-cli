@@ -58,6 +58,7 @@ Run `nexlayer init` in your project directory to automatically configure it for 
 - Configure appropriate container images
 - Set up health checks and environment variables
 - Validate your configuration against best practices
+- Automatically detect custom ports from configuration files (e.g., package.json for Node.js projects)
 
 ### YAML Schema Compliance
 
