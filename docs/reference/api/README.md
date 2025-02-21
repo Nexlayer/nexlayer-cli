@@ -312,38 +312,6 @@ curl -X GET "https://app.staging.nexlayer.io/getDeployments/{applicationID}" \
 
 ---
 
-## AI Commands
-
-Nexlayer CLI includes AI-powered features to assist with deployment configuration and optimization.
-
-### AI Template Generation
-
-Generate an optimized deployment template using AI:
-
-```bash
-nexlayer ai generate [app-name]
-```
-
-This command:
-- Analyzes your project structure and dependencies
-- Detects frameworks and runtime requirements
-- Generates an optimized `nexlayer.yaml` configuration
-
-### AI Project Detection
-
-Detect your project's stack and available AI assistants:
-
-```bash
-nexlayer ai detect
-```
-
-This command analyzes your project to:
-- Identify frameworks and languages
-- Detect dependencies and requirements
-- Determine optimal deployment settings
-
----
-
 ## Usage Examples
 
 ### Starting a User Deployment
@@ -353,7 +321,6 @@ To start a deployment, send a `POST` request to:
 ```http
 https://app.staging.nexlayer.io/startUserDeployment/{applicationID?}
 ```
-
 
 Include your YAML file as binary data in the request body with the content type `text/x-yaml`.
 

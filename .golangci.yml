@@ -1,85 +1,77 @@
 run:
   timeout: 5m
   modules-download-mode: readonly
+  skip-dirs:
+    - vendor
+    - third_party
+    - testdata
+    - examples
+    - tools
 
 linters:
-  enable:
-    - gofmt
-    - gofumpt
-    - gci
-    - goimports
-    - govet
-    - staticcheck
-    - revive
-    - errcheck
-    - gocritic
-    - ineffassign
-    - unused
-    - unparam
-    - cyclop
-    - loggercheck
+  enable-all: true
+  disable:
+    - exhaustivestruct  # deprecated
+    - golint           # deprecated
+    - ifshort         # deprecated
+    - interfacer      # deprecated
+    - maligned        # deprecated
+    - nosnakecase     # deprecated
+    - scopelint       # deprecated
+    - structcheck     # deprecated
+    - varcheck        # deprecated
+    - deadcode        # deprecated
+    - exhaustruct     # too strict
+    - gci             # conflicts with gofmt
+    - gofumpt         # conflicts with gofmt
+    - lll             # line length is subjective
+    - wsl             # too opinionated
 
 linters-settings:
+  govet:
+    check-shadowing: true
+  cyclop:
+    max-complexity: 15
+  gocyclo:
+    min-complexity: 15
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  misspell:
+    locale: US
+  funlen:
+    lines: 100
+    statements: 50
+  godox:
+    keywords:
+      - FIXME
+      - BUG
+      - TODO
   gofmt:
     simplify: true
-  gci:
-    sections:
-      - standard # Standard packages
-      - default # Default section for all other imports
-      - prefix(github.com/Nexlayer/nexlayer-cli) # Project-specific packages
-  gofumpt:
-    extra-rules: true # Enable extra rules for stricter formatting
-  revive:
-    rules:
-      - name: exported
-        severity: warning
-        disabled: false
-      - name: package-comments
-        severity: warning
-        disabled: false
-      - name: error-naming
-        severity: warning
-        disabled: false
   gocritic:
     enabled-tags:
       - diagnostic
-      - style
-      - performance
+      - experimental
       - opinionated
-    disabled-checks:
-      - commentFormatting
-      - unnamedResult
-  cyclop:
-    max-complexity: 15
-    package-average: 10.0
-    skip-tests: true
-  loggercheck:
-    packages:
-      - log
-      - fmt
-    not-allowed-functions:
-      - log.Print
-      - log.Printf
-      - log.Println
-      - fmt.Print
-      - fmt.Printf
-      - fmt.Println
+      - performance
+      - style
+  gomodguard:
+    blocked:
+      modules:
+        - github.com/golang/protobuf:
+            recommendations:
+              - google.golang.org/protobuf
+            reason: "see https://developers.google.com/protocol-buffers/docs/reference/go/faq#modules"
 
 issues:
   exclude-rules:
     - path: _test\.go
       linters:
-        - gocyclo
-        - errcheck
         - dupl
         - gosec
-        - cyclop
-        - unparam
-
-  max-same-issues: 50
-  
-  # Exclude specific issues
-  exclude:
-    - "should have comment"  # Exclude missing comment warnings for unexported symbols
-    - "always receives"      # Exclude warnings about unused parameters in interfaces
-    - "parameter .* is always"  # Exclude unparam warnings for interface implementations
+        - goconst
+  max-issues-per-linter: 0
+  max-same-issues: 0

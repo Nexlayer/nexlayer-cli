@@ -17,176 +17,133 @@
   </p>
 </div>
 
-## 🚀 Quick Start: Deploy Your Project in Seconds
+---
 
-### Installation Options
+## 🚀 What is Nexlayer?
 
-#### 1. Automated Installation (Recommended)
+**Nexlayer** is the fastest way to **deploy full-stack applications** with a single command.  
+It automates **containerized, serverless, and full-stack deployments** without complex infrastructure setup.  
+
+### **🔥 Why Use Nexlayer?**
+✅ **One-command deploys** – `nexlayer deploy` auto-detects your stack.  
+✅ **Built-in scaling** – Auto-scales with no manual config.  
+✅ **Zero DevOps required** – Works out of the box.  
+✅ **Instant rollbacks** – Deploy safely with built-in versioning.  
+✅ **Live Watch Mode** – Auto-redeploy when code changes.  
+
+---
+
+# **⚡ Create Your First App**  
+
+### **1️⃣ Install Nexlayer CLI**
 ```bash
 curl -sSL https://raw.githubusercontent.com/Nexlayer/nexlayer-cli/main/install.sh | bash
 ```
-This script will:
-- Check system requirements
-- Install dependencies if needed
-- Configure your PATH automatically
-- Back up any existing installation
-- Install the latest version of Nexlayer CLI
 
-#### 2. Manual Installation
+### **2️⃣ Create and Initialize a Project**
 ```bash
-go install github.com/Nexlayer/nexlayer-cli@latest
+mkdir myapp && cd myapp
+nexlayer init
+```
+- Auto-detects your framework (Next.js, Python, etc.)
+- Generates a `nexlayer.yaml` deployment file
+- Sets up environment variables and dependencies
+
+### **3️⃣ Deploy in Seconds**
+```bash
+nexlayer deploy
+```
+- Instantly deploys your app
+- Generates build artifacts, provisions infrastructure, and handles CDN caching
+
+### **4️⃣ Watch for Live Changes**
+```bash
+nexlayer watch
+```
+- Auto-redeploys when code changes
+- Ideal for local development
+
+## 🛠 Example: Deploying a Next.js App
+
+Let's deploy a simple Next.js app with Nexlayer.
+
+### 📂 Project Structure
+```
+myapp/
+ ├── pages/
+ │    ├── index.js
+ │    ├── about.js
+ ├── public/
+ │    ├── logo.png
+ ├── package.json
+ ├── nexlayer.yaml
 ```
 
-### System Requirements
-- Go 1.23.0 or higher
-- Git (for development)
-- 100MB free disk space
-
-### Shell Configuration
-
-The installer will automatically configure your shell. Supported shells:
-- Bash (Linux: `~/.bashrc`, macOS: `~/.bash_profile`)
-- Zsh (`~/.zshrc`)
-- Fish (`~/.config/fish/config.fish`)
-
-If you installed manually, add this to your shell configuration:
-```bash
-# For Bash/Zsh
-export PATH=$PATH:~/go/bin
-
-# For Fish
-set -x PATH $PATH ~/go/bin
+### 🔧 nexlayer.yaml Configuration
+```yaml
+name: myapp
+runtime: node
+build:
+  command: npm install && npm run build
+  output: .next
+deploy:
+  port: 3000
+  env:
+    NEXT_PUBLIC_API_URL: "https://api.example.com"
 ```
 
-### Getting Started
-
-1. **Initialize Your Project**
-   ```bash
-   nexlayer init
-   ```
-   This will:
-   - Generate deployment configuration
-   - Set up environment variables
-   - Configure service dependencies
-
-2. **Deploy Your Application**
-   ```bash
-   nexlayer deploy
-   ```
-
-That's it! Your app is now live. [Watch the demo →](https://nexlayer.dev/demo)
-
-## 🎯 Why Nexlayer?
-
-Nexlayer makes deploying full-stack applications fast, simple, and reliable. Here's why developers love it:
-
-- **Smart Templates**: Production-ready configurations for any stack
-- **One-Command Deploy**: No complex setup—just deploy
-- **Live Watch**: Automatically redeploy on code changes
-- **Real-Time Monitoring**: Track deployments with live logs
-- **Built-in Security**: Automated security checks and best practices
-
-## 💻 Core Commands
-
-### Essential Commands
+### 🚀 Deploy the App
 ```bash
-# Project Setup
-nexlayer init              # Initialize your project
-nexlayer init -i          # Interactive initialization
+nexlayer deploy
+```
+- Detects the framework automatically
+- Builds and deploys the application
+- Assigns a default domain (e.g., `myapp.nexlayer.app`)
 
-# Deployment
-nexlayer deploy [appID]   # Deploy your application
-nexlayer watch [appID]    # Watch for changes and auto-deploy
+### 🔍 How It Works
+- Nexlayer detects `next.config.js` and automatically provisions a Next.js environment
+- It builds the static site and deploys it on an optimized global CDN
+- Rollbacks are instant if something goes wrong
+
+## 💻 Command Reference
+
+```bash
+# Initialize a new project
+nexlayer init                # Auto-detect project type
+nexlayer init -i             # Interactive mode
+nexlayer init --type react   # Initialize React project
+
+# Deploy an application
+nexlayer deploy              # Deploy using nexlayer.yaml
+nexlayer deploy myapp        # Deploy specific application
+nexlayer deploy -f config.yaml  # Deploy with a custom config
+
+# Watch mode for auto-deployment
+nexlayer watch               # Auto-redeploy on changes
 
 # Monitoring
-nexlayer list            # List all deployments
-nexlayer info <ns> <app> # Get deployment info
+nexlayer list                # Show all deployments
+nexlayer info myapp          # Show deployment details
+nexlayer list --json         # Output results in JSON format
 
-# Domain Management
-nexlayer domain set      # Configure custom domain
+# Configure a custom domain
+nexlayer domain set myapp --domain example.com
+
+# Send feedback
+nexlayer feedback            # Share feedback or report issues
 ```
-
-### Development Commands
-```bash
-# Build and Test
-make build              # Build optimized binary
-make build-debug        # Build with debug symbols
-make test              # Run tests with race detection
-make coverage          # Generate test coverage report
-make bench            # Run benchmarks
-
-# Code Quality
-make lint             # Run linters
-make security         # Run security checks
-make fmt              # Format code
-make vet              # Run go vet
-
-# Release
-make release          # Create release builds
-make docker          # Build Docker image
-```
-
-## 📝 Supported Project Types
-
-Nexlayer supports a wide range of stacks out of the box:
-
-### Web Frameworks
-- `nextjs` - Next.js applications
-- `react` - React applications
-- `node` - Node.js/Express applications
-- `python` - Python/FastAPI/Django applications
-- `go` - Go applications
-
-### Full-Stack Templates
-- `mern` - MongoDB + Express + React + Node.js
-- `pern` - PostgreSQL + Express + React + Node.js
-- `mean` - MongoDB + Express + Angular + Node.js
-
-More templates at [nexlayer.dev/templates](https://nexlayer.dev/templates)
-
-## 👷 Development
-
-### Setting Up Development Environment
-
-```bash
-# Clone the repository
-git clone https://github.com/Nexlayer/nexlayer-cli.git
-cd nexlayer-cli
-
-# Set up development tools
-make setup
-
-# Install dependencies
-make deps
-
-# Run tests and checks
-make ci
-```
-
-### Development Features
-
-- **Optimized Builds**: Static linking with trimpath and netgo tags
-- **Security Checks**: Built-in gosec and dependency scanning
-- **Performance Testing**: Benchmarking and race detection
-- **Cross-Platform**: Builds for Linux, macOS (Intel/ARM), and Windows
-- **CI/CD Ready**: Comprehensive test and build pipeline
 
 ## 📚 Documentation
-
-### Core Documentation
-- [YAML Reference](docs/reference/schemas/yaml/README.md) - How to write your `nexlayer.yaml` file
-- [API Reference](docs/reference/api/README.md) - API endpoints used by the CLI
-
-### Technical Reference
-- YAML Schemas: [/docs/reference/schemas/yaml/](docs/reference/schemas/yaml/)
-- API Schemas: [/docs/reference/schemas/api/](docs/reference/schemas/api/)
-
-Full documentation at [nexlayer.dev/docs](https://nexlayer.dev/docs)
+- 📖 [YAML Reference](docs/reference/schemas/yaml/README.md) – Configure `nexlayer.yaml`
+- 📡 [API Reference](docs/reference/api/README.md) – Manage deployments via API
 
 ## 💪 Contributing
-
-We love contributions! See our [Contributing Guide](CONTRIBUTING.md) for details on how to get involved.
+We welcome contributions! Check out our [Contributing Guide](CONTRIBUTING.md) to get involved.
 
 ## 📜 License
-
 Nexlayer CLI is [MIT licensed](LICENSE).
+
+## 🚀 Ready to Deploy?
+- 🔹 Website: [nexlayer.dev](https://nexlayer.dev)
+- 🔹 Docs: [nexlayer.dev/docs](https://nexlayer.dev/docs)
+- 🔹 Community: [Join Discord](https://discord.gg/nexlayer)
