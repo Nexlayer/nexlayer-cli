@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
-	"github.com/Nexlayer/nexlayer-cli/pkg/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/Nexlayer/nexlayer-cli/pkg/validation"
 	"github.com/spf13/cobra"
@@ -83,8 +83,8 @@ func ValidateDomain(domain string) error {
 	}
 
 	// Create a minimal YAML with just the domain to validate
-	yaml := &schema.NexlayerYAML{
-		Application: schema.Application{
+	yaml := &types.NexlayerYAML{
+		Application: types.Application{
 			Name: "temp",
 			URL:  domain,
 		},

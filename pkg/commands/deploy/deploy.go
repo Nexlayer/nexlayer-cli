@@ -8,10 +8,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/template"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 // findDeploymentFile looks for a deployment file in the current directory
@@ -30,7 +33,7 @@ func findDeploymentFile() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("no deployment file found in current directory. Expected one of: %v", possibleFiles)
+	return "", fmt.Errorf("no deployment file found in current directory\nExpected one of: %v\nCreate a deployment file or specify one with --file", possibleFiles)
 }
 
 // NewCommand creates a new deploy command
@@ -42,14 +45,17 @@ func NewCommand(apiClient api.APIClient) *cobra.Command {
 		Short: "Deploy an application",
 		Long: `Deploy an application using a deployment YAML file.
 
-Endpoint: POST /startUserDeployment/{applicationID?}
+The deployment file should be named 'deployment.yaml' or 'nexlayer.yaml' in the current directory.
+You can also specify a custom file path using the --file flag.
 
 Arguments:
-  applicationID     Optional application ID
-  --file           Path to deployment YAML file
+  applicationID     Optional application ID. If not provided, will use Nexlayer profile.
+  --file, -f       Path to deployment YAML file (optional)
 
 Example:
-  nexlayer deploy myapp --file deployment.yaml`,
+  nexlayer deploy                    # Deploy using deployment.yaml in current directory
+  nexlayer deploy myapp             # Deploy specific application
+  nexlayer deploy -f custom.yaml    # Deploy using custom file`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// If no file specified, try to find one
@@ -59,25 +65,44 @@ Example:
 					return err
 				}
 				yamlFile = file
-				cmd.Printf("Using deployment file: %s\n", yamlFile)
+				fmt.Printf("Using deployment file: %s\n", yamlFile)
 			}
 
 			// Get app ID if provided
-			appID, _ := cmd.Flags().GetString("app")
+			appID := ""
+			if len(args) > 0 {
+				appID = args[0]
+			}
 
-			return runDeploy(cmd, apiClient, yamlFile, appID)
+			return runDeploy(apiClient, yamlFile, appID)
 		},
 	}
 
 	cmd.Flags().StringVarP(&yamlFile, "file", "f", "", "Path to deployment YAML file")
-	// Mark file flag as required
-	cmd.MarkFlagRequired("file")
-
 	return cmd
 }
 
-func runDeploy(_ *cobra.Command, client api.APIClient, yamlFile string, appID string) error {
+func runDeploy(client api.APIClient, yamlFile string, appID string) error {
 	ui.RenderTitleWithBorder("Deploying Application")
+
+	// Read and parse the YAML file
+	yamlData, err := os.ReadFile(yamlFile)
+	if err != nil {
+		return fmt.Errorf("failed to read deployment file: %w", err)
+	}
+
+	var config template.NexlayerYAML
+	if err := yaml.Unmarshal(yamlData, &config); err != nil {
+		return fmt.Errorf("failed to parse deployment file: %w\nEnsure the file is valid YAML and follows the Nexlayer schema", err)
+	}
+
+	// Validate the configuration
+	validator := NewValidator(&config)
+	if err := validator.Validate(); err != nil {
+		ui.RenderError("Validation failed")
+		fmt.Println(err)
+		return fmt.Errorf("deployment aborted due to validation errors")
+	}
 
 	// Start deployment
 	if appID == "" {
@@ -92,10 +117,14 @@ func runDeploy(_ *cobra.Command, client api.APIClient, yamlFile string, appID st
 	ui.RenderSuccess("Deployment started successfully!")
 	fmt.Printf("🚀 URL: %s\n", resp.Data.URL)
 
+	// Wait a moment for deployment to initialize
+	time.Sleep(2 * time.Second)
+
 	// Get deployment info to show additional details
 	info, err := client.GetDeploymentInfo(context.Background(), resp.Data.Namespace, appID)
 	if err != nil {
-		ui.RenderError(fmt.Sprintf("Could not fetch deployment details: %v", err))
+		ui.RenderWarning("Could not fetch deployment details. The deployment is still in progress.")
+		fmt.Printf("You can check the status later using: nexlayer info %s\n", appID)
 		return nil
 	}
 
@@ -117,4 +146,11 @@ func runDeploy(_ *cobra.Command, client api.APIClient, yamlFile string, appID st
 	}
 
 	return nil
+}
+
+// ValidateDeployConfig validates a deployment configuration
+// This function is exported for use by other packages
+func ValidateDeployConfig(yamlConfig *template.NexlayerYAML) error {
+	validator := NewValidator(yamlConfig)
+	return validator.Validate()
 }

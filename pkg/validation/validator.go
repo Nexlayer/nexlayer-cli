@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
 	"gopkg.in/yaml.v3"
 )
 
@@ -20,7 +20,7 @@ var (
 
 // ValidateYAMLString validates a YAML string against the Nexlayer schema
 func ValidateYAMLString(yamlContent string) ([]ValidationError, error) {
-	var config schema.NexlayerYAML
+	var config types.NexlayerYAML
 	if err := yaml.Unmarshal([]byte(yamlContent), &config); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
@@ -29,7 +29,7 @@ func ValidateYAMLString(yamlContent string) ([]ValidationError, error) {
 
 // ValidateYAMLBytes validates a YAML byte slice against the Nexlayer schema
 func ValidateYAMLBytes(yamlBytes []byte) ([]ValidationError, error) {
-	var config schema.NexlayerYAML
+	var config types.NexlayerYAML
 	if err := yaml.Unmarshal(yamlBytes, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
@@ -68,7 +68,7 @@ func NewValidator(strict bool) *Validator {
 }
 
 // ValidateYAML performs basic validation of a Nexlayer YAML configuration
-func (v *Validator) ValidateYAML(yaml *schema.NexlayerYAML) []ValidationError {
+func (v *Validator) ValidateYAML(yaml *types.NexlayerYAML) []ValidationError {
 	var errors []ValidationError
 
 	// Validate application name
@@ -109,7 +109,7 @@ func (v *Validator) ValidateYAML(yaml *schema.NexlayerYAML) []ValidationError {
 }
 
 // validatePod performs basic validation of a pod configuration
-func (v *Validator) validatePod(pod schema.Pod, index int) []ValidationError {
+func (v *Validator) validatePod(pod types.Pod, index int) []ValidationError {
 	var errors []ValidationError
 	prefix := fmt.Sprintf("application.pods[%d]", index)
 
@@ -177,7 +177,7 @@ func (v *Validator) validatePod(pod schema.Pod, index int) []ValidationError {
 }
 
 // validateServicePort performs basic validation of a service port configuration
-func (v *Validator) validateServicePort(port schema.ServicePort, prefix string) []ValidationError {
+func (v *Validator) validateServicePort(port types.ServicePort, prefix string) []ValidationError {
 	var errors []ValidationError
 
 	if port.Name == "" {
@@ -208,7 +208,7 @@ func (v *Validator) validateServicePort(port schema.ServicePort, prefix string) 
 }
 
 // validateVolume performs validation of a volume configuration
-func (v *Validator) validateVolume(volume schema.Volume, prefix string) []ValidationError {
+func (v *Validator) validateVolume(volume types.Volume, prefix string) []ValidationError {
 	var errors []ValidationError
 
 	if volume.Name == "" {

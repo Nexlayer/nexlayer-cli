@@ -1,3 +1,5 @@
+# Nexlayer CLI
+
 <div align="center">
   <img src="pkg/ui/assets/logo.svg" alt="Nexlayer Logo" width="400"/>
   <h1>Nexlayer CLI</h1>
@@ -15,161 +17,159 @@
   </p>
 </div>
 
-## 🚀 Quick Start
+## 🚀 Quick Start: Deploy Your Project in Seconds
 
+### Installation Options
+
+#### 1. Automated Installation (Recommended)
 ```bash
-# Install Nexlayer CLI
+curl -sSL https://raw.githubusercontent.com/Nexlayer/nexlayer-cli/main/install.sh | bash
+```
+This script will:
+- Check system requirements
+- Install dependencies if needed
+- Configure your PATH automatically
+- Back up any existing installation
+- Install the latest version of Nexlayer CLI
+
+#### 2. Manual Installation
+```bash
 go install github.com/Nexlayer/nexlayer-cli@latest
 ```
 
-### Setting up your PATH
+### System Requirements
+- Go 1.23.0 or higher
+- Git (for development)
+- 100MB free disk space
 
-When you run `go install`, it places the Nexlayer CLI executable in a directory called `~/go/bin`. However, your computer needs to know where to find this executable when you type `nexlayer` in the terminal. Here's how to set it up:
+### Shell Configuration
 
-1. First, add this line to your shell configuration file:
+The installer will automatically configure your shell. Supported shells:
+- Bash (Linux: `~/.bashrc`, macOS: `~/.bash_profile`)
+- Zsh (`~/.zshrc`)
+- Fish (`~/.config/fish/config.fish`)
+
+If you installed manually, add this to your shell configuration:
+```bash
+# For Bash/Zsh
+export PATH=$PATH:~/go/bin
+
+# For Fish
+set -x PATH $PATH ~/go/bin
+```
+
+### Getting Started
+
+1. **Initialize Your Project**
    ```bash
-   export PATH=$PATH:~/go/bin
+   nexlayer init
+   ```
+   This will:
+   - Generate deployment configuration
+   - Set up environment variables
+   - Configure service dependencies
+
+2. **Deploy Your Application**
+   ```bash
+   nexlayer deploy
    ```
 
-2. The configuration file location depends on your shell:
-   - For Bash: `~/.bashrc` or `~/.bash_profile`
-   - For Zsh: `~/.zshrc`
+That's it! Your app is now live. [Watch the demo →](https://nexlayer.dev/demo)
 
-3. After adding the line, either:
-   - Restart your terminal, or
-   - Run `source ~/.bashrc` (or `source ~/.zshrc` for Zsh)
+## 🎯 Why Nexlayer?
 
-Now you can run Nexlayer commands from any directory!
+Nexlayer makes deploying full-stack applications fast, simple, and reliable. Here's why developers love it:
 
+- **Smart Templates**: Production-ready configurations for any stack
+- **One-Command Deploy**: No complex setup—just deploy
+- **Live Watch**: Automatically redeploy on code changes
+- **Real-Time Monitoring**: Track deployments with live logs
+- **Built-in Security**: Automated security checks and best practices
+
+## 💻 Core Commands
+
+### Essential Commands
 ```bash
-# Initialize your project with intelligent stack detection
-nexlayer init
+# Project Setup
+nexlayer init              # Initialize your project
+nexlayer init -i          # Interactive initialization
 
-# Deploy your app with automatic validation
-nexlayer deploy
+# Deployment
+nexlayer deploy [appID]   # Deploy your application
+nexlayer watch [appID]    # Watch for changes and auto-deploy
+
+# Monitoring
+nexlayer list            # List all deployments
+nexlayer info <ns> <app> # Get deployment info
+
+# Domain Management
+nexlayer domain set      # Configure custom domain
 ```
 
-That's it! Your app is live. [Watch the demo →](https://nexlayer.dev/demo)
-
-### Intelligent Project Configuration
-
-Run `nexlayer init` in your project directory to automatically configure it for deployment. Nexlayer will analyze your current directory and:
-- Detect your tech stack and dependencies
-- Configure appropriate container images
-- Set up health checks and environment variables
-- Validate your configuration against best practices
-- Automatically detect custom ports from configuration files (e.g., package.json for Node.js projects)
-
-### YAML Schema Compliance
-
-Nexlayer uses a standardized YAML schema for deployment templates. Key features include:
-- **Private Registry Support**: Use `<% REGISTRY %>` placeholder for private images
-- **Dynamic Pod References**: Reference other pods using `<pod-name>.pod` format
-- **URL References**: Use `<% URL %>` to reference your deployment's base URL
-- **Flexible Port Configuration**: Support for both simple and detailed port formats
-- **Automatic Validation**: Built-in schema validation with helpful error messages
-
-Example template:
-```yaml
-application:
-  name: my-app
-  url: my-app.nexlayer.dev
-  registryLogin:
-    registry: ghcr.io/my-org
-    username: myuser
-    personalAccessToken: pat_token
-  pods:
-    - name: frontend
-      type: nextjs
-      path: /
-      image: <% REGISTRY %>/frontend:latest
-      servicePorts:
-        - 3000  # Simple port format
-      vars:
-        - key: API_URL
-          value: http://api.pod:8000
-    - name: api
-      type: backend
-      path: /api
-      image: <% REGISTRY %>/api:latest
-      servicePorts:
-        - name: http
-          port: 8000
-          targetPort: 8000
-      vars:
-        - key: DATABASE_URL
-          value: postgresql://postgres:postgres@postgres.pod:5432/app
-```
-
-### Development Mode
-
-During development, you can use the watch command to automatically redeploy when files change:
-
+### Development Commands
 ```bash
-# Start watching for changes
-nexlayer watch
+# Build and Test
+make build              # Build optimized binary
+make build-debug        # Build with debug symbols
+make test              # Run tests with race detection
+make coverage          # Generate test coverage report
+make bench            # Run benchmarks
+
+# Code Quality
+make lint             # Run linters
+make security         # Run security checks
+make fmt              # Format code
+make vet              # Run go vet
+
+# Release
+make release          # Create release builds
+make docker          # Build Docker image
 ```
 
-The watch command will monitor your project files and automatically trigger a redeployment whenever changes are detected.
+## 📝 Supported Project Types
 
-## ✨ Features
+Nexlayer supports a wide range of stacks out of the box:
 
-- 🤖 **AI-Powered Detection** - Automatically analyze and configure your project
-- 🎯 **Smart Templates** - Production-ready templates for any stack
-- ✅ **Built-in Validation** - Ensure configurations meet best practices
-- 🔄 **Live Sync** - Keep configuration in sync with project changes
-- 🚀 **One-Command Deploy** - Deploy full-stack apps instantly
-- 📊 **Real-Time Monitoring** - Live logs and deployment status
-- 👀 **Live Watch Mode** - Auto-redeploy on file changes during development
-- 🔌 **Plugin System** - Extend functionality with custom plugins
-
-## 📝 Templates
-
-```bash
-# Initialize your project with intelligent stack detection
-nexlayer init
-```
-
-### AI/LLM Templates
-- `langchain-nextjs` - LangChain.js + Next.js
-- `openai-node` - OpenAI + Express + React
-- `llama-py` - Llama.cpp + FastAPI
-- More at [nexlayer.dev/templates](https://nexlayer.dev/templates)
+### Web Frameworks
+- `nextjs` - Next.js applications
+- `react` - React applications
+- `node` - Node.js/Express applications
+- `python` - Python/FastAPI/Django applications
+- `go` - Go applications
 
 ### Full-Stack Templates
 - `mern` - MongoDB + Express + React + Node.js
 - `pern` - PostgreSQL + Express + React + Node.js
 - `mean` - MongoDB + Express + Angular + Node.js
 
-## 💻 Commands
+More templates at [nexlayer.dev/templates](https://nexlayer.dev/templates)
+
+## 👷 Development
+
+### Setting Up Development Environment
 
 ```bash
-# Initialize a new or existing project
-nexlayer init [name]
+# Clone the repository
+git clone https://github.com/Nexlayer/nexlayer-cli.git
+cd nexlayer-cli
 
-# Deploy your application
-nexlayer deploy [appID] --file deployment.yaml
+# Set up development tools
+make setup
 
-# View status and logs
-nexlayer list [appID]        # List deployments
-nexlayer info <namespace> <appID>  # Get deployment info
+# Install dependencies
+make deps
 
-# Configure custom domain
-nexlayer domain set <appID> --domain example.com
-
-# AI Features
-nexlayer ai generate <app-name>  # Generate deployment template
-nexlayer ai detect              # Detect project type
-
-# Utility Commands
-nexlayer feedback              # Send feedback
-nexlayer completion [shell]    # Generate shell completion scripts
-
-# Shell completion
-nexlayer completion bash > ~/.bash_completion
-nexlayer completion zsh > "${fpath[1]}/_nexlayer"
-nexlayer completion fish > ~/.config/fish/completions/nexlayer.fish
+# Run tests and checks
+make ci
 ```
+
+### Development Features
+
+- **Optimized Builds**: Static linking with trimpath and netgo tags
+- **Security Checks**: Built-in gosec and dependency scanning
+- **Performance Testing**: Benchmarking and race detection
+- **Cross-Platform**: Builds for Linux, macOS (Intel/ARM), and Windows
+- **CI/CD Ready**: Comprehensive test and build pipeline
 
 ## 📚 Documentation
 
@@ -182,35 +182,10 @@ nexlayer completion fish > ~/.config/fish/completions/nexlayer.fish
 - API Schemas: [/docs/reference/schemas/api/](docs/reference/schemas/api/)
 
 Full documentation at [nexlayer.dev/docs](https://nexlayer.dev/docs)
-## 👷 Development
-
-```bash
-# Clone the repository
-git clone https://github.com/Nexlayer/nexlayer-cli.git
-cd nexlayer-cli
-
-# Install dependencies
-make setup
-
-# Run tests and validation
-make test
-
-# Run specific test suites
-go test ./pkg/validation -v  # Run validation tests
-go test ./pkg/compose -v     # Run compose tests
-```
-
-### Code Organization
-
-- `pkg/validation/` - YAML schema validation and component type checking
-- `pkg/compose/` - Docker compose generation and component detection
-- `pkg/core/` - Core functionality and API types
-- `pkg/commands/` - CLI command implementations
-```
 
 ## 💪 Contributing
 
-We love contributions! See our [Contributing Guide](CONTRIBUTING.md) for details.
+We love contributions! See our [Contributing Guide](CONTRIBUTING.md) for details on how to get involved.
 
 ## 📜 License
 

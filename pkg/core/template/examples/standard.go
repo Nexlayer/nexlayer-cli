@@ -7,7 +7,7 @@ package examples
 import (
 	"fmt"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/template"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/template"
 )
 
 // StandardTemplate returns a standard example template that follows
