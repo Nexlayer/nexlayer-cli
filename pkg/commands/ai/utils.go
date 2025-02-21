@@ -26,54 +26,54 @@ func enhancePromptWithAnalysis(basePrompt string, analysis *detection.ProjectAna
 	// Add detected functions with file context
 	if len(analysis.Functions) > 0 {
 		sb.WriteString("\nFunctions:\n")
-		for file, functions := range analysis.Functions {
-			if len(functions) == 0 {
-				continue
+		for _, fn := range analysis.Functions {
+			// Include additional function details if available
+			details := []string{fn.Name}
+			if fn.FilePath != "" {
+				details = append(details, fmt.Sprintf("file: %s", fn.FilePath))
 			}
-			sb.WriteString(fmt.Sprintf("\nFile: %s\n", file))
-			for _, fn := range functions {
-				// Include additional function details if available
-				details := []string{fn.Name}
-				if fn.IsExported {
-					details = append(details, "exported")
-				}
-				if fn.Signature != "" {
-					details = append(details, fmt.Sprintf("signature: %s", fn.Signature))
-				}
-				sb.WriteString(fmt.Sprintf("- %s\n", strings.Join(details, ", ")))
+			if fn.Type != "" {
+				details = append(details, fmt.Sprintf("type: %s", fn.Type))
 			}
+			if len(fn.Tags) > 0 {
+				details = append(details, fmt.Sprintf("tags: %s", strings.Join(fn.Tags, ", ")))
+			}
+			sb.WriteString(fmt.Sprintf("- %s\n", strings.Join(details, ", ")))
 		}
 	}
 
 	// Add detected API endpoints with method and path
-	if len(analysis.APIEndpoints) > 0 {
+	if len(analysis.Endpoints) > 0 {
 		sb.WriteString("\nAPI Endpoints:\n")
-		for _, ep := range analysis.APIEndpoints {
-			// Include endpoint parameters if available
-			if len(ep.Parameters) > 0 {
-				var params []string
-				for k, v := range ep.Parameters {
-					params = append(params, fmt.Sprintf("%s: %s", k, v))
-				}
-				sb.WriteString(fmt.Sprintf("- %s %s [%s]\n", ep.Method, ep.Path, strings.Join(params, ", ")))
-			} else {
-				sb.WriteString(fmt.Sprintf("- %s %s\n", ep.Method, ep.Path))
+		for _, ep := range analysis.Endpoints {
+			// Include endpoint details
+			details := []string{
+				fmt.Sprintf("%s %s", ep.Method, ep.Path),
+				fmt.Sprintf("handler: %s", ep.Handler),
 			}
+			if len(ep.Tags) > 0 {
+				details = append(details, fmt.Sprintf("tags: %s", strings.Join(ep.Tags, ", ")))
+			}
+			sb.WriteString(fmt.Sprintf("- %s\n", strings.Join(details, ", ")))
 		}
 	}
 
 	// Add detected dependencies with version information
 	if len(analysis.Dependencies) > 0 {
 		sb.WriteString("\nDependencies:\n")
-		for pkg, deps := range analysis.Dependencies {
-			if len(deps) == 0 {
-				continue
+		for _, dep := range analysis.Dependencies {
+			// Include dependency details
+			details := []string{
+				fmt.Sprintf("%s@%s", dep.Name, dep.Version),
+				fmt.Sprintf("type: %s", dep.Type),
 			}
-			sb.WriteString(fmt.Sprintf("\nPackage: %s\n", pkg))
-			for _, dep := range deps {
-				// Include dependency type and version
-				sb.WriteString(fmt.Sprintf("- %s@%s (%s)\n", dep.Name, dep.Version, dep.Type))
+			if dep.IsAIRelated {
+				details = append(details, "AI-related")
 			}
+			if len(dep.Features) > 0 {
+				details = append(details, fmt.Sprintf("features: %s", strings.Join(dep.Features, ", ")))
+			}
+			sb.WriteString(fmt.Sprintf("- %s\n", strings.Join(details, ", ")))
 		}
 	}
 
