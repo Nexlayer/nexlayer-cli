@@ -110,7 +110,7 @@ nexlayer deploy
 ```
 - Detects the framework automatically
 - Builds and deploys the application
-- Assigns a default domain (e.g., `myapp.nexlayer.app`)
+- Assigns a default domain (e.g., `myapp.nexlayer.ai`)
 
 ### 🔍 How It Works
 - Nexlayer detects `next.config.js` and automatically provisions a Next.js environment
