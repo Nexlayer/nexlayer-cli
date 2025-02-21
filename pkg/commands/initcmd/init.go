@@ -7,16 +7,16 @@ package initcmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
 
+	"github.com/pterm/pterm"
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
 	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
 	"github.com/Nexlayer/nexlayer-cli/pkg/template"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/Nexlayer/nexlayer-cli/pkg/validation"
-	"github.com/pterm/pterm"
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 // NewCommand initializes a new Nexlayer project
@@ -31,52 +31,6 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-// DetectIDE checks which AI-powered IDE is currently being used
-func DetectIDE() string {
-	// Check environment variables
-	if os.Getenv("CURSOR") != "" {
-		return "Cursor"
-	}
-	if os.Getenv("WINDSURF") != "" {
-		return "Windsurf"
-	}
-	if os.Getenv("VSCODE_GIT_IPC_HANDLE") != "" || os.Getenv("VSCODE_PID") != "" {
-		return "VSCode"
-	}
-	if os.Getenv("ZED_ROOT") != "" {
-		return "Zed"
-	}
-	if os.Getenv("AIDER_PROJECT") != "" {
-		return "Aider"
-	}
-
-	// Check running processes
-	processes := []string{"cursor", "code", "windsurf", "zed", "aider"}
-	for _, process := range processes {
-		cmd := exec.Command("pgrep", "-x", process)
-		if err := cmd.Run(); err == nil {
-			return strings.Title(process)
-		}
-	}
-
-	// Check configuration files in the project directory
-	configFiles := map[string]string{
-		".cursor":           "Cursor",
-		".vscode":           "VSCode",
-		"windsurf.json":     "Windsurf",
-		"zed-settings.json": "Zed",
-		".aider":            "Aider",
-	}
-
-	for file, ide := range configFiles {
-		if _, err := os.Stat(file); err == nil {
-			return ide
-		}
-	}
-
-	return "Unknown"
-}
-
 // runInitCommand handles the execution of the init command
 func runInitCommand(cmd *cobra.Command, args []string) error {
 	// Display welcome message
@@ -89,18 +43,23 @@ func runInitCommand(cmd *cobra.Command, args []string) error {
 	}
 	defer progress.Stop()
 
-	// Detect IDE being used
-	ide := DetectIDE()
-	if ide != "Unknown" {
-		fmt.Fprintf(cmd.OutOrStdout(), "🖥️  Detected AI-powered IDE: %s\n", ide)
+	// Get current directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	// Detect Project Type
+	// Create detector registry
+	registry := detection.NewRegistry()
+	progress.Add(20)
+
+	// Detect project type
 	progress.UpdateTitle("Analyzing project...")
-	info, err := detectProject(progress)
+	info, err := registry.DetectProject(cmd.Context(), cwd)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to detect project: %w", err)
 	}
+	progress.Add(20)
 
 	// Create template generator
 	progress.UpdateTitle("Generating Nexlayer configuration...")
@@ -137,7 +96,6 @@ func runInitCommand(cmd *cobra.Command, args []string) error {
 	if err := validateGeneratedYAML(string(yamlData)); err != nil {
 		return err
 	}
-	progress.Add(20)
 
 	// Completion message
 	progress.Stop()
@@ -145,19 +103,6 @@ func runInitCommand(cmd *cobra.Command, args []string) error {
 	fmt.Fprintln(cmd.OutOrStdout(), "\nDeploy with:")
 	fmt.Fprintln(cmd.OutOrStdout(), "  nexlayer deploy")
 	return nil
-}
-
-// hasDatabase checks if the project needs a database
-func hasDatabase(info *detection.ProjectInfo) bool {
-	// Check dependencies for database-related packages
-	for name := range info.Dependencies {
-		switch name {
-		case "pg", "postgres", "postgresql", "sequelize", "typeorm", "prisma",
-			"mongoose", "mongodb", "mysql", "mysql2", "sqlite3", "redis":
-			return true
-		}
-	}
-	return false
 }
 
 // writeYAMLToFile writes the YAML content to a file
@@ -205,21 +150,32 @@ func validateGeneratedYAML(yamlContent string) error {
 	return nil
 }
 
-// detectProject attempts to detect the project type
-func detectProject(progress *pterm.ProgressbarPrinter) (*detection.ProjectInfo, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current directory: %w", err)
+// hasDatabase checks if the project needs a database
+func hasDatabase(info *types.ProjectInfo) bool {
+	if info == nil || len(info.Dependencies) == 0 {
+		return false
 	}
 
-	detector := detection.NewDetectorRegistry()
-	progress.Add(20)
-
-	info, err := detector.DetectProject(dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect project type: %w", err)
+	// Check dependencies for database-related packages
+	dbPackages := map[string]bool{
+		"pg":         true,
+		"postgres":   true,
+		"postgresql": true,
+		"sequelize":  true,
+		"typeorm":    true,
+		"prisma":     true,
+		"mongoose":   true,
+		"mongodb":    true,
+		"mysql":      true,
+		"mysql2":     true,
+		"sqlite3":    true,
+		"redis":      true,
 	}
 
-	pterm.Success.Printf("✅ Found %s project\n", info.Type)
-	return info, nil
+	for dep := range info.Dependencies {
+		if dbPackages[dep] {
+			return true
+		}
+	}
+	return false
 }

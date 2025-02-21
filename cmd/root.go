@@ -8,7 +8,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/commands/ai"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/deploy"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/domain"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/feedback"
@@ -16,6 +15,7 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/initcmd"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/login"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/watch"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/errors"
 	"github.com/Nexlayer/nexlayer-cli/pkg/observability"
@@ -70,7 +70,7 @@ func NewRootCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "nexlayer",
-		Short: "Nexlayer CLI - Deploy AI applications with ease",
+		Short: "Nexlayer CLI - Deploy applications with ease",
 		Long: `Nexlayer CLI - Deploy and manage your applications with ease.
 
 Core Commands:
@@ -80,11 +80,6 @@ Core Commands:
   domain set       Configure custom domain <applicationID> --domain <custom_domain>
   init            Initialize a new Nexlayer project
   login           Log in to Nexlayer
-
-AI Commands:
-  ai               AI-powered features for Nexlayer
-    generate         Generate AI-powered deployment template <app-name>
-    detect           Detect AI assistants & project type
 
 Utility Commands:
   feedback         Send feedback about the CLI
@@ -108,9 +103,6 @@ Examples:
 
   # Configure custom domain
   nexlayer domain set myapp --domain example.com
-
-  # Generate deployment template
-  nexlayer ai generate myapp
 
   # Enable shell completion (bash)
   nexlayer completion bash > ~/.bash_completion`,
@@ -140,8 +132,8 @@ Examples:
 		domain.NewDomainCommand(apiClient),
 		feedback.NewFeedbackCommand(apiClient),
 		login.NewLoginCommand(apiClient),
-		ai.NewCommand(),
 		initcmd.NewCommand(),
+		watch.NewCommand(),
 	)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {

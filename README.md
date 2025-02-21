@@ -103,14 +103,31 @@ application:
 
 ### Development Mode
 
-During development, you can use the watch command to automatically redeploy when files change:
+During development, you can use the watch command to automatically update your configuration when project files change:
 
 ```bash
 # Start watching for changes
 nexlayer watch
 ```
 
-The watch command will monitor your project files and automatically trigger a redeployment whenever changes are detected.
+The watch command will:
+- Monitor your project files for changes
+- Automatically detect new dependencies and features
+- Update nexlayer.yaml with appropriate configuration
+- Add required infrastructure (e.g., databases) based on dependencies
+- Skip temporary files and build artifacts
+- Provide real-time feedback on configuration changes
+
+For example:
+- Adding `mongoose` as a dependency will automatically add MongoDB configuration
+- Creating new API routes will update routing configuration
+- Installing new frameworks will adjust the deployment template
+
+The watch command is especially useful when:
+- Developing full-stack applications with multiple services
+- Adding new dependencies that require infrastructure changes
+- Refactoring your application's structure
+- Moving from development to production configuration
 
 ## ✨ Features
 
@@ -157,9 +174,9 @@ nexlayer info <namespace> <appID>  # Get deployment info
 # Configure custom domain
 nexlayer domain set <appID> --domain example.com
 
-# AI Features
-nexlayer ai generate <app-name>  # Generate deployment template
-nexlayer ai detect              # Detect project type
+# Development Commands
+nexlayer watch              # Watch for project changes
+nexlayer validate          # Validate configuration
 
 # Utility Commands
 nexlayer feedback              # Send feedback
