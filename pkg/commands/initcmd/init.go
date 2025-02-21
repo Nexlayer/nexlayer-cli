@@ -5,113 +5,132 @@
 package initcmd
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
+	"path/filepath"
+	"sync"
+	"time"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
-	"github.com/Nexlayer/nexlayer-cli/pkg/template"
-	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
-	"github.com/Nexlayer/nexlayer-cli/pkg/validation"
-	"github.com/pterm/pterm"
+	"github.com/charmbracelet/bubbles/spinner"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/template"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
+	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
 )
+
+const (
+	cacheDir  = ".nexlayer"
+	cacheFile = "detection-cache.json"
+)
+
+var (
+	// Styles for different types of output
+	successStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#00ff00")).
+			Bold(true)
+
+	infoStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#00ffff"))
+
+	errorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#ff0000"))
+
+	warningStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#ffff00"))
+)
+
+// detectionCache represents cached project detection results
+type detectionCache struct {
+	ProjectInfo *types.ProjectInfo `json:"project_info"`
+	Timestamp   time.Time          `json:"timestamp"`
+}
 
 // NewCommand initializes a new Nexlayer project
 func NewCommand() *cobra.Command {
+	var interactive bool
+	var force bool
+
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize a new Nexlayer project",
-		Long:  "Initialize a new Nexlayer project by creating a nexlayer.yaml file in the current directory.",
-		Args:  cobra.NoArgs,
-		RunE:  runInitCommand,
+		Long: `Initialize a new Nexlayer project by creating a nexlayer.yaml file in the current directory.
+The command will automatically detect your project type and configure it appropriately.
+
+Examples:
+  # Auto-detect and initialize
+  nexlayer init
+
+  # Interactive mode
+  nexlayer init --interactive
+
+  # Force re-detection (ignore cache)
+  nexlayer init --force`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runInitCommand(cmd, interactive, force)
+		},
 	}
+
+	cmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Enable interactive mode")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force re-detection (ignore cache)")
+
 	return cmd
 }
 
-// DetectIDE checks which AI-powered IDE is currently being used
-func DetectIDE() string {
-	// Check environment variables
-	if os.Getenv("CURSOR") != "" {
-		return "Cursor"
-	}
-	if os.Getenv("WINDSURF") != "" {
-		return "Windsurf"
-	}
-	if os.Getenv("VSCODE_GIT_IPC_HANDLE") != "" || os.Getenv("VSCODE_PID") != "" {
-		return "VSCode"
-	}
-	if os.Getenv("ZED_ROOT") != "" {
-		return "Zed"
-	}
-	if os.Getenv("AIDER_PROJECT") != "" {
-		return "Aider"
-	}
-
-	// Check running processes
-	processes := []string{"cursor", "code", "windsurf", "zed", "aider"}
-	for _, process := range processes {
-		cmd := exec.Command("pgrep", "-x", process)
-		if err := cmd.Run(); err == nil {
-			return strings.Title(process)
-		}
-	}
-
-	// Check configuration files in the project directory
-	configFiles := map[string]string{
-		".cursor":           "Cursor",
-		".vscode":           "VSCode",
-		"windsurf.json":     "Windsurf",
-		"zed-settings.json": "Zed",
-		".aider":            "Aider",
-	}
-
-	for file, ide := range configFiles {
-		if _, err := os.Stat(file); err == nil {
-			return ide
-		}
-	}
-
-	return "Unknown"
-}
-
 // runInitCommand handles the execution of the init command
-func runInitCommand(cmd *cobra.Command, args []string) error {
-	// Display welcome message
-	ui.RenderWelcome("Welcome to Nexlayer CLI!\nLet's set up your project configuration.")
-
-	// Start progress bar
-	progress, err := pterm.DefaultProgressbar.WithTotal(100).Start()
+func runInitCommand(cmd *cobra.Command, interactive, force bool) error {
+	// Get current directory
+	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed to start progress bar: %w", err)
-	}
-	defer progress.Stop()
-
-	// Detect IDE being used
-	ide := DetectIDE()
-	if ide != "Unknown" {
-		fmt.Fprintf(cmd.OutOrStdout(), "🖥️  Detected AI-powered IDE: %s\n", ide)
+		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	// Detect Project Type
-	progress.UpdateTitle("Analyzing project...")
-	info, err := detectProject(progress)
-	if err != nil {
-		return err
+	// Show welcome message
+	fmt.Println(infoStyle.Render("🚀 Initializing Nexlayer project..."))
+
+	// Try to load from cache first
+	var info *types.ProjectInfo
+	if !force {
+		info = loadFromCache(cwd)
 	}
 
-	// Create template generator
-	progress.UpdateTitle("Generating Nexlayer configuration...")
-	generator := template.NewGenerator()
+	// If not in cache or force flag is set, detect project
+	if info == nil {
+		var err error
+		info, err = detectProjectParallel(cwd)
+		if err != nil && interactive {
+			// If detection fails in interactive mode, prompt user
+			info, err = promptForProjectType()
+		}
+		if err != nil {
+			return fmt.Errorf("failed to detect project type: %w", err)
+		}
+
+		// Save to cache
+		if err := saveToCache(cwd, info); err != nil {
+			fmt.Println(warningStyle.Render("⚠️  Warning: Failed to cache detection results"))
+		}
+	}
+
+	// Show progress spinner
+	p := tea.NewProgram(newSpinnerModel("Generating configuration..."))
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("failed to show progress: %w", err)
+	}
 
 	// Generate template
+	generator := template.NewGenerator()
 	tmpl, err := generator.GenerateFromProjectInfo(info.Name, string(info.Type), info.Port)
 	if err != nil {
-		return fmt.Errorf("failed to generate template: %w", err)
+		return fmt.Errorf("failed to generate template: %w\nTry running with --interactive flag", err)
 	}
-	progress.Add(20)
 
 	// Add database if needed
 	if hasDatabase(info) {
@@ -119,36 +138,249 @@ func runInitCommand(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to add database: %w", err)
 		}
 	}
-	progress.Add(20)
 
-	// Marshal template to YAML
-	yamlData, err := yaml.Marshal(tmpl)
-	if err != nil {
-		return fmt.Errorf("failed to marshal template: %w", err)
+	// Add AI-specific configurations if AI IDE is detected
+	if info.LLMProvider != "" {
+		addAIConfigurations(tmpl, info)
 	}
 
-	// Write YAML to file
-	if err := writeYAMLToFile("nexlayer.yaml", string(yamlData)); err != nil {
-		return err
+	// Write configuration
+	if err := writeYAMLToFile("nexlayer.yaml", tmpl); err != nil {
+		return fmt.Errorf("failed to write configuration: %w\nCheck file permissions and disk space", err)
 	}
-	progress.Add(20)
 
-	// Validate YAML
-	if err := validateGeneratedYAML(string(yamlData)); err != nil {
-		return err
-	}
-	progress.Add(20)
+	// Print success message with detected info
+	printSuccessMessage(info, tmpl)
 
-	// Completion message
-	progress.Stop()
-	fmt.Fprintln(cmd.OutOrStdout(), "✨ Your Nexlayer project is ready!")
-	fmt.Fprintln(cmd.OutOrStdout(), "\nDeploy with:")
-	fmt.Fprintln(cmd.OutOrStdout(), "  nexlayer deploy")
 	return nil
 }
 
+// detectProjectParallel runs project detection in parallel
+func detectProjectParallel(dir string) (*types.ProjectInfo, error) {
+	registry := detection.NewDetectorRegistry()
+	detectors := registry.GetDetectors()
+
+	// Create channels for results and errors
+	resultCh := make(chan *types.ProjectInfo, len(detectors))
+	errCh := make(chan error, len(detectors))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Run detectors in parallel
+	var wg sync.WaitGroup
+	for _, d := range detectors {
+		wg.Add(1)
+		go func(det detection.ProjectDetector) {
+			defer wg.Done()
+			if info, err := det.Detect(dir); err == nil && info != nil {
+				select {
+				case resultCh <- info:
+				case <-ctx.Done():
+				}
+			}
+		}(d)
+	}
+
+	// Wait for first successful result or all failures
+	go func() {
+		wg.Wait()
+		close(resultCh)
+		close(errCh)
+	}()
+
+	select {
+	case info := <-resultCh:
+		return info, nil
+	case <-ctx.Done():
+		return nil, fmt.Errorf("detection timed out")
+	case err := <-errCh:
+		return nil, err
+	}
+}
+
+// promptForProjectType asks the user to select a project type
+func promptForProjectType() (*types.ProjectInfo, error) {
+	prompt := promptui.Select{
+		Label: "Select your project type",
+		Items: []string{
+			"Next.js",
+			"React",
+			"Node.js",
+			"Python",
+			"Go",
+			"Docker",
+		},
+	}
+
+	_, result, err := prompt.Run()
+	if err != nil {
+		return nil, fmt.Errorf("prompt failed: %w", err)
+	}
+
+	// Convert selection to ProjectType
+	var projectType types.ProjectType
+	switch result {
+	case "Next.js":
+		projectType = types.TypeNextjs
+	case "React":
+		projectType = types.TypeReact
+	case "Node.js":
+		projectType = types.TypeNode
+	case "Python":
+		projectType = types.TypePython
+	case "Go":
+		projectType = types.TypeGo
+	case "Docker":
+		projectType = types.TypeDockerRaw
+	}
+
+	return &types.ProjectInfo{
+		Type: projectType,
+		Name: filepath.Base(filepath.Dir("")),
+	}, nil
+}
+
+// loadFromCache attempts to load project info from cache
+func loadFromCache(dir string) *types.ProjectInfo {
+	cachePath := filepath.Join(dir, cacheDir, cacheFile)
+	data, err := os.ReadFile(cachePath)
+	if err != nil {
+		return nil
+	}
+
+	var cache detectionCache
+	if err := json.Unmarshal(data, &cache); err != nil {
+		return nil
+	}
+
+	// Check if cache is still valid (24 hours)
+	if time.Since(cache.Timestamp) > 24*time.Hour {
+		return nil
+	}
+
+	return cache.ProjectInfo
+}
+
+// saveToCache saves project info to cache
+func saveToCache(dir string, info *types.ProjectInfo) error {
+	cachePath := filepath.Join(dir, cacheDir)
+	if err := os.MkdirAll(cachePath, 0755); err != nil {
+		return err
+	}
+
+	cache := detectionCache{
+		ProjectInfo: info,
+		Timestamp:   time.Now(),
+	}
+
+	data, err := json.Marshal(cache)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(filepath.Join(cachePath, cacheFile), data, 0644)
+}
+
+// writeYAMLToFile writes the template to a YAML file
+func writeYAMLToFile(filename string, tmpl *template.NexlayerYAML) error {
+	// Create backup if file exists
+	if _, err := os.Stat(filename); err == nil {
+		backupFile := filename + ".backup"
+		if err := os.Rename(filename, backupFile); err != nil {
+			return fmt.Errorf("failed to create backup: %w", err)
+		}
+		fmt.Printf("📦 Backed up existing %s to %s\n", filename, backupFile)
+	}
+
+	// Write new file
+	data, err := yaml.Marshal(tmpl)
+	if err != nil {
+		return fmt.Errorf("failed to marshal YAML: %w", err)
+	}
+
+	if err := os.WriteFile(filename, data, 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
+}
+
+// addAIConfigurations adds AI-specific settings to the template
+func addAIConfigurations(tmpl *template.NexlayerYAML, info *types.ProjectInfo) {
+	// Add AI-specific annotations
+	for i := range tmpl.Application.Pods {
+		if tmpl.Application.Pods[i].Annotations == nil {
+			tmpl.Application.Pods[i].Annotations = make(map[string]string)
+		}
+		tmpl.Application.Pods[i].Annotations["ai.nexlayer.io/enabled"] = "true"
+		tmpl.Application.Pods[i].Annotations["ai.nexlayer.io/provider"] = info.LLMProvider
+		tmpl.Application.Pods[i].Annotations["ai.nexlayer.io/model"] = info.LLMModel
+	}
+}
+
+// printSuccessMessage prints a detailed success message
+func printSuccessMessage(info *types.ProjectInfo, tmpl *template.NexlayerYAML) {
+	fmt.Println(successStyle.Render("\n✨ Project initialized successfully!"))
+	fmt.Println(infoStyle.Render("\nDetected Configuration:"))
+	fmt.Printf("• Project Type: %s\n", info.Type)
+	if info.Version != "" {
+		fmt.Printf("• Version: %s\n", info.Version)
+	}
+	if info.LLMProvider != "" {
+		fmt.Printf("• AI Integration: %s (%s)\n", info.LLMProvider, info.LLMModel)
+	}
+	fmt.Printf("• Port: %d\n", info.Port)
+
+	fmt.Println(infoStyle.Render("\nNext Steps:"))
+	fmt.Println("1. Review nexlayer.yaml")
+	fmt.Println("2. Run 'nexlayer deploy' to deploy your application")
+	fmt.Println("3. Run 'nexlayer help' for more commands")
+}
+
+// spinnerModel represents the progress spinner
+type spinnerModel struct {
+	spinner  spinner.Model
+	message  string
+	quitting bool
+}
+
+func newSpinnerModel(message string) spinnerModel {
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	return spinnerModel{spinner: s, message: message}
+}
+
+func (m spinnerModel) Init() tea.Cmd {
+	return m.spinner.Tick
+}
+
+func (m spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q", "esc", "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+		default:
+			return m, nil
+		}
+	default:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
+	}
+}
+
+func (m spinnerModel) View() string {
+	if m.quitting {
+		return ""
+	}
+	return fmt.Sprintf("%s %s", m.spinner.View(), m.message)
+}
+
 // hasDatabase checks if the project needs a database
-func hasDatabase(info *detection.ProjectInfo) bool {
+func hasDatabase(info *types.ProjectInfo) bool {
 	// Check dependencies for database-related packages
 	for name := range info.Dependencies {
 		switch name {
@@ -158,68 +390,4 @@ func hasDatabase(info *detection.ProjectInfo) bool {
 		}
 	}
 	return false
-}
-
-// writeYAMLToFile writes the YAML content to a file
-func writeYAMLToFile(filename string, content string) error {
-	if _, err := os.Stat(filename); err == nil {
-		backupFile := filename + ".backup"
-		if err := os.Rename(filename, backupFile); err != nil {
-			return fmt.Errorf("failed to create backup of existing %s: %w", filename, err)
-		}
-		pterm.Info.Printf("📦 Backed up existing %s to %s\n", filename, backupFile)
-	}
-
-	if err := os.WriteFile(filename, []byte(content), 0o644); err != nil {
-		return fmt.Errorf("failed to write YAML file: %w", err)
-	}
-	pterm.Info.Println("✅ Configuration written to nexlayer.yaml")
-	return nil
-}
-
-// validateGeneratedYAML checks for YAML syntax errors
-func validateGeneratedYAML(yamlContent string) error {
-	validationErrors, err := validation.ValidateYAMLString(yamlContent)
-	if err != nil {
-		return fmt.Errorf("failed to validate YAML: %w", err)
-	}
-
-	if len(validationErrors) > 0 {
-		pterm.Warning.Println("⚠️  Validation found issues:")
-
-		for _, err := range validationErrors {
-			fmt.Printf("❌ %s: %s\n", err.Field, err.Message)
-			for _, suggestion := range err.Suggestions {
-				fmt.Printf("   💡 %s\n", suggestion)
-			}
-		}
-
-		fmt.Println("\n📝 Next Steps:")
-		fmt.Println("1. Fix issues in nexlayer.yaml")
-		fmt.Println("2. Run 'nexlayer validate'")
-		fmt.Println("3. Once validation passes, run 'nexlayer deploy'")
-		return fmt.Errorf("validation failed")
-	}
-
-	pterm.Success.Println("✅ Validation passed")
-	return nil
-}
-
-// detectProject attempts to detect the project type
-func detectProject(progress *pterm.ProgressbarPrinter) (*detection.ProjectInfo, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	detector := detection.NewDetectorRegistry()
-	progress.Add(20)
-
-	info, err := detector.DetectProject(dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect project type: %w", err)
-	}
-
-	pterm.Success.Printf("✅ Found %s project\n", info.Type)
-	return info, nil
 }

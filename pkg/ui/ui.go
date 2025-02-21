@@ -114,6 +114,11 @@ func RenderError(text string) {
 	fmt.Printf("\n❌ %s\n", text)
 }
 
+// RenderWarning renders a warning message
+func RenderWarning(text string) {
+	fmt.Printf("\n⚠️  %s\n", text)
+}
+
 // Spinner represents a CLI progress spinner
 type Spinner struct {
 	message string

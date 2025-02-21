@@ -2,108 +2,152 @@
 
 set -e
 
-# Version and colors
+# Constants
 VERSION="v0.1.0"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m'
+LOG_FILE="$HOME/nexlayer_install.log"
 
 # Progress indicator
 show_progress() {
     local pid=$1
     local delay=0.1
     local spinstr='|/-\'
-    while ps -p $pid > /dev/null; do
+    while ps -p "$pid" > /dev/null 2>>"$LOG_FILE"; do
         local temp=${spinstr#?}
         printf " [%c]  " "$spinstr"
-        local spinstr=$temp${spinstr%"$temp"}
-        sleep $delay
+        spinstr=$temp${spinstr%"$temp"}
+        sleep "$delay"
         printf "\b\b\b\b\b\b"
     done
     printf "    \b\b\b\b"
 }
 
-# System requirements check
+# Check system requirements
 check_system_requirements() {
-    # Check minimum Go version
-    GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
-    if ! command -v awk &> /dev/null; then
-        echo -e "${RED}Error: awk is not installed${NC}"
-        exit 1
-    }
+    echo "🔍 Checking system requirements..." | tee -a "$LOG_FILE"
     
-    MIN_GO_VERSION="1.23.0"
-    if [ "$(printf '%s\n' "$MIN_GO_VERSION" "$GO_VERSION" | sort -V | head -n1)" != "$MIN_GO_VERSION" ]; then
-        echo -e "${RED}Error: Go version must be $MIN_GO_VERSION or higher${NC}"
-        exit 1
-    }
-
-    # Check available disk space (minimum 100MB)
-    if command -v df &> /dev/null; then
-        AVAILABLE_SPACE=$(df -m . | awk 'NR==2 {print $4}')
-        if [ "$AVAILABLE_SPACE" -lt 100 ]; then
-            echo -e "${RED}Error: Insufficient disk space. Need at least 100MB${NC}"
+    # Check Go
+    if ! command -v go >/dev/null 2>>"$LOG_FILE"; then
+        echo -e "${RED}Error: Go is not installed${NC}" | tee -a "$LOG_FILE"
+        if confirm "Install Go automatically?"; then
+            install_dependency "go" "golang" "https://golang.org/dl/"
+        else
             exit 1
         fi
+    fi
+    GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
+    MIN_GO_VERSION="1.23.0"
+    if [ "$(printf '%s\n' "$MIN_GO_VERSION" "$GO_VERSION" | sort -V | head -n1)" != "$MIN_GO_VERSION" ]; then
+        echo -e "${RED}Error: Go version must be $MIN_GO_VERSION or higher (found $GO_VERSION)${NC}" | tee -a "$LOG_FILE"
+        exit 1
+    fi
+
+    # Check Git
+    if ! command -v git >/dev/null 2>>"$LOG_FILE"; then
+        echo -e "${RED}Error: Git is not installed${NC}" | tee -a "$LOG_FILE"
+        if confirm "Install Git automatically?"; then
+            install_dependency "git" "git" "https://git-scm.com/downloads"
+        else
+            exit 1
+        fi
+    fi
+
+    # Check disk space (cross-platform fallback)
+    AVAILABLE_SPACE=$(df -m . 2>/dev/null | awk 'NR==2 {print $4}' || du -sm . 2>/dev/null | awk '{print $1}')
+    if [ "$AVAILABLE_SPACE" -lt 100 ]; then
+        echo -e "${RED}Error: Insufficient disk space. Need at least 100MB (found ${AVAILABLE_SPACE}MB)${NC}" | tee -a "$LOG_FILE"
+        exit 1
+    fi
+}
+
+# Install dependency (Go or Git)
+install_dependency() {
+    local cmd=$1
+    local pkg=$2
+    local url=$3
+    echo "📥 Installing $cmd..." | tee -a "$LOG_FILE"
+    if command -v brew >/dev/null 2>>"$LOG_FILE"; then
+        brew install "$pkg" >>"$LOG_FILE" 2>&1 &
+        show_progress $!
+    elif command -v apt >/dev/null 2>>"$LOG_FILE"; then
+        sudo apt update >>"$LOG_FILE" 2>&1 && sudo apt install "$pkg" -y >>"$LOG_FILE" 2>&1 &
+        show_progress $!
+    else
+        echo "Please install $cmd manually from $url" | tee -a "$LOG_FILE"
+        exit 1
     fi
 }
 
 # Backup existing installation
 backup_existing() {
-    if command -v nexlayer &> /dev/null; then
-        echo "📦 Backing up existing installation..."
-        BACKUP_DIR="$HOME/.nexlayer/backup/$(date +%Y%m%d_%H%M%S)"
-        mkdir -p "$BACKUP_DIR"
-        cp "$(which nexlayer)" "$BACKUP_DIR/"
-        echo "✅ Backup created at $BACKUP_DIR"
+    if command -v nexlayer >/dev/null 2>>"$LOG_FILE"; then
+        if confirm "Backup existing Nexlayer CLI installation?"; then
+            echo "📦 Backing up existing installation..." | tee -a "$LOG_FILE"
+            BACKUP_DIR="$HOME/.nexlayer/backup/$(date +%Y%m%d_%H%M%S)"
+            mkdir -p "$BACKUP_DIR" 2>>"$LOG_FILE"
+            cp "$(which nexlayer)" "$BACKUP_DIR/" 2>>"$LOG_FILE"
+            echo "✅ Backup created at $BACKUP_DIR" | tee -a "$LOG_FILE"
+        fi
     fi
 }
 
 # Configure shell environment
 configure_shell() {
-    # Detect shell
     SHELL_RC=""
-    if [ -n "$ZSH_VERSION" ]; then
-        SHELL_RC="$HOME/.zshrc"
-    elif [ -n "$BASH_VERSION" ]; then
-        SHELL_RC="$HOME/.bashrc"
-    fi
+    case "$SHELL" in
+        *zsh) SHELL_RC="$HOME/.zshrc" ;;
+        *bash) SHELL_RC="$HOME/.bashrc" ;;
+        *fish) SHELL_RC="$HOME/.config/fish/config.fish" ;;
+        *) echo "⚠️ Unsupported shell detected" | tee -a "$LOG_FILE"; return ;;
+    esac
 
     if [ -n "$SHELL_RC" ]; then
-        if ! grep -q 'export PATH=$PATH:~/go/bin' "$SHELL_RC"; then
-            echo 'export PATH=$PATH:~/go/bin' >> "$SHELL_RC"
-            echo "✅ Added Go bin to PATH in $SHELL_RC"
+        local path_line
+        [ "$SHELL" = *fish ] && path_line="set -x PATH \$PATH ~/go/bin" || path_line="export PATH=\$PATH:~/go/bin"
+        if ! grep -q "~/go/bin" "$SHELL_RC" 2>>"$LOG_FILE"; then
+            echo "$path_line" >> "$SHELL_RC"
+            echo "✅ Added Go bin to PATH in $SHELL_RC" | tee -a "$LOG_FILE"
+            if confirm "Source $SHELL_RC now?"; then
+                source "$SHELL_RC" 2>>"$LOG_FILE" || echo "⚠️ Please restart your terminal" | tee -a "$LOG_FILE"
+            fi
         fi
     fi
 }
 
 # Verify installation
 verify_installation() {
-    if ! command -v nexlayer &> /dev/null; then
-        echo -e "${RED}❌ Installation failed: nexlayer command not found${NC}"
+    if ! command -v nexlayer >/dev/null 2>>"$LOG_FILE"; then
+        echo -e "${RED}❌ Installation failed: nexlayer not found${NC}" | tee -a "$LOG_FILE"
+        echo "Check $LOG_FILE for details" | tee -a "$LOG_FILE"
         exit 1
     fi
-
-    # Verify version
-    INSTALLED_VERSION=$(nexlayer version)
+    INSTALLED_VERSION=$(nexlayer version 2>>"$LOG_FILE")
     if [ $? -ne 0 ]; then
-        echo -e "${RED}❌ Installation verification failed${NC}"
+        echo -e "${RED}❌ Verification failed${NC}" | tee -a "$LOG_FILE"
         exit 1
     fi
-    echo -e "${GREEN}✅ Verified installation: $INSTALLED_VERSION${NC}"
+    echo -e "${GREEN}✅ Installed: $INSTALLED_VERSION${NC}" | tee -a "$LOG_FILE"
 }
 
-# Cleanup function
+# Cleanup
 cleanup() {
-    if [ -d "nexlayer-cli" ]; then
-        echo "🧹 Cleaning up temporary files..."
-        rm -rf nexlayer-cli
-    fi
+    [ -d "nexlayer-cli" ] && { echo "🧹 Cleaning up..." | tee -a "$LOG_FILE"; rm -rf nexlayer-cli 2>>"$LOG_FILE"; }
 }
 trap cleanup EXIT
 
-# Display ASCII art logo
+# User confirmation
+confirm() {
+    read -p "$1 [y/N]: " response
+    case "$response" in
+        [yY][eE][sS]|[yY]) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# ASCII art
 echo -e "${BLUE}"
 cat << "EOF"
  _   _           _                       
@@ -117,105 +161,73 @@ cat << "EOF"
 EOF
 echo -e "${NC}"
 
-echo "🚀 Installing Nexlayer CLI ${VERSION}..."
+echo "🚀 Installing Nexlayer CLI $VERSION..." | tee "$LOG_FILE"
 
-# Check dependencies
-if ! command -v go &> /dev/null; then
-    echo -e "${RED}Error: Go is not installed${NC}"
-    echo "Please install Go from https://golang.org/dl/"
-    exit 1
-fi
-if ! command -v git &> /dev/null; then
-    echo -e "${RED}Error: Git is not installed${NC}"
-    echo "Please install Git from https://git-scm.com/downloads"
-    exit 1
-fi
-
-# Check system requirements
+# Main installation
 check_system_requirements
-
-# Backup existing installation
 backup_existing
 
-# Installation method prompt
-echo "Choose an installation method:"
-echo "1. Simple install (recommended)"
-echo "2. Build from source"
+echo "Choose an installation method:" | tee -a "$LOG_FILE"
+echo "1. Simple install (recommended)" | tee -a "$LOG_FILE"
+echo "2. Build from source" | tee -a "$LOG_FILE"
 read -p "Enter your choice (1 or 2): " choice
 
 if [ "$choice" == "1" ]; then
-    echo "📦 Installing via go install..."
-    go install github.com/Nexlayer/nexlayer-cli@latest &
+    echo "📦 Installing via go install..." | tee -a "$LOG_FILE"
+    go install github.com/Nexlayer/nexlayer-cli@latest >>"$LOG_FILE" 2>&1 &
     show_progress $!
-    echo "✅ Installation complete!"
-    
-    # Configure shell
     configure_shell
 else
-    echo "📦 Cloning Nexlayer CLI repository..."
-    git clone https://github.com/Nexlayer/nexlayer-cli.git &
+    echo "📦 Cloning repository..." | tee -a "$LOG_FILE"
+    git clone https://github.com/Nexlayer/nexlayer-cli.git >>"$LOG_FILE" 2>&1 &
     show_progress $!
-    cd nexlayer-cli
-    
-    echo "🔨 Building from source..."
-    go mod download &
+    cd nexlayer-cli || exit 1
+    echo "🔨 Building from source..." | tee -a "$LOG_FILE"
+    go mod download >>"$LOG_FILE" 2>&1 &
     show_progress $!
-    go build -o nexlayer . &
+    go build -o nexlayer . >>"$LOG_FILE" 2>&1 &
     show_progress $!
-    
-    echo "📥 Installing to /usr/local/bin..."
-    if ! sudo mv nexlayer /usr/local/bin/; then
-        echo -e "${RED}❌ Failed to install to /usr/local/bin${NC}"
-        echo "Try running with sudo or install manually."
+    echo "📥 Installing to /usr/local/bin..." | tee -a "$LOG_FILE"
+    sudo mv nexlayer /usr/local/bin/ >>"$LOG_FILE" 2>&1 || {
+        echo -e "${RED}❌ Failed to install. Run with sudo or check permissions${NC}" | tee -a "$LOG_FILE"
         exit 1
-    fi
-    cd ..
+    }
+    cd .. || exit 1
 fi
 
-# Verify installation
 verify_installation
 
-echo -e "${GREEN}✨ Nexlayer CLI successfully installed!${NC}"
-echo
-echo "🎉 Welcome to Nexlayer CLI! 🎉"
-echo "Deploy full-stack apps in seconds with AI-powered detection and real-time monitoring."
-echo
-echo "🎯 Core Commands:"
-echo "   nexlayer init                # Initialize a new project"
-echo "   nexlayer deploy              # Deploy your application"
-echo "   nexlayer list               # List all deployments"
-echo "   nexlayer info <ns> <app>    # Get deployment info"
-echo
-echo "🤖 AI Commands:"
-echo "   nexlayer ai detect          # Detect project type with AI"
-echo "   nexlayer ai generate        # Generate deployment template"
-echo
-echo "🔧 Configuration Commands:"
-echo "   nexlayer domain set         # Configure custom domain"
-echo "   nexlayer feedback           # Send feedback"
-echo "   nexlayer completion         # Generate shell completions"
-echo
-echo "🐚 Shell Completion Setup:"
-echo "   nexlayer completion bash > ~/.bash_completion"
-echo "   nexlayer completion zsh > ${fpath[1]}/_nexlayer"
-echo "   nexlayer completion fish > ~/.config/fish/completions/nexlayer.fish"
-echo
-echo "📚 Learn more:"
-echo "   nexlayer help              # Show detailed help"
-echo "   nexlayer --version         # Show version info"
-echo
-echo "💡 For developers:"
-echo "   Run 'make setup' in the repo to set up the dev environment."
-echo "   See contribution guidelines: https://github.com/Nexlayer/nexlayer-cli/blob/main/CONTRIBUTING.md"
+echo -e "${GREEN}✨ Nexlayer CLI installed successfully!${NC}" | tee -a "$LOG_FILE"
+echo -e "\n🎉 Welcome to Nexlayer CLI!\nDeploy full-stack apps in seconds with AI-powered detection and real-time monitoring.\n" | tee -a "$LOG_FILE"
+echo "🎯 Core Commands:" | tee -a "$LOG_FILE"
+echo "   nexlayer init                # Initialize a new project" | tee -a "$LOG_FILE"
+echo "   nexlayer deploy              # Deploy your application" | tee -a "$LOG_FILE"
+echo "   nexlayer list               # List all deployments" | tee -a "$LOG_FILE"
+echo "   nexlayer info <ns> <app>    # Get deployment info" | tee -a "$LOG_FILE"
+echo -e "\n🤖 AI Commands:" | tee -a "$LOG_FILE"
+echo "   nexlayer ai detect          # Detect project type with AI" | tee -a "$LOG_FILE"
+echo "   nexlayer ai generate        # Generate deployment template" | tee -a "$LOG_FILE"
+echo -e "\n🔧 Configuration Commands:" | tee -a "$LOG_FILE"
+echo "   nexlayer domain set         # Configure custom domain" | tee -a "$LOG_FILE"
+echo "   nexlayer feedback           # Send feedback" | tee -a "$LOG_FILE"
+echo "   nexlayer completion         # Generate shell completions" | tee -a "$LOG_FILE"
+echo -e "\n🐚 Shell Completion Setup:" | tee -a "$LOG_FILE"
+echo "   nexlayer completion bash > ~/.bash_completion" | tee -a "$LOG_FILE"
+echo "   nexlayer completion zsh > ${fpath[1]}/_nexlayer" | tee -a "$LOG_FILE"
+echo "   nexlayer completion fish > ~/.config/fish/completions/nexlayer.fish" | tee -a "$LOG_FILE"
+echo -e "\n📚 Learn more:" | tee -a "$LOG_FILE"
+echo "   nexlayer help              # Show detailed help" | tee -a "$LOG_FILE"
+echo "   nexlayer --version         # Show version info" | tee -a "$LOG_FILE"
+echo -e "\n💡 For developers:" | tee -a "$LOG_FILE"
+echo "   Run 'make setup' in the repo to set up the dev environment." | tee -a "$LOG_FILE"
+echo "   See contribution guidelines: https://github.com/Nexlayer/nexlayer-cli/blob/main/CONTRIBUTING.md" | tee -a "$LOG_FILE"
 
-# Prompt to open documentation
-read -p "Would you like to open the Nexlayer CLI docs? (y/n): " answer
-if [[ "$answer" == "y" || "$answer" == "Y" ]]; then
-    if command -v xdg-open &> /dev/null; then
-        xdg-open https://nexlayer.dev/docs
-    elif command -v open &> /dev/null; then
-        open https://nexlayer.dev/docs
+if confirm "Open Nexlayer CLI docs?"; then
+    if command -v xdg-open >/dev/null 2>>"$LOG_FILE"; then
+        xdg-open https://nexlayer.dev/docs >>"$LOG_FILE" 2>&1 &
+    elif command -v open >/dev/null 2>>"$LOG_FILE"; then
+        open https://nexlayer.dev/docs >>"$LOG_FILE" 2>&1 &
     else
-        echo "Couldn't open automatically. Visit: https://nexlayer.dev/docs"
+        echo "Visit: https://nexlayer.dev/docs" | tee -a "$LOG_FILE"
     fi
 fi
