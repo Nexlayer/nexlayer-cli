@@ -5,7 +5,7 @@
 <div align="center">
   <img src="pkg/ui/assets/logo.svg" alt="Nexlayer Logo" width="400"/>
   <h1>Nexlayer CLI</h1>
-  <p><strong>Deploy Full-Stack Applications in Seconds ⚡️</strong></p>
+  <p><strong>Deploy Full-Stack AI Applications in Seconds ⚡️</strong></p>
   <p>
     <a href="https://goreportcard.com/report/github.com/Nexlayer/nexlayer-cli">
       <img src="https://goreportcard.com/badge/github.com/Nexlayer/nexlayer-cli" alt="Go Report Card">
@@ -23,8 +23,7 @@
 
 ## 🚀 What is Nexlayer?
 
-**Nexlayer** is the fastest way to **deploy full-stack applications** with a single command.  
-It automates **containerized, serverless, and full-stack deployments** without complex infrastructure setup.  
+**Nexlayer** is the fastest way to **deploy full-stack AI applications** with a single command.   
 
 ### **🔥 Why Use Nexlayer?**
 ✅ **One-command deploys** – `nexlayer deploy` auto-detects your stack.  
