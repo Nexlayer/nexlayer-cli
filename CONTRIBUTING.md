@@ -1,141 +1,224 @@
 # Contributing to Nexlayer CLI
 
-Thank you for considering contributing to Nexlayer CLI! Your contributions help developers build, deploy, and manage AI-powered applications effortlessly.
+> ⚠️ **Pre-Release Notice**: Nexlayer CLI is currently in early development and the repository is private. Contributions are limited to invited collaborators only. We plan to open the repository for public contributions with our beta v1 release in Q2 2025.
 
-## Code Quality Standards
+👋 First off, thanks for taking the time to contribute! We're excited to welcome you to the Nexlayer community.
 
-### 1. License Headers
-All source files must include the MIT license header:
-```go
-// Copyright (c) 2025 Nexlayer. All rights reserved.
-// Use of this source code is governed by an MIT-style
-// license that can be found in the LICENSE file.
+## 🔒 Access & Permissions
+
+During the pre-beta phase:
+- Repository access is invite-only
+- All contributors must sign an NDA
+- Code sharing and redistribution is not permitted
+- Direct commits to main branch are disabled
+- All changes must go through PR review
+
+## 🚀 Quick Start
+
+1. **Fork and Clone**
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/nexlayer-cli.git
+   cd nexlayer-cli
+   ```
+
+2. **Install Dependencies**
+   ```bash
+   # Install Go (1.23.4 or higher required)
+   brew install go # macOS
+   # or visit https://golang.org/dl/ for other platforms
+
+   # Install development tools
+   make setup
+   ```
+
+3. **Run Tests**
+   ```bash
+   make test        # Run unit tests
+   make test-short  # Run quick tests
+   make coverage    # Run tests with coverage report
+   ```
+
+## 💻 Development Workflow
+
+### Setting Up Your Environment
+
+1. **Install Required Tools**
+   ```bash
+   # Install golangci-lint
+   brew install golangci-lint # macOS
+   # or
+   go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+   # Install other development dependencies
+   make setup
+   ```
+
+2. **Configure Git Hooks**
+   ```bash
+   git config core.hooksPath .githooks
+   chmod +x .githooks/*
+   ```
+
+### Making Changes
+
+1. **Create a Branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+2. **Development Commands**
+   ```bash
+   make build-dev  # Build for development
+   make run        # Run the CLI
+   make watch      # Watch for changes and rebuild
+   ```
+
+3. **Code Quality**
+   ```bash
+   make lint       # Run linters
+   make fmt        # Format code
+   make vet        # Run go vet
+   ```
+
+### Before Submitting
+
+1. **Run All Checks**
+   ```bash
+   make ci         # Runs all CI tasks locally
+   ```
+
+2. **Update Documentation**
+   - Add inline comments for complex logic
+   - Update README.md if adding new features
+   - Update API documentation if changing interfaces
+
+## 📝 Coding Standards
+
+### Code Style
+
+- Follow standard Go conventions
+- Use `gofmt` for formatting (automatically run with `make fmt`)
+- Keep functions focused and small (max 100 lines recommended)
+- Add tests for new functionality
+
+### Commit Messages
+
+Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer]
 ```
 
-### 2. Package Documentation
-Each package must include comprehensive documentation:
-- Package purpose and overview
-- Key types and interfaces
-- Usage examples
-- Design decisions and rationale
+Types:
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation only changes
+- `style`: Changes that don't affect code meaning
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `test`: Adding missing tests
+- `chore`: Changes to the build process or auxiliary tools
 
-### 3. Code Style
-- All Go files must be formatted with `gofmt`
-- Follow Go best practices and idioms
-- Use consistent naming conventions
-- Group related functions together
-- Implement proper interfaces for testability
-- Use dependency injection where appropriate
+Example:
+```
+feat(deploy): add support for custom domains
 
-### 4. Error Handling
-- Use context support for all API calls
-- Implement proper error wrapping
-- Include detailed error messages
-- Follow proper error logging practices
+- Add domain validation
+- Add DNS verification
+- Update documentation
 
-### 5. Documentation Style
-Example of good function documentation:
-```go
-// GenerateTemplate creates a nexlayer.yaml template for the given project.
-// It analyzes the current directory structure to detect components and their types,
-// then generates a template with appropriate configuration.
-//
-// Parameters:
-//   - projectName: Name of the project, used as both template name and deployment name
-//   - detector: ComponentDetector instance used to identify component types
-//
-// Returns:
-//   - string: The generated YAML template
-//   - error: Any error encountered during template generation
-//
-// Example:
-//
-//	detector := components.NewComponentDetector()
-//	template, err := GenerateTemplate("my-app", detector)
-//	if err != nil {
-//	    return fmt.Errorf("failed to generate template: %w", err)
-//	}
+Closes #123
 ```
 
-## Development Setup
+### Pull Request Process
 
-1. Clone the repository:
+1. **Create Pull Request**
+   - Use the PR template
+   - Link related issues
+   - Add labels as appropriate
+
+2. **PR Description**
+   - Describe the changes
+   - Add testing instructions
+   - List breaking changes
+   - Add screenshots for UI changes
+
+3. **Code Review**
+   - Address review comments
+   - Keep the PR focused
+   - Squash commits if requested
+
+## 🧪 Testing
+
+### Test Structure
+
+- Place tests in `*_test.go` files
+- Use table-driven tests when possible
+- Mock external dependencies
+- Aim for >80% coverage on new code
+
+### Running Tests
+
 ```bash
-git clone https://github.com/Nexlayer/nexlayer-cli.git
-cd nexlayer-cli
-```
-
-2. Install dependencies:
-```bash
-make setup
-```
-
-3. Build the CLI:
-```bash
-make build
-```
-
-4. Run tests:
-```bash
+# Run all tests
 make test
-make lint
+
+# Run specific tests
+go test ./pkg/... -run TestSpecificFunction
+
+# Run tests with coverage
+make coverage
 ```
 
-## Pull Request Process
+## 📚 Documentation
 
-1. **Before Starting**
-   - For bug fixes: Open an issue with a minimal reproducible example
-   - For new features: Start a discussion to align on implementation
-   - For refactoring: Explain the benefits to performance/maintainability
+### Code Documentation
 
-2. **PR Requirements**
-   - One problem per PR (atomic changes)
-   - Include tests or reproduction steps
-   - Pass all tests and linting
-   - Include documentation updates
-   - Follow conventional commit format:
-     ```
-     feat(cli): add AI-powered YAML validation
-     fix(deploy): resolve API timeout issue
-     refactor(parser): optimize template loading
-     ```
+- Add godoc comments for exported functions
+- Include examples for complex functionality
+- Document error conditions and edge cases
 
-3. **Review Process**
-   - Mark work-in-progress PRs as Draft
-   - Request review when ready
-   - Address feedback promptly
-   - Maintainer will merge after approval
+### API Documentation
 
-## Testing
+- Update OpenAPI specs when changing APIs
+- Include request/response examples
+- Document breaking changes
 
-1. **Unit Tests**
-   - Required for all new functionality
-   - Must cover edge cases
-   - Should be readable and maintainable
+## 🔧 Tools and Configuration
 
-2. **Integration Tests**
-   - Required for key functionality
-   - Should cover real-world use cases
-   - Must include CLI interaction tests
+### Linting
 
-## Documentation
+We use golangci-lint with strict settings. Configuration is in `.golangci.yml`.
 
-1. **README Updates**
-   - Keep installation instructions current
-   - Update feature documentation
-   - Include usage examples
+Key linters enabled:
+- `gofmt`: Code formatting
+- `govet`: Go best practices
+- `staticcheck`: Static analysis
+- `gosec`: Security checks
+- `errcheck`: Error handling
+- `gosimple`: Code simplification
 
-2. **Code Examples**
-   - Must be tested and working
-   - Should be clear and concise
-   - Include comments for complex operations
+### IDE Setup
 
-## Getting Help
+VSCode settings:
+```json
+{
+  "go.lintTool": "golangci-lint",
+  "go.formatTool": "gofmt",
+  "go.useLanguageServer": true
+}
+```
 
-- Open an issue for bugs
-- Start a discussion for feature requests
-- Join our community channels for general help
+## 🚨 Reporting Issues
 
-## License
+- Use the issue templates
+- Include reproduction steps
+- Attach logs if relevant
+- Tag appropriately
 
-By contributing to Nexlayer CLI, you agree that your contributions will be licensed under the MIT License.
+## 📜 License
+
+By contributing, you agree that your contributions will be licensed under the MIT License.

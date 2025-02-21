@@ -1,5 +1,7 @@
 # Nexlayer CLI
 
+> ⚠️ **Pre-Release Notice**: This project is currently in early development (pre-beta). The codebase is not yet ready for production use or forking. We expect to release beta v1 in Q2 2025. Until then, the repository will remain private and invite-only.
+
 <div align="center">
   <img src="pkg/ui/assets/logo.svg" alt="Nexlayer Logo" width="400"/>
   <h1>Nexlayer CLI</h1>
@@ -45,7 +47,7 @@ curl -sSL https://raw.githubusercontent.com/Nexlayer/nexlayer-cli/main/install.s
 mkdir myapp && cd myapp
 nexlayer init
 ```
-- Auto-detects your framework (Next.js, Python, etc.)
+- Auto-detects your framework (Next.js, Python, Node, Go,etc.)
 - Generates a `nexlayer.yaml` deployment file
 - Sets up environment variables and dependencies
 
@@ -66,30 +68,40 @@ nexlayer watch
 ## 🛠 Example: Deploying a Next.js App
 
 Let's deploy a simple Next.js app with Nexlayer.
+https://github.com/Nexlayer/hello-world-nextjs
 
 ### 📂 Project Structure
 ```
-myapp/
- ├── pages/
- │    ├── index.js
- │    ├── about.js
- ├── public/
- │    ├── logo.png
- ├── package.json
- ├── nexlayer.yaml
+hello-world-nextjs/
+├── app/                      # Next.js application
+│   ├── pages/                # Next.js pages (routes)
+│   │   ├── index.tsx         # Homepage
+│   │   ├── about.tsx         # Example additional page
+│   ├── public/               # Static assets (images, icons, etc.)
+│   │   ├── logo.png          # Example asset
+│   ├── package.json          # Node.js dependencies
+│   ├── next.config.ts        # Next.js configuration
+│   ├── tsconfig.json         # TypeScript configuration
+├── nginx/                    # NGINX configuration (Reverse Proxy)
+│   ├── default.conf          # NGINX site config
+│   ├── nginx.conf            # Global NGINX settings
+├── Dockerfile                # Defines the container image
+├── nexlayer.yaml             # Nexlayer deployment configuration
+├── .gitignore                # Git ignore file
+├── README.md                 # Documentation
+
 ```
 
 ### 🔧 nexlayer.yaml Configuration
 ```yaml
-name: myapp
-runtime: node
-build:
-  command: npm install && npm run build
-  output: .next
-deploy:
-  port: 3000
-  env:
-    NEXT_PUBLIC_API_URL: "https://api.example.com"
+application:
+  name: "Hello World NextJS App"
+  pods:
+  - name: nextjs-nginx
+    path: /
+    image: ghcr.io/nexlayer/hello-world-nextjs:v0.0.1
+    servicePorts:
+    - 80
 ```
 
 ### 🚀 Deploy the App
@@ -144,6 +156,6 @@ We welcome contributions! Check out our [Contributing Guide](CONTRIBUTING.md) to
 Nexlayer CLI is [MIT licensed](LICENSE).
 
 ## 🚀 Ready to Deploy?
-- 🔹 Website: [nexlayer.dev](https://nexlayer.dev)
-- 🔹 Docs: [nexlayer.dev/docs](https://nexlayer.dev/docs)
-- 🔹 Community: [Join Discord](https://discord.gg/nexlayer)
+- 🔹 Website: [nexlayer.com](https://nexlayer.com)
+- 🔹 Docs: [docs.nexlayer.com](https://docs.nexlayer.com)
+- 🔹 Feedback: [Join discussion](https://github.com/Nexlayer/nexlayer-cli/issues)
