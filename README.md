@@ -1,3 +1,5 @@
+# Nexlayer CLI
+
 <div align="center">
   <img src="pkg/ui/assets/logo.svg" alt="Nexlayer Logo" width="400"/>
   <h1>Nexlayer CLI</h1>
@@ -15,90 +17,118 @@
   </p>
 </div>
 
-## 🚀 Quick Start
+## 🚀 Quick Start: Deploy Your Project in Seconds
 
+### Installation Options
+
+#### 1. Automated Installation (Recommended)
 ```bash
-# Install Nexlayer CLI
+curl -sSL https://raw.githubusercontent.com/Nexlayer/nexlayer-cli/main/install.sh | bash
+```
+This script will:
+- Check system requirements
+- Install dependencies if needed
+- Configure your PATH automatically
+- Back up any existing installation
+- Install the latest version of Nexlayer CLI
+
+#### 2. Manual Installation
+```bash
 go install github.com/Nexlayer/nexlayer-cli@latest
 ```
 
-### Setting up your PATH
+### System Requirements
+- Go 1.23.0 or higher
+- Git (for development)
+- 100MB free disk space
 
-When you run `go install`, it places the Nexlayer CLI executable in a directory called `~/go/bin`. However, your computer needs to know where to find this executable when you type `nexlayer` in the terminal. Here's how to set it up:
+### Shell Configuration
 
-1. First, add this line to your shell configuration file:
-   ```bash
-   export PATH=$PATH:~/go/bin
-   ```
+The installer will automatically configure your shell. Supported shells:
+- Bash (Linux: `~/.bashrc`, macOS: `~/.bash_profile`)
+- Zsh (`~/.zshrc`)
+- Fish (`~/.config/fish/config.fish`)
 
-2. The configuration file location depends on your shell:
-   - For Bash: `~/.bashrc` or `~/.bash_profile`
-   - For Zsh: `~/.zshrc`
-
-3. After adding the line, either:
-   - Restart your terminal, or
-   - Run `source ~/.bashrc` (or `source ~/.zshrc` for Zsh)
-
-Now you can run Nexlayer commands from any directory!
-
+If you installed manually, add this to your shell configuration:
 ```bash
-# Initialize your project (auto-detects type)
-nexlayer init
+# For Bash/Zsh
+export PATH=$PATH:~/go/bin
 
-# Deploy your app
-nexlayer deploy
+# For Fish
+set -x PATH $PATH ~/go/bin
 ```
 
-That's it! Your app is live. [Watch the demo →](https://nexlayer.dev/demo)
+### Getting Started
 
-### Intelligent Project Configuration
+1. **Initialize Your Project**
+   ```bash
+   nexlayer init
+   ```
+   This will:
+   - Generate deployment configuration
+   - Set up environment variables
+   - Configure service dependencies
 
-Run `nexlayer init` in your project directory to automatically configure it for deployment. Nexlayer will:
-- Detect your tech stack and dependencies
-- Configure appropriate container images
-- Set up health checks and environment variables
-- Validate your configuration against best practices
-- Automatically detect custom ports from configuration files
+2. **Deploy Your Application**
+   ```bash
+   nexlayer deploy
+   ```
 
-Features:
-- 🔍 **Auto-Detection**: Automatically identifies your project type and configuration
-- 🎯 **Smart Templates**: Production-ready templates for any stack
-- ✅ **Built-in Validation**: Ensures configurations meet best practices
-- 🔄 **Live Watch**: Auto-redeploy on file changes during development
-- 🚀 **One-Command Deploy**: Deploy full-stack apps instantly
-- 📊 **Real-Time Monitoring**: Live logs and deployment status
+That's it! Your app is now live. [Watch the demo →](https://nexlayer.dev/demo)
 
-## 💻 Commands
+## 🎯 Why Nexlayer?
 
+Nexlayer makes deploying full-stack applications fast, simple, and reliable. Here's why developers love it:
+
+- **Smart Templates**: Production-ready configurations for any stack
+- **One-Command Deploy**: No complex setup—just deploy
+- **Live Watch**: Automatically redeploy on code changes
+- **Real-Time Monitoring**: Track deployments with live logs
+- **Built-in Security**: Automated security checks and best practices
+
+## 💻 Core Commands
+
+### Essential Commands
 ```bash
-# Project Initialization
-nexlayer init              # Auto-detect and initialize project
+# Project Setup
+nexlayer init              # Initialize your project
 nexlayer init -i          # Interactive initialization
 
 # Deployment
 nexlayer deploy [appID]   # Deploy your application
 nexlayer watch [appID]    # Watch for changes and auto-deploy
 
-# Status and Monitoring
+# Monitoring
 nexlayer list            # List all deployments
 nexlayer info <ns> <app> # Get deployment info
 
 # Domain Management
 nexlayer domain set      # Configure custom domain
-
-# Utility Commands
-nexlayer feedback       # Send feedback
-nexlayer completion    # Generate shell completions
-
-# Shell completion
-nexlayer completion bash > ~/.bash_completion
-nexlayer completion zsh > "${fpath[1]}/_nexlayer"
-nexlayer completion fish > ~/.config/fish/completions/nexlayer.fish
 ```
 
-## 📝 Templates
+### Development Commands
+```bash
+# Build and Test
+make build              # Build optimized binary
+make build-debug        # Build with debug symbols
+make test              # Run tests with race detection
+make coverage          # Generate test coverage report
+make bench            # Run benchmarks
 
-Nexlayer supports various project types out of the box:
+# Code Quality
+make lint             # Run linters
+make security         # Run security checks
+make fmt              # Format code
+make vet              # Run go vet
+
+# Release
+make release          # Create release builds
+make docker          # Build Docker image
+```
+
+## 📝 Supported Project Types
+
+Nexlayer supports a wide range of stacks out of the box:
 
 ### Web Frameworks
 - `nextjs` - Next.js applications
@@ -114,6 +144,33 @@ Nexlayer supports various project types out of the box:
 
 More templates at [nexlayer.dev/templates](https://nexlayer.dev/templates)
 
+## 👷 Development
+
+### Setting Up Development Environment
+
+```bash
+# Clone the repository
+git clone https://github.com/Nexlayer/nexlayer-cli.git
+cd nexlayer-cli
+
+# Set up development tools
+make setup
+
+# Install dependencies
+make deps
+
+# Run tests and checks
+make ci
+```
+
+### Development Features
+
+- **Optimized Builds**: Static linking with trimpath and netgo tags
+- **Security Checks**: Built-in gosec and dependency scanning
+- **Performance Testing**: Benchmarking and race detection
+- **Cross-Platform**: Builds for Linux, macOS (Intel/ARM), and Windows
+- **CI/CD Ready**: Comprehensive test and build pipeline
+
 ## 📚 Documentation
 
 ### Core Documentation
@@ -126,37 +183,9 @@ More templates at [nexlayer.dev/templates](https://nexlayer.dev/templates)
 
 Full documentation at [nexlayer.dev/docs](https://nexlayer.dev/docs)
 
-## 👷 Development
-
-```bash
-# Clone the repository
-git clone https://github.com/Nexlayer/nexlayer-cli.git
-cd nexlayer-cli
-
-# Install dependencies
-make setup
-
-# Run tests and validation
-make test
-
-# Run specific test suites
-go test ./pkg/validation -v  # Run validation tests
-go test ./pkg/compose -v     # Run compose tests
-```
-
-### Code Organization
-
-- `pkg/core/` - Core functionality and domain logic
-  - `api/` - API client and types
-  - `types/` - Core type definitions
-  - `template/` - Template generation
-- `pkg/commands/` - CLI command implementations
-- `pkg/validation/` - YAML schema validation
-- `pkg/detection/` - Project type detection
-
 ## 💪 Contributing
 
-We love contributions! See our [Contributing Guide](CONTRIBUTING.md) for details.
+We love contributions! See our [Contributing Guide](CONTRIBUTING.md) for details on how to get involved.
 
 ## 📜 License
 
