@@ -120,6 +120,47 @@ application:
     - 80
 ```
 
+### 🚀 Deploy the App
+```bash
+nexlayer deploy
+```
+- Detects the framework automatically
+- Builds and deploys the application
+- Assigns a default domain (e.g., `myapp.nexlayer.app`)
+
+### 🔍 How It Works
+- Nexlayer detects `next.config.js` and automatically provisions a Next.js environment
+- It builds the static site and deploys it on an optimized global CDN
+- Rollbacks are instant if something goes wrong
+
+## 💻 Command Reference
+
+```bash
+# Initialize a new project
+nexlayer init                # Auto-detect project type
+nexlayer init -i             # Interactive mode
+nexlayer init --type react   # Initialize React project
+
+# Deploy an application
+nexlayer deploy              # Deploy using nexlayer.yaml
+nexlayer deploy myapp        # Deploy specific application
+nexlayer deploy -f config.yaml  # Deploy with a custom config
+
+# Watch mode for auto-deployment
+nexlayer watch               # Auto-redeploy on changes
+
+# Monitoring
+nexlayer list                # Show all deployments
+nexlayer info myapp          # Show deployment details
+nexlayer list --json         # Output results in JSON format
+
+# Configure a custom domain
+nexlayer domain set myapp --domain example.com
+
+# Send feedback
+nexlayer feedback            # Share feedback or report issues
+```
+
 ## 📚 Documentation
 - 📖 [YAML Reference](docs/reference/schemas/yaml/README.md) – Configure `nexlayer.yaml`
 - 📡 [API Reference](docs/reference/api/README.md) – Manage deployments via API
