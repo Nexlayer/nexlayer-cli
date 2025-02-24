@@ -68,15 +68,13 @@ func NewRootCommand() *cobra.Command {
 		Short: "Nexlayer CLI - Deploy applications with ease",
 		Long:  `Nexlayer CLI – Deploy Full-Stack Applications in Seconds ⚡️`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			// Skip config loading for 'help' to keep it fast.
+			// Load configuration only when needed.
 			if cmd.Name() != "help" {
 				lazyInitConfig()
 			}
-			// Set a background context with dependencies.
-			cmd.SetContext(context.WithValue(context.Background(), "deps", &CommandDependencies{
-				APIClient: apiClient,
-				Logger:    logger,
-			}))
+
+			// Set a background context.
+			cmd.SetContext(context.Background())
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -86,46 +84,30 @@ func NewRootCommand() *cobra.Command {
 		},
 	}
 
-	// Add global flags.
+	// Add global flags
 	cmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "Output response in JSON format")
-	cmd.PersistentFlags().String("config", "", "Use a custom config file (default: $HOME/.nexlayer/config.yaml)")
 
-	// Bind custom config path flag to viper.
-	viper.BindPFlag("config", cmd.PersistentFlags().Lookup("config"))
-
-	// Disable auto-generated completion command.
+	// Disable auto-generation of completion command
 	cmd.CompletionOptions.DisableDefaultCmd = true
 
-	// Register commands using a modular registry.
-	registry := &CommandRegistry{}
-	registry.Register(initcmd.NewCommand())
-	registry.Register(deploy.NewCommand(apiClient))
-	registry.Register(list.NewListCommand(apiClient))
-	registry.Register(info.NewInfoCommand(apiClient))
-	registry.Register(domain.NewDomainCommand(apiClient))
-	registry.Register(login.NewLoginCommand(apiClient))
-	registry.Register(watch.NewCommand(apiClient))
-	registry.Register(feedback.NewFeedbackCommand(apiClient))
-	registry.AddToRoot(cmd)
+	// Register commands in desired order
+	cmd.AddCommand(
+		initcmd.NewCommand(),
+		deploy.NewCommand(apiClient),
+		list.NewListCommand(apiClient),
+		info.NewInfoCommand(apiClient),
+		domain.NewDomainCommand(apiClient),
+		login.NewLoginCommand(apiClient),
+		watch.NewCommand(apiClient),
+		feedback.NewFeedbackCommand(apiClient),
+	)
 
-	// Add version command (assuming version vars are defined elsewhere).
-	cmd.AddCommand(&cobra.Command{
-		Use:   "version",
-		Short: "Print the version number of Nexlayer CLI",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Nexlayer CLI version %s (commit %s, built on %s)\n", "v1.0.0", "abc123", "2025-01-01")
-		},
-	})
-
-	// Disable suggestions and hide the help command.
+	// Disable suggestions and help command
 	cmd.DisableSuggestions = true
 	cmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
-	// Custom help template (unchanged from your original).
-	cmd.SetUsageTemplate(`Usage:
-  {{.CommandPath}} [command] [flags]
-
-Core Commands:
+	// Set custom help template to control command order
+	cmd.SetUsageTemplate(`Core Commands:
   init        Initialize a new project (auto-detects type)
   deploy      Deploy an application (uses nexlayer.yaml if present)
   list        List active deployments
@@ -135,40 +117,12 @@ Core Commands:
   watch       Monitor & auto-deploy changes
   feedback    Send CLI feedback
 
-Examples:
-
-# Project Setup
-  nexlayer init                       # Auto-detects & initializes project
-  nexlayer init -i                     # Interactive setup
-  nexlayer init --type react           # Initialize a specific project type
-
-# Deploy Applications
-  nexlayer deploy                      # Deploy using nexlayer.yaml
-  nexlayer deploy myapp                # Deploy a specific application
-  nexlayer deploy -f custom.yaml        # Deploy using a custom config
-
-# Watch Mode (Auto-Deploy on Changes)
-  nexlayer watch                        # Watch current directory for changes
-  nexlayer watch myapp                   # Watch specific application
-  nexlayer watch --debounce 5s           # Set debounce time for redeploy
-
-# Monitoring
-  nexlayer list                          # Show all deployments
-  nexlayer info myapp                     # Get details for myapp
-  nexlayer list --json                    # Output results in JSON format
-
-# Custom Domains
-  nexlayer domain set myapp --domain example.com
-
-# Send Feedback
-  nexlayer feedback                      # Share feedback or report issues
-
 Flags:
-{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{if .HasAvailableInheritedFlags}}
+  -h, --help         Show help for commands
+      --preview      (Future) Show changes without applying them
 
 Global Flags:
-  --config <file>  Use a custom config file (default: $HOME/.nexlayer/config.yaml)
-  --json          Output response in JSON format{{end}}
+  --json          Output response in JSON format
 
 For more details:
   {{.CommandPath}} [command] --help

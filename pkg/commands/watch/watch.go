@@ -13,10 +13,14 @@ import (
 	"time"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/template"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
+	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/fsnotify/fsnotify"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 // Styles for different types of output
@@ -47,45 +51,29 @@ var (
 
 // NewCommand creates a new watch command
 func NewCommand(apiClient api.APIClient) *cobra.Command {
-	var configFile string
-	var debounceTime time.Duration
 	var previewMode bool
-	var watchDirs []string
 
 	cmd := &cobra.Command{
-		Use:   "watch [applicationID]",
-		Short: "Watch for changes and redeploy",
-		Long: `Watch the specified directories for changes and automatically redeploy.
-When files change, the application will be redeployed using the specified configuration.
+		Use:   "watch",
+		Short: "Monitor & auto-update configuration",
+		Long: `Watch the project for changes and automatically update nexlayer.yaml configuration.
+When changes are detected (new dependencies, frameworks, services, Docker images, etc.),
+the configuration will be updated to match the current project state.
 
-Example:
-  nexlayer watch myapp --file deployment.yaml --watch-dirs ./src`,
-		Args: cobra.MaximumNArgs(1),
+The command will automatically detect nexlayer.yaml in the current directory.`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Get app ID if provided
-			var appID string
-			if len(args) > 0 {
-				appID = args[0]
+			// Find nexlayer.yaml in current directory
+			configFile, err := findConfigFile()
+			if err != nil {
+				return fmt.Errorf("nexlayer.yaml not found in current directory: %w", err)
 			}
 
-			// If no config file specified, try to find one
-			if configFile == "" {
-				file, err := findConfigFile()
-				if err != nil {
-					return err
-				}
-				configFile = file
-				cmd.Printf("Using config file: %s\n", configFile)
-			}
-
-			return runWatch(cmd, apiClient, appID, configFile, debounceTime, previewMode, watchDirs)
+			return runWatch(cmd, configFile, previewMode)
 		},
 	}
 
-	cmd.Flags().StringVarP(&configFile, "file", "f", "", "Path to deployment YAML file")
-	cmd.Flags().DurationVarP(&debounceTime, "debounce", "d", 2*time.Second, "Debounce time between deployments")
-	cmd.Flags().BoolVar(&previewMode, "preview", false, "Show changes without applying them")
-	cmd.Flags().StringSliceVar(&watchDirs, "watch-dirs", []string{"."}, "Directories to watch for changes")
+	cmd.Flags().BoolVar(&previewMode, "preview", false, "(Future) Show changes without applying them")
 
 	return cmd
 }
@@ -108,8 +96,8 @@ func findConfigFile() (string, error) {
 	return "", fmt.Errorf("no deployment file found in current directory. Expected one of: %v", possibleFiles)
 }
 
-// runWatch starts watching for file changes and triggers redeployment
-func runWatch(cmd *cobra.Command, client api.APIClient, appID, configFile string, debounceTime time.Duration, previewMode bool, watchDirs []string) error {
+// runWatch starts watching for project changes and updates configuration
+func runWatch(cmd *cobra.Command, configFile string, previewMode bool) error {
 	// Create new watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -117,23 +105,29 @@ func runWatch(cmd *cobra.Command, client api.APIClient, appID, configFile string
 	}
 	defer watcher.Close()
 
-	// Add directories to watch
-	for _, dir := range watchDirs {
-		if err := addDirsToWatch(watcher, dir); err != nil {
-			return fmt.Errorf("failed to add directory to watch: %w", err)
-		}
+	// Add current directory to watch
+	if err := addDirsToWatch(watcher, "."); err != nil {
+		return fmt.Errorf("failed to watch current directory: %w", err)
 	}
 
 	// Create context for cancellation
 	ctx, cancel := context.WithCancel(cmd.Context())
 	defer cancel()
 
-	// Channel for debounced events
+	// Load initial configuration
+	currentConfig, err := loadCurrentConfig(configFile)
+	if err != nil {
+		return fmt.Errorf("failed to load current configuration: %w", err)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Watching for project changes...\n")
+	fmt.Fprintf(cmd.OutOrStdout(), "Configuration will be updated when new components are detected.\n\n")
+
+	// Use a fixed debounce time
+	debounceTime := 2 * time.Second
 	debounceCh := make(chan struct{})
 	var timer *time.Timer
 
-	// Watch for changes
-	fmt.Fprintf(cmd.OutOrStdout(), "Watching for changes...\n")
 	for {
 		select {
 		case event, ok := <-watcher.Events:
@@ -161,30 +155,84 @@ func runWatch(cmd *cobra.Command, client api.APIClient, appID, configFile string
 			fmt.Fprintf(cmd.ErrOrStderr(), "Error: %v\n", err)
 
 		case <-debounceCh:
-			// Trigger deployment
-			fmt.Fprintf(cmd.OutOrStdout(), "Changes detected, preparing to deploy...\n")
-			if previewMode {
-				if err := showConfigurationDiff(configFile); err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Error showing changes: %v\n", err)
-					continue
+			// Analyze project for changes
+			fmt.Fprintf(cmd.OutOrStdout(), "Analyzing project changes...\n")
+
+			// Create project detector
+			registry := detection.NewDetectorRegistry()
+			projectInfo, err := registry.DetectProject(".")
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Error detecting project changes: %v\n", err)
+				continue
+			}
+
+			// Generate new configuration
+			generator := template.NewGenerator()
+			newConfig, err := generator.GenerateFromProjectInfo(projectInfo.Name, string(projectInfo.Type), projectInfo.Port)
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Error generating configuration: %v\n", err)
+				continue
+			}
+
+			// Add database if needed
+			if hasDatabase(projectInfo) {
+				if err := generator.AddPod(newConfig, template.PodTypePostgres, 0); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Error adding database configuration: %v\n", err)
 				}
+			}
+
+			// Add AI-specific configurations if detected
+			if projectInfo.LLMProvider != "" {
+				addAIConfigurations(newConfig, projectInfo)
+			}
+
+			// Check for Docker images
+			dockerImages, err := findDockerImages(".")
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Error scanning for Docker images: %v\n", err)
+			} else {
+				for _, image := range dockerImages {
+					pod := template.Pod{
+						Name:  fmt.Sprintf("docker-%s", strings.Split(image, ":")[0]),
+						Type:  "docker",
+						Image: image,
+						ServicePorts: []template.ServicePort{
+							{Name: "http", Port: 80, TargetPort: 80},
+						},
+					}
+					newConfig.Application.Pods = append(newConfig.Application.Pods, pod)
+				}
+			}
+
+			// Compare configurations
+			if configsEqual(currentConfig, newConfig) {
+				fmt.Fprintf(cmd.OutOrStdout(), "No configuration changes needed.\n")
+				continue
+			}
+
+			if previewMode {
+				// Show changes
+				fmt.Fprintf(cmd.OutOrStdout(), "\nConfiguration changes detected:\n")
+				showConfigurationDiff(currentConfig, newConfig)
+
 				if promptYesNo("Apply these changes?") {
-					resp, err := client.StartDeployment(ctx, appID, configFile)
-					if err != nil {
-						fmt.Fprintf(cmd.ErrOrStderr(), "Deployment failed: %v\n", err)
+					if err := writeYAMLToFile(configFile, newConfig); err != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "Error writing configuration: %v\n", err)
 						continue
 					}
-					fmt.Fprintf(cmd.OutOrStdout(), "Deployment started: %s\n", resp.Data.URL)
+					currentConfig = newConfig
+					fmt.Fprintf(cmd.OutOrStdout(), "Configuration updated successfully.\n")
 				} else {
-					fmt.Fprintf(cmd.OutOrStdout(), "Changes not applied\n")
+					fmt.Fprintf(cmd.OutOrStdout(), "Changes not applied.\n")
 				}
 			} else {
-				resp, err := client.StartDeployment(ctx, appID, configFile)
-				if err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Deployment failed: %v\n", err)
+				// Apply changes directly
+				if err := writeYAMLToFile(configFile, newConfig); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Error writing configuration: %v\n", err)
 					continue
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Deployment started: %s\n", resp.Data.URL)
+				currentConfig = newConfig
+				fmt.Fprintf(cmd.OutOrStdout(), "Configuration updated successfully.\n")
 			}
 
 		case <-ctx.Done():
@@ -194,28 +242,15 @@ func runWatch(cmd *cobra.Command, client api.APIClient, appID, configFile string
 }
 
 // showConfigurationDiff displays the differences between current and new configuration
-func showConfigurationDiff(configFile string) error {
-	// Read current configuration
-	currentConfig, err := os.ReadFile(configFile)
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to read current configuration: %w", err)
-	}
-
-	// Simulate new configuration (replace with actual new config generation logic)
-	newConfig := []byte("new config content") // Placeholder
-
-	// If no current config exists, show the entire new config
-	if len(currentConfig) == 0 {
-		fmt.Println(titleStyle.Render("📝 New configuration to be created:"))
-		fmt.Println(string(newConfig))
-		return nil
-	}
+func showConfigurationDiff(current, new *template.NexlayerYAML) {
+	// Convert configs to YAML for comparison
+	currentYAML, _ := yaml.Marshal(current)
+	newYAML, _ := yaml.Marshal(new)
 
 	// Show diff
 	fmt.Println(titleStyle.Render("📝 Configuration changes:"))
-	diff := generateColorCodedDiff(string(currentConfig), string(newConfig))
+	diff := generateColorCodedDiff(string(currentYAML), string(newYAML))
 	fmt.Println(diff)
-	return nil
 }
 
 // generateColorCodedDiff creates a color-coded diff output
@@ -285,4 +320,111 @@ func promptYesNo(label string) bool {
 		return false
 	}
 	return strings.ToLower(result) == "y"
+}
+
+// findDockerImages scans the project for Dockerfile and docker-compose.yml files
+func findDockerImages(dir string) ([]string, error) {
+	var images []string
+
+	// Look for Dockerfile
+	if _, err := os.Stat(filepath.Join(dir, "Dockerfile")); err == nil {
+		// Parse Dockerfile for base image
+		content, err := os.ReadFile(filepath.Join(dir, "Dockerfile"))
+		if err == nil {
+			lines := strings.Split(string(content), "\n")
+			for _, line := range lines {
+				if strings.HasPrefix(strings.TrimSpace(line), "FROM ") {
+					image := strings.TrimSpace(strings.TrimPrefix(line, "FROM "))
+					images = append(images, image)
+				}
+			}
+		}
+	}
+
+	// Look for docker-compose.yml
+	if _, err := os.Stat(filepath.Join(dir, "docker-compose.yml")); err == nil {
+		// Parse docker-compose.yml for images
+		content, err := os.ReadFile(filepath.Join(dir, "docker-compose.yml"))
+		if err == nil {
+			var compose struct {
+				Services map[string]struct {
+					Image string `yaml:"image"`
+				} `yaml:"services"`
+			}
+			if err := yaml.Unmarshal(content, &compose); err == nil {
+				for _, service := range compose.Services {
+					if service.Image != "" {
+						images = append(images, service.Image)
+					}
+				}
+			}
+		}
+	}
+
+	return images, nil
+}
+
+// loadCurrentConfig loads the current nexlayer.yaml configuration
+func loadCurrentConfig(configFile string) (*template.NexlayerYAML, error) {
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &template.NexlayerYAML{}, nil
+		}
+		return nil, err
+	}
+
+	var config template.NexlayerYAML
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, err
+	}
+
+	return &config, nil
+}
+
+// configsEqual compares two configurations for equality
+func configsEqual(a, b *template.NexlayerYAML) bool {
+	aData, err := yaml.Marshal(a)
+	if err != nil {
+		return false
+	}
+	bData, err := yaml.Marshal(b)
+	if err != nil {
+		return false
+	}
+	return string(aData) == string(bData)
+}
+
+// writeYAMLToFile writes the configuration to a file
+func writeYAMLToFile(configFile string, config *template.NexlayerYAML) error {
+	data, err := yaml.Marshal(config)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(configFile, data, 0644)
+}
+
+// hasDatabase checks if the project has a database
+func hasDatabase(projectInfo *types.ProjectInfo) bool {
+	// Check dependencies for database-related packages
+	for name := range projectInfo.Dependencies {
+		switch name {
+		case "pg", "postgres", "postgresql", "sequelize", "typeorm", "prisma",
+			"mongoose", "mongodb", "mysql", "mysql2", "sqlite3", "redis":
+			return true
+		}
+	}
+	return false
+}
+
+// addAIConfigurations adds AI-specific configurations to the configuration
+func addAIConfigurations(config *template.NexlayerYAML, projectInfo *types.ProjectInfo) {
+	// Add AI-specific annotations to all pods
+	for i := range config.Application.Pods {
+		if config.Application.Pods[i].Annotations == nil {
+			config.Application.Pods[i].Annotations = make(map[string]string)
+		}
+		config.Application.Pods[i].Annotations["ai.nexlayer.io/provider"] = projectInfo.LLMProvider
+		config.Application.Pods[i].Annotations["ai.nexlayer.io/enabled"] = "true"
+	}
 }

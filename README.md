@@ -23,19 +23,25 @@
 
 ## 🚀 What is Nexlayer?
 
-**Nexlayer** is the fastest way to **deploy full-stack applications** with a single command.  
-It automates **containerized, serverless, and full-stack deployments** without complex infrastructure setup.  
+**Nexlayer** is the fastest way to **deploy full-stack AI applications** with a single command.  
+It automates **containerized full-stack AI deployments** on production-ready enterprise-grade kubernetes without complex setup or infrastructure management.
 
-### **🔥 Why Use Nexlayer?**
-✅ **One-command deploys** – `nexlayer deploy` auto-detects your stack.  
-✅ **Built-in scaling** – Auto-scales with no manual config.  
-✅ **Zero DevOps required** – Works out of the box.  
-✅ **Instant rollbacks** – Deploy safely with built-in versioning.  
-✅ **Live Watch Mode** – Auto-redeploy when code changes.  
+### 🔥 Why Use Nexlayer?
+🚀 **Instant deployments. Infinite scale. Zero DevOps. All without Kubernetes complexity.**
+
+✅ **Zero DevOps required** – Deploy without managing Kubernetes or infrastructure.  
+✅ **One-command deploys** – `nexlayer deploy` gets your app live instantly.  
+✅ **Smart project detection** – `nexlayer init` auto-configures your stack.  
+✅ **Scales automatically** – Enterprise-grade auto-scaling, no config needed.  
+✅ **Custom domains** – `nexlayer domain set` links your app to a domain in seconds.  
+✅ **Simple monitoring** – `nexlayer info` provides instant deployment insights.  
+✅ **True developer speed** – No YAML headaches, just focus on your code.  
+
+🔥 **From local dev to internet scale in seconds—no infrastructure, no limits, no hassle.** 🚀
 
 ---
 
-# **⚡ Create Your First App**  
+## ⚡ Quick Start
 
 ### **1️⃣ Install Nexlayer CLI**
 ```bash
@@ -47,23 +53,34 @@ curl -sSL https://raw.githubusercontent.com/Nexlayer/nexlayer-cli/main/install.s
 mkdir myapp && cd myapp
 nexlayer init
 ```
-- Auto-detects your framework (Next.js, Python, Node, Go,etc.)
+- Auto-detects your framework (Next.js, Python, etc.)
 - Generates a `nexlayer.yaml` deployment file
 - Sets up environment variables and dependencies
 
-### **3️⃣ Deploy in Seconds**
+### **3️⃣ Deploy Your Application**
 ```bash
 nexlayer deploy
 ```
 - Instantly deploys your app
 - Generates build artifacts, provisions infrastructure, and handles CDN caching
 
-### **4️⃣ Watch for Live Changes**
+## 💻 Command Reference
+
+### Core Commands
+1. **nexlayer init** – Initialize a new project (auto-detects type).  
+2. **nexlayer deploy** – Deploy an application (uses `nexlayer.yaml` if present).  
+3. **nexlayer list** – List active deployments.  
+4. **nexlayer info <namespace> <appID>** – Get deployment details.  
+5. **nexlayer domain** – Manage custom domains.  
+6. **nexlayer login** – Authenticate with Nexlayer.  
+7. **nexlayer watch** – Monitor & auto-deploy changes.  
+8. **nexlayer feedback** – Send CLI feedback.  
+
+### Global Flags
 ```bash
-nexlayer watch
+-h, --help         Show help for commands
+    --json         Output response in JSON format
 ```
-- Auto-redeploys when code changes
-- Ideal for local development
 
 ## 🛠 Example: Deploying a Next.js App
 
@@ -89,7 +106,6 @@ hello-world-nextjs/
 ├── nexlayer.yaml             # Nexlayer deployment configuration
 ├── .gitignore                # Git ignore file
 ├── README.md                 # Documentation
-
 ```
 
 ### 🔧 nexlayer.yaml Configuration
@@ -102,47 +118,6 @@ application:
     image: ghcr.io/nexlayer/hello-world-nextjs:v0.0.1
     servicePorts:
     - 80
-```
-
-### 🚀 Deploy the App
-```bash
-nexlayer deploy
-```
-- Detects the framework automatically
-- Builds and deploys the application
-- Assigns a default domain (e.g., `myapp.nexlayer.app`)
-
-### 🔍 How It Works
-- Nexlayer detects `next.config.js` and automatically provisions a Next.js environment
-- It builds the static site and deploys it on an optimized global CDN
-- Rollbacks are instant if something goes wrong
-
-## 💻 Command Reference
-
-```bash
-# Initialize a new project
-nexlayer init                # Auto-detect project type
-nexlayer init -i             # Interactive mode
-nexlayer init --type react   # Initialize React project
-
-# Deploy an application
-nexlayer deploy              # Deploy using nexlayer.yaml
-nexlayer deploy myapp        # Deploy specific application
-nexlayer deploy -f config.yaml  # Deploy with a custom config
-
-# Watch mode for auto-deployment
-nexlayer watch               # Auto-redeploy on changes
-
-# Monitoring
-nexlayer list                # Show all deployments
-nexlayer info myapp          # Show deployment details
-nexlayer list --json         # Output results in JSON format
-
-# Configure a custom domain
-nexlayer domain set myapp --domain example.com
-
-# Send feedback
-nexlayer feedback            # Share feedback or report issues
 ```
 
 ## 📚 Documentation
