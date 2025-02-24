@@ -31,20 +31,33 @@ GOSEC=gosec
 GOMAXPROCS?=$(shell nproc)
 export GOMAXPROCS
 
-.PHONY: all build build-dev clean test coverage lint fmt vet install uninstall help bench security docker
+# Vendor management
+VENDOR_SCRIPT=scripts/update-vendor.sh
+GOFLAGS=-mod=vendor
+
+.PHONY: all build build-dev clean test coverage lint fmt vet install uninstall help bench security docker vendor vendor-update
 
 all: lint test build ## Run lint, test, and build
 
-build: ## Build the binary with optimizations
-    @echo "Building Nexlayer CLI..."
-    @mkdir -p $(BUILD_DIR)
-    CGO_ENABLED=0 $(GOBUILD) -trimpath -a -tags netgo,osusergo \
-        -installsuffix netgo $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/nexlayer
+vendor: ## Update and optimize vendor directory
+	@echo "Updating vendor directory..."
+	@$(VENDOR_SCRIPT)
 
-build-dev: ## Build for development without optimizations
-    @echo "Building development version..."
-    @mkdir -p $(BUILD_DIR)
-    $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/nexlayer
+vendor-update: ## Force update all dependencies and vendor directory
+	@echo "Force updating all dependencies..."
+	@$(GOCMD) get -u ./...
+	@$(VENDOR_SCRIPT)
+
+build: vendor ## Build the binary with optimizations
+	@echo "Building Nexlayer CLI..."
+	@mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 $(GOBUILD) -trimpath -a -tags netgo,osusergo \
+		-installsuffix netgo $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/nexlayer
+
+build-dev: vendor ## Build for development without optimizations
+	@echo "Building development version..."
+	@mkdir -p $(BUILD_DIR)
+	$(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/nexlayer
 
 build-debug: ## Build with debug information
     @echo "Building debug version..."

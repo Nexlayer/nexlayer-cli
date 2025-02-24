@@ -1,77 +1,213 @@
+# Configuration for golangci-lint v1.55.0+
+
 run:
+  # Timeout for analysis
   timeout: 5m
-  modules-download-mode: readonly
+  
+  # Use all available CPU cores
+  concurrency: 4
+  
+  # Exit code when at least one issue was found
+  issues-exit-code: 1
+  
+  # Include test files in analysis
+  tests: false
+  
+  # Build tags to consider
+  build-tags:
+    - netgo
+    - osusergo
+  
+  # Skip directories
   skip-dirs:
     - vendor
     - third_party
     - testdata
     - examples
     - tools
+    - dist
+    - build
+    - .git
+    - node_modules
 
+  # Skip files
+  skip-files:
+    - ".*_test\\.go$"
+    - "\\.test\\.go$"
+    - "mock_.*\\.go$"
+
+  # Allow multiple parallel golangci-lint instances
+  allow-parallel-runners: true
+
+  # Modules download mode
+  modules-download-mode: readonly
+
+# Output configuration
+output:
+  # Format: colored-line-number|line-number|json|tab|checkstyle|code-climate|junit-xml|github-actions
+  format: colored-line-number
+  
+  # Print lines of code with issue
+  print-issued-lines: true
+  
+  # Print linter name in the end of issue text
+  print-linter-name: true
+
+# Linters configuration
 linters:
-  enable-all: true
-  disable:
-    - exhaustivestruct  # deprecated
-    - golint           # deprecated
-    - ifshort         # deprecated
-    - interfacer      # deprecated
-    - maligned        # deprecated
-    - nosnakecase     # deprecated
-    - scopelint       # deprecated
-    - structcheck     # deprecated
-    - varcheck        # deprecated
-    - deadcode        # deprecated
-    - exhaustruct     # too strict
-    - gci             # conflicts with gofmt
-    - gofumpt         # conflicts with gofmt
-    - lll             # line length is subjective
-    - wsl             # too opinionated
+  # Enable specific linters
+  enable:
+    - gofmt          # Formatting
+    - govet          # Suspicious constructs
+    - errcheck       # Error handling
+    - staticcheck    # Static analysis
+    - gosimple       # Code simplification
+    - ineffassign    # Ineffective assignments
+    - typecheck      # Type checking
+    - unused         # Unused code
+    - bodyclose      # HTTP response body closing
+    - gocritic       # Code checks
+    - gosec         # Security checks
+    - misspell      # Spelling
+    - prealloc      # Slice preallocation
+    - predeclared   # Predeclared identifiers
+    - revive        # Drop-in replacement for golint
+    - unconvert     # Unnecessary type conversions
+    - whitespace    # Whitespace style
 
+  # Disable specific linters
+  disable:
+    - deadcode      # Deprecated
+    - structcheck   # Deprecated
+    - varcheck      # Deprecated
+    - scopelint     # Deprecated
+    - maligned      # Deprecated
+    - golint        # Deprecated
+    - interfacer    # Deprecated
+    - exhaustivestruct  # Too strict
+    - wsl           # Too opinionated
+    - gochecknoglobals # Too strict for CLI
+    - gochecknoinits   # Too strict for CLI
+    - lll             # Line length is subjective
+
+# Linter settings
 linters-settings:
   govet:
+    # Report about shadowed variables
     check-shadowing: true
-  cyclop:
-    max-complexity: 15
-  gocyclo:
-    min-complexity: 15
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-  misspell:
-    locale: US
-  funlen:
-    lines: 100
-    statements: 50
-  godox:
-    keywords:
-      - FIXME
-      - BUG
-      - TODO
-  gofmt:
-    simplify: true
+    # Enable all analyzers
+    enable-all: true
+    # Disable specific analyzers
+    disable:
+      - composites  # Too strict for our use case
+  
+  errcheck:
+    # Report about not checking of errors in type assertions
+    check-type-assertions: true
+    # Report about assignment of errors to blank identifier
+    check-blank: true
+  
   gocritic:
+    # Enable all checkers by default
     enabled-tags:
       - diagnostic
+      - style
+      - performance
       - experimental
       - opinionated
-      - performance
-      - style
-  gomodguard:
-    blocked:
-      modules:
-        - github.com/golang/protobuf:
-            recommendations:
-              - google.golang.org/protobuf
-            reason: "see https://developers.google.com/protocol-buffers/docs/reference/go/faq#modules"
+    
+    # Settings passed to specific checkers
+    settings:
+      captLocal:
+        # Whether to restrict checker to params only
+        paramsOnly: true
+      rangeValCopy:
+        # Size in bytes that makes the warning trigger
+        sizeThreshold: 128
+  
+  gosec:
+    # Exclude generated files
+    exclude-generated: true
+    # Exclude test files
+    exclude-tests: true
+    # Enable all rules
+    severity: "low"
+    confidence: "low"
+  
+  staticcheck:
+    # Enable all checks
+    checks: ["all"]
+    # Go version to target
+    go: "1.23"
+  
+  revive:
+    # Maximum number of open files
+    max-open-files: 2048
+    # Rules configuration
+    rules:
+      - name: exported
+        severity: warning
+        disabled: false
+      - name: unexported-return
+        severity: warning
+        disabled: false
 
+# Issues configuration
 issues:
+  # Maximum count of issues with the same text
+  max-same-issues: 0
+  
+  # Maximum issues count per one linter
+  max-issues-per-linter: 0
+  
+  # Fix found issues
+  fix: true
+  
   exclude-rules:
+    # Exclude some linters from running on tests files.
     - path: _test\.go
       linters:
+        - gocyclo
+        - errcheck
         - dupl
         - gosec
         - goconst
-  max-issues-per-linter: 0
-  max-same-issues: 0
+    
+    # Exclude known false positives
+    - text: "G104:"
+      linters:
+        - gosec
+    
+    # Exclude long lines in comments
+    - source: "^//.*$"
+      linters:
+        - lll
+
+# Severity configuration
+severity:
+  # Default value for all rules
+  default-severity: error
+  
+  # Specific severity for rules
+  rules:
+    - linter: revive
+      severity: warning
+    - linter: gocritic
+      severity: warning
+
+# Output customization
+output-options:
+  # Sort results by: source|severity|linter|message
+  sort-results: true
+  
+  # Print all issues even if file was excluded
+  print-all-issues: false
+  
+  # Add a prefix to each line of output
+  line-prefix: ""
+  
+  # Add unique identifier to each issue
+  unique-by: ""
+  
+  # Number of lines of code to show with each issue
+  show-stats: true

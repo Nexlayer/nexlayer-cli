@@ -1,5 +1,5 @@
 // Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
-// Package errors defines an error type for handling deployment errors.
+// Package errors provides centralized error handling for the Nexlayer CLI.
 package errors
 
 import (
@@ -8,92 +8,168 @@ import (
 	"strings"
 )
 
-// ValidationContext contains structured information about a validation error
-type ValidationContext struct {
-	Field           string   `json:"field,omitempty"`            // The field that failed validation
-	ExpectedType    string   `json:"expected_type,omitempty"`    // Expected type/format
-	ActualValue     string   `json:"actual_value,omitempty"`     // Actual value received
-	MissingVar      string   `json:"missing_var,omitempty"`      // Name of missing environment variable
-	AllowedValues   []string `json:"allowed_values,omitempty"`   // List of allowed values
-	ResolutionHints []string `json:"resolution_hints,omitempty"` // Hints for fixing the error
-	Example         string   `json:"example,omitempty"`          // Example of correct usage
+// Kind represents the type of error
+type Kind string
+
+const (
+	// Error types
+	KindValidation Kind = "validation"
+	KindConfig     Kind = "config"
+	KindAPI        Kind = "api"
+	KindRuntime    Kind = "runtime"
+	KindSystem     Kind = "system"
+	KindCommand    Kind = "command"
+)
+
+// NexError represents a structured error with context
+type NexError struct {
+	Type        Kind           `json:"type"`
+	Message     string         `json:"message"`
+	Field       string         `json:"field,omitempty"`
+	Suggestions []string       `json:"suggestions,omitempty"`
+	Context     map[string]any `json:"context,omitempty"`
+	Cause       error          `json:"cause,omitempty"`
 }
 
-// DeploymentError represents an error that occurred during deployment
-type DeploymentError struct {
-	Message   string
-	Cause     error
-	ErrorType string
-	Context   *ValidationContext
-}
+// Error implements the error interface
+func (e *NexError) Error() string {
+	var msg strings.Builder
+	msg.WriteString(fmt.Sprintf("[%s] %s", e.Type, e.Message))
 
-// NewDeploymentError creates a new deployment error
-func NewDeploymentError(message string, cause error) *DeploymentError {
-	return &DeploymentError{
-		Message:   message,
-		Cause:     cause,
-		ErrorType: "DeploymentError",
+	if e.Field != "" {
+		msg.WriteString(fmt.Sprintf(" (field: %s)", e.Field))
 	}
-}
 
-// NewValidationError creates a new validation error with structured context
-func NewValidationError(message string, context *ValidationContext) *DeploymentError {
-	return &DeploymentError{
-		Message:   message,
-		ErrorType: "ValidationError",
-		Context:   context,
-	}
-}
-
-// Error returns the error message
-func (e *DeploymentError) Error() string {
-	var b strings.Builder
-	b.WriteString(e.Message)
-	if e.Cause != nil {
-		b.WriteString(fmt.Sprintf(": %v", e.Cause))
-	}
-	if e.Context != nil && len(e.Context.ResolutionHints) > 0 {
-		b.WriteString("\n\nSuggestions:")
-		for _, s := range e.Context.ResolutionHints {
-			b.WriteString(fmt.Sprintf("\n- %s", s))
+	if len(e.Suggestions) > 0 {
+		msg.WriteString("\nSuggestions:")
+		for _, s := range e.Suggestions {
+			msg.WriteString(fmt.Sprintf("\n  • %s", s))
 		}
-		if e.Context.Example != "" {
-			b.WriteString(fmt.Sprintf("\n\nExample:\n%s", e.Context.Example))
-		}
-	}
-	return b.String()
-}
-
-// MarshalJSON implements json.Marshaler interface
-func (e *DeploymentError) MarshalJSON() ([]byte, error) {
-	errorContext := map[string]interface{}{
-		"type":    e.ErrorType,
-		"message": e.Message,
-	}
-
-	if e.Context != nil {
-		errorContext["validation_context"] = e.Context
 	}
 
 	if e.Cause != nil {
-		errorContext["cause"] = e.Cause.Error()
+		msg.WriteString(fmt.Sprintf("\nCaused by: %v", e.Cause))
 	}
 
-	return json.Marshal(map[string]interface{}{
-		"error_context": errorContext,
+	return msg.String()
+}
+
+// MarshalJSON implements json.Marshaler
+func (e *NexError) MarshalJSON() ([]byte, error) {
+	type Alias NexError
+	return json.Marshal(&struct {
+		*Alias
+		Cause string `json:"cause,omitempty"`
+	}{
+		Alias: (*Alias)(e),
+		Cause: e.Cause.Error(),
 	})
 }
 
-// Unwrap returns the underlying error
-func (e *DeploymentError) Unwrap() error {
-	return e.Cause
+// ValidationError creates a new validation error
+func ValidationError(message string, field string, suggestions ...string) *NexError {
+	return &NexError{
+		Type:        KindValidation,
+		Message:     message,
+		Field:       field,
+		Suggestions: suggestions,
+	}
 }
 
-// Is reports whether the target matches this error
-func (e *DeploymentError) Is(target error) bool {
-	t, ok := target.(*DeploymentError)
-	if !ok {
-		return false
+// ConfigError creates a new configuration error
+func ConfigError(message string, cause error, suggestions ...string) *NexError {
+	return &NexError{
+		Type:        KindConfig,
+		Message:     message,
+		Cause:       cause,
+		Suggestions: suggestions,
 	}
-	return t.Message == e.Message
+}
+
+// APIError creates a new API error
+func APIError(message string, cause error, context map[string]any) *NexError {
+	return &NexError{
+		Type:    KindAPI,
+		Message: message,
+		Cause:   cause,
+		Context: context,
+	}
+}
+
+// RuntimeError creates a new runtime error
+func RuntimeError(message string, cause error) *NexError {
+	return &NexError{
+		Type:    KindRuntime,
+		Message: message,
+		Cause:   cause,
+	}
+}
+
+// NewSystemError creates a new system error
+func NewSystemError(message string, cause error, suggestions ...string) *NexError {
+	return &NexError{
+		Type:        KindSystem,
+		Message:     message,
+		Cause:       cause,
+		Suggestions: suggestions,
+	}
+}
+
+// CommandError creates a new command error
+func CommandError(message string, suggestions ...string) *NexError {
+	return &NexError{
+		Type:        KindCommand,
+		Message:     message,
+		Suggestions: suggestions,
+	}
+}
+
+// WithContext adds context to an error
+func (e *NexError) WithContext(context map[string]any) *NexError {
+	e.Context = context
+	return e
+}
+
+// WithSuggestions adds suggestions to an error
+func (e *NexError) WithSuggestions(suggestions ...string) *NexError {
+	e.Suggestions = append(e.Suggestions, suggestions...)
+	return e
+}
+
+// WithCause adds a cause to an error
+func (e *NexError) WithCause(cause error) *NexError {
+	e.Cause = cause
+	return e
+}
+
+// IsValidationError checks if an error is a validation error
+func IsValidationError(err error) bool {
+	if e, ok := err.(*NexError); ok {
+		return e.Type == KindValidation
+	}
+	return false
+}
+
+// IsConfigError checks if an error is a configuration error
+func IsConfigError(err error) bool {
+	if e, ok := err.(*NexError); ok {
+		return e.Type == KindConfig
+	}
+	return false
+}
+
+// IsAPIError checks if an error is an API error
+func IsAPIError(err error) bool {
+	if e, ok := err.(*NexError); ok {
+		return e.Type == KindAPI
+	}
+	return false
+}
+
+// FormatError formats an error for display
+func FormatError(err error) string {
+	if e, ok := err.(*NexError); ok {
+		return e.Error()
+	}
+	return err.Error()
 }

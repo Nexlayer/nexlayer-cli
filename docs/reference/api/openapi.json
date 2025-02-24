@@ -2,7 +2,7 @@
   "openapi": "3.0.0",
   "info": {
     "title": "Nexlayer API",
-    "description": "API for the Nexlayer Application",
+    "description": "API for managing deployments, feedback, and custom domains in the Nexlayer Application.",
     "version": "1.0.0"
   },
   "servers": [
@@ -11,41 +11,84 @@
     }
   ],
   "paths": {
-    "/startUserDeployment/{applicationID?}": {
+    "/startUserDeployment/{applicationID}": {
       "post": {
-        "summary": "Start User Deployment",
-        "description": "Start a deployment given an application ID. Accepts a YAML file uploaded using `--data-binary`.",
+        "tags": ["Deployment"],
+        "summary": "Start a user deployment by uploading a YAML configuration file",
+        "description": "Initiates a deployment for a user's application using a YAML configuration file uploaded via `--data-binary`. The YAML must follow the Nexlayer schema (see documentation for details). The `applicationID` parameter is optional; if omitted, the default application tied to the user's profile is used.",
+        "operationId": "startUserDeployment",
         "parameters": [
           {
-            "name": "applicationID?",
+            "name": "applicationID",
             "in": "path",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The unique identifier of the application to deploy. Optional; defaults to the user's profile application if not specified."
           }
         ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/startUserDeploymentResponse"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "500": {
-            "description": "Internal Server Error"
-          }
-        },
         "requestBody": {
           "required": true,
           "content": {
             "text/x-yaml": {
               "schema": {
-                "$ref": "#/components/schemas/startUserDeploymentRequestBody"
+                "type": "string",
+                "format": "binary"
+              },
+              "example": "# Example YAML: See https://github.com/Nexlayer/templates/blob/main/new-readme.md"
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deployment started successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/startUserDeploymentResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "message": "Deployment started successfully",
+                      "namespace": "fantastic-fox",
+                      "url": "https://fantastic-fox-my-mern-app.alpha.nexlayer.ai"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid YAML or missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid YAML format or missing required fields."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "An unexpected error occurred on the server."
+                    }
+                  }
+                }
               }
             }
           }
@@ -54,22 +97,73 @@
     },
     "/feedback": {
       "post": {
-        "summary": "Send Feedback",
-        "description": "Send feedback to Nexlayer",
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "500": {
-            "description": "Internal Server Error"
-          }
-        },
+        "tags": ["Feedback"],
+        "summary": "Send feedback to Nexlayer",
+        "description": "Submits user feedback about the Nexlayer application in JSON format. The request must include a 'text' field with the feedback message.",
+        "operationId": "sendFeedback",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/feedback"
+              },
+              "examples": {
+                "feedback": {
+                  "value": {
+                    "text": "Great tool, but needs more documentation!"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Feedback received successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Feedback received successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Missing or invalid feedback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Feedback text is required."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "An unexpected error occurred on the server."
+                    }
+                  }
+                }
               }
             }
           }
@@ -78,8 +172,10 @@
     },
     "/saveCustomDomain/{applicationID}": {
       "post": {
-        "summary": "Save Custom Domain",
-        "description": "Save a custom domain to user profile",
+        "tags": ["Domain Management"],
+        "summary": "Save a custom domain for an application",
+        "description": "Associates a custom domain with the specified application. The domain must be a valid string and properly configured in DNS settings.",
+        "operationId": "saveCustomDomain",
         "parameters": [
           {
             "name": "applicationID",
@@ -87,12 +183,30 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The unique identifier of the application to associate with the custom domain."
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/saveCustomDomainRequestBody"
+              },
+              "examples": {
+                "domain": {
+                  "value": {
+                    "domain": "mydomain.com"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Custom domain saved successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -102,18 +216,34 @@
             }
           },
           "400": {
-            "description": "Bad Request"
+            "description": "Bad Request - Invalid domain format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid domain format. Please provide a valid domain name."
+                    }
+                  }
+                }
+              }
+            }
           },
           "500": {
-            "description": "Internal Server Error"
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/saveCustomDomainRequestBody"
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "An unexpected error occurred on the server."
+                    }
+                  }
+                }
               }
             }
           }
@@ -122,8 +252,10 @@
     },
     "/getDeployments/{applicationID}": {
       "get": {
-        "summary": "Get Deployments",
-        "description": "Get all user deployments",
+        "tags": ["Deployment"],
+        "summary": "Get all deployments for an application",
+        "description": "Retrieves a list of all deployments for the specified application ID, including details like namespace, template ID, and status.",
+        "operationId": "getDeployments",
         "parameters": [
           {
             "name": "applicationID",
@@ -131,33 +263,76 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The unique identifier of the application whose deployments are being retrieved."
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Deployments retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/getDeploymentsResponse"
+                },
+                "examples": {
+                  "deployments": {
+                    "value": {
+                      "deployments": [
+                        {
+                          "namespace": "ecstatic-frog",
+                          "templateID": "0001",
+                          "templateName": "K-d chat",
+                          "deploymentStatus": "running"
+                        }
+                      ]
+                    }
+                  }
                 }
               }
             }
           },
           "400": {
-            "description": "Bad Request"
+            "description": "Bad Request - Invalid application ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid application ID."
+                    }
+                  }
+                }
+              }
+            }
           },
           "500": {
-            "description": "Internal Server Error"
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "An unexpected error occurred on the server."
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
     },
     "/getDeploymentInfo/{namespace}/{applicationID}": {
       "get": {
-        "summary": "Get Deployment Info",
-        "description": "Get information around a specific deployment",
+        "tags": ["Deployment"],
+        "summary": "Get detailed info for a specific deployment",
+        "description": "Retrieves detailed information about a specific deployment identified by its namespace and application ID, including status and template details.",
+        "operationId": "getDeploymentInfo",
         "parameters": [
           {
             "name": "namespace",
@@ -165,7 +340,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The namespace of the deployment to retrieve."
           },
           {
             "name": "applicationID",
@@ -173,31 +349,78 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The unique identifier of the application associated with the deployment."
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Deployment info retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/getDeploymentInfoResponse"
+                },
+                "examples": {
+                  "deployment": {
+                    "value": {
+                      "deployment": {
+                        "namespace": "ecstatic-frog",
+                        "templateID": "0001",
+                        "templateName": "K-d chat",
+                        "deploymentStatus": "running"
+                      }
+                    }
+                  }
                 }
               }
             }
           },
           "400": {
-            "description": "Bad Request"
+            "description": "Bad Request - Invalid namespace or application ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid namespace or application ID."
+                    }
+                  }
+                }
+              }
+            }
           },
           "500": {
-            "description": "Internal Server Error"
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "An unexpected error occurred on the server."
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
     }
   },
   "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-KEY",
+        "description": "API key required for authentication (assumed based on typical API patterns; adjust as needed)."
+      }
+    },
     "schemas": {
       "getDeploymentsResponse": {
         "type": "object",
@@ -227,9 +450,7 @@
             }
           }
         },
-        "required": [
-          "deployments"
-        ]
+        "required": ["deployments"]
       },
       "getDeploymentInfoResponse": {
         "type": "object",
@@ -256,43 +477,7 @@
             }
           }
         },
-        "required": [
-          "deployment"
-        ]
-      },
-      "startTemplateDeploymentResponse": {
-        "type": "object",
-        "properties": {
-          "message": {
-            "type": "string",
-            "example": "Deployment started successfully"
-          },
-          "namespace": {
-            "type": "string",
-            "example": "ecstatic-frog"
-          },
-          "url": {
-            "type": "string",
-            "example": "https://ecstatic-frog-kd-chat.alpha.nexlayer.ai"
-          }
-        },
-        "required": [
-          "message",
-          "namespace",
-          "url"
-        ]
-      },
-      "checkSiteStatusResponse": {
-        "type": "object",
-        "properties": {
-          "message": {
-            "type": "string",
-            "example": "UP"
-          }
-        },
-        "required": [
-          "message"
-        ]
+        "required": ["deployment"]
       },
       "startUserDeploymentResponse": {
         "type": "object",
@@ -310,11 +495,7 @@
             "example": "https://fantastic-fox-my-mern-app.alpha.nexlayer.ai"
           }
         },
-        "required": [
-          "message",
-          "namespace",
-          "url"
-        ]
+        "required": ["message", "namespace", "url"]
       },
       "saveCustomDomainRequestBody": {
         "type": "object",
@@ -324,9 +505,7 @@
             "example": "mydomain.com"
           }
         },
-        "required": [
-          "domain"
-        ]
+        "required": ["domain"]
       },
       "saveCustomDomainResponse": {
         "type": "object",
@@ -336,9 +515,7 @@
             "example": "Custom domain saved successfully"
           }
         },
-        "required": [
-          "message"
-        ]
+        "required": ["message"]
       },
       "feedback": {
         "type": "object",
@@ -348,14 +525,13 @@
             "example": "Sample text"
           }
         },
-        "required": [
-          "text"
-        ]
-      },
-      "startUserDeploymentRequestBody": {
-        "type": "string",
-        "format": "binary"
+        "required": ["text"]
       }
     }
-  }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ]
 }

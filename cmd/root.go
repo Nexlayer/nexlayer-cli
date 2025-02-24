@@ -98,7 +98,7 @@ func NewRootCommand() *cobra.Command {
 		info.NewInfoCommand(apiClient),
 		domain.NewDomainCommand(apiClient),
 		login.NewLoginCommand(apiClient),
-		watch.NewCommand(apiClient),
+		watch.NewCommand(),
 		feedback.NewFeedbackCommand(apiClient),
 	)
 
@@ -114,7 +114,7 @@ func NewRootCommand() *cobra.Command {
   info        Get deployment details <namespace> <appID>
   domain      Manage custom domains
   login       Authenticate with Nexlayer
-  watch       Monitor & auto-deploy changes
+  watch       Monitor project changes and update configuration
   feedback    Send CLI feedback
 
 Flags:

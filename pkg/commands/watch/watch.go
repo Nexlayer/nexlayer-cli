@@ -8,14 +8,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/template"
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
 	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
+	"github.com/Nexlayer/nexlayer-cli/pkg/schema"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/fsnotify/fsnotify"
 	"github.com/manifoldco/promptui"
@@ -47,20 +47,21 @@ var (
 
 	diffStyleUnchanged = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#888888"))
+
+	// lastKnownModTime tracks when the watch command last modified the config file
+	lastKnownModTime time.Time
 )
 
 // NewCommand creates a new watch command
-func NewCommand(apiClient api.APIClient) *cobra.Command {
-	var previewMode bool
-
+func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "watch",
-		Short: "Monitor & auto-update configuration",
+		Short: "Monitor project changes and update configuration",
 		Long: `Watch the project for changes and automatically update nexlayer.yaml configuration.
 When changes are detected (new dependencies, frameworks, services, Docker images, etc.),
 the configuration will be updated to match the current project state.
 
-The command will automatically detect nexlayer.yaml in the current directory.`,
+The command runs in the foreground. Press Ctrl+C to stop watching.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Find nexlayer.yaml in current directory
@@ -69,11 +70,9 @@ The command will automatically detect nexlayer.yaml in the current directory.`,
 				return fmt.Errorf("nexlayer.yaml not found in current directory: %w", err)
 			}
 
-			return runWatch(cmd, configFile, previewMode)
+			return runWatch(cmd, configFile)
 		},
 	}
-
-	cmd.Flags().BoolVar(&previewMode, "preview", false, "(Future) Show changes without applying them")
 
 	return cmd
 }
@@ -97,7 +96,7 @@ func findConfigFile() (string, error) {
 }
 
 // runWatch starts watching for project changes and updates configuration
-func runWatch(cmd *cobra.Command, configFile string, previewMode bool) error {
+func runWatch(cmd *cobra.Command, configFile string) error {
 	// Create new watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -105,14 +104,28 @@ func runWatch(cmd *cobra.Command, configFile string, previewMode bool) error {
 	}
 	defer watcher.Close()
 
+	// Initialize lastKnownModTime
+	if fileInfo, err := os.Stat(configFile); err == nil {
+		lastKnownModTime = fileInfo.ModTime()
+	}
+
 	// Add current directory to watch
 	if err := addDirsToWatch(watcher, "."); err != nil {
 		return fmt.Errorf("failed to watch current directory: %w", err)
 	}
 
-	// Create context for cancellation
+	// Create context with cancellation
 	ctx, cancel := context.WithCancel(cmd.Context())
 	defer cancel()
+
+	// Handle Ctrl+C gracefully
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		fmt.Println("\nStopping watch mode...")
+		cancel()
+	}()
 
 	// Load initial configuration
 	currentConfig, err := loadCurrentConfig(configFile)
@@ -121,7 +134,9 @@ func runWatch(cmd *cobra.Command, configFile string, previewMode bool) error {
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Watching for project changes...\n")
-	fmt.Fprintf(cmd.OutOrStdout(), "Configuration will be updated when new components are detected.\n\n")
+	fmt.Fprintf(cmd.OutOrStdout(), "Configuration will be updated when new components are detected.\n")
+	fmt.Fprintf(cmd.OutOrStdout(), "Manual edits to nexlayer.yaml will be preserved unless you choose to overwrite them.\n")
+	fmt.Fprintf(cmd.OutOrStdout(), "Press Ctrl+C to stop watching.\n\n")
 
 	// Use a fixed debounce time
 	debounceTime := 2 * time.Second
@@ -137,6 +152,11 @@ func runWatch(cmd *cobra.Command, configFile string, previewMode bool) error {
 
 			// Skip temporary files and hidden directories
 			if shouldIgnoreFile(event.Name) {
+				continue
+			}
+
+			// Skip the nexlayer.yaml file itself to avoid loops
+			if filepath.Base(event.Name) == filepath.Base(configFile) {
 				continue
 			}
 
@@ -160,14 +180,28 @@ func runWatch(cmd *cobra.Command, configFile string, previewMode bool) error {
 
 			// Create project detector
 			registry := detection.NewDetectorRegistry()
-			projectInfo, err := registry.DetectProject(".")
+			detectedInfo, err := registry.DetectProject(".")
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Error detecting project changes: %v\n", err)
 				continue
 			}
 
+			// Convert to schema.ProjectInfo
+			projectInfo := &schema.ProjectInfo{
+				Type:         schema.ProjectType(detectedInfo.Type),
+				Name:         detectedInfo.Name,
+				Version:      detectedInfo.Version,
+				Dependencies: detectedInfo.Dependencies,
+				Scripts:      detectedInfo.Scripts,
+				Port:         detectedInfo.Port,
+				HasDocker:    detectedInfo.HasDocker,
+				LLMProvider:  detectedInfo.LLMProvider,
+				LLMModel:     detectedInfo.LLMModel,
+				ImageTag:     detectedInfo.ImageTag,
+			}
+
 			// Generate new configuration
-			generator := template.NewGenerator()
+			generator := schema.NewGenerator()
 			newConfig, err := generator.GenerateFromProjectInfo(projectInfo.Name, string(projectInfo.Type), projectInfo.Port)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Error generating configuration: %v\n", err)
@@ -176,14 +210,14 @@ func runWatch(cmd *cobra.Command, configFile string, previewMode bool) error {
 
 			// Add database if needed
 			if hasDatabase(projectInfo) {
-				if err := generator.AddPod(newConfig, template.PodTypePostgres, 0); err != nil {
+				if err := generator.AddPod(newConfig, "postgres", 0); err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Error adding database configuration: %v\n", err)
 				}
 			}
 
 			// Add AI-specific configurations if detected
 			if projectInfo.LLMProvider != "" {
-				addAIConfigurations(newConfig, projectInfo)
+				generator.AddAIConfigurations(newConfig, projectInfo.LLMProvider)
 			}
 
 			// Check for Docker images
@@ -192,15 +226,13 @@ func runWatch(cmd *cobra.Command, configFile string, previewMode bool) error {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Error scanning for Docker images: %v\n", err)
 			} else {
 				for _, image := range dockerImages {
-					pod := template.Pod{
-						Name:  fmt.Sprintf("docker-%s", strings.Split(image, ":")[0]),
-						Type:  "docker",
-						Image: image,
-						ServicePorts: []template.ServicePort{
-							{Name: "http", Port: 80, TargetPort: 80},
-						},
+					if err := generator.AddPod(newConfig, "docker", 0); err != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "Error adding Docker pod: %v\n", err)
+						continue
 					}
-					newConfig.Application.Pods = append(newConfig.Application.Pods, pod)
+					pod := &newConfig.Application.Pods[len(newConfig.Application.Pods)-1]
+					pod.Name = fmt.Sprintf("docker-%s", strings.Split(image, ":")[0])
+					pod.Image = image
 				}
 			}
 
@@ -210,39 +242,50 @@ func runWatch(cmd *cobra.Command, configFile string, previewMode bool) error {
 				continue
 			}
 
-			if previewMode {
-				// Show changes
-				fmt.Fprintf(cmd.OutOrStdout(), "\nConfiguration changes detected:\n")
-				showConfigurationDiff(currentConfig, newConfig)
+			// Show changes
+			fmt.Fprintf(cmd.OutOrStdout(), "\nConfiguration changes detected:\n")
+			showConfigurationDiff(currentConfig, newConfig)
 
-				if promptYesNo("Apply these changes?") {
-					if err := writeYAMLToFile(configFile, newConfig); err != nil {
-						fmt.Fprintf(cmd.ErrOrStderr(), "Error writing configuration: %v\n", err)
-						continue
+			// Check for manual edits
+			fileInfo, err := os.Stat(configFile)
+			if err == nil && fileInfo.ModTime().After(lastKnownModTime) {
+				// File has been modified externally
+				fmt.Fprintf(cmd.OutOrStdout(), warningStyle.Render("\n⚠️  The configuration file has been manually edited since the last automatic update.\n"))
+				if !promptYesNo("Overwrite manual changes with new configuration?") {
+					fmt.Fprintf(cmd.OutOrStdout(), "Skipping configuration update to preserve manual changes.\n")
+
+					// Reload the current config to include manual changes
+					if newCurrent, err := loadCurrentConfig(configFile); err == nil {
+						currentConfig = newCurrent
+						lastKnownModTime = fileInfo.ModTime()
 					}
-					currentConfig = newConfig
-					fmt.Fprintf(cmd.OutOrStdout(), "Configuration updated successfully.\n")
-				} else {
-					fmt.Fprintf(cmd.OutOrStdout(), "Changes not applied.\n")
-				}
-			} else {
-				// Apply changes directly
-				if err := writeYAMLToFile(configFile, newConfig); err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Error writing configuration: %v\n", err)
 					continue
 				}
-				currentConfig = newConfig
-				fmt.Fprintf(cmd.OutOrStdout(), "Configuration updated successfully.\n")
 			}
 
+			// Apply changes
+			if err := writeYAMLToFile(configFile, newConfig); err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Error writing configuration: %v\n", err)
+				continue
+			}
+
+			// Update last known modification time
+			if fileInfo, err := os.Stat(configFile); err == nil {
+				lastKnownModTime = fileInfo.ModTime()
+			}
+
+			currentConfig = newConfig
+			fmt.Fprintf(cmd.OutOrStdout(), "Configuration updated successfully.\n")
+
 		case <-ctx.Done():
+			fmt.Fprintf(cmd.OutOrStdout(), "Watch mode stopped.\n")
 			return nil
 		}
 	}
 }
 
 // showConfigurationDiff displays the differences between current and new configuration
-func showConfigurationDiff(current, new *template.NexlayerYAML) {
+func showConfigurationDiff(current, new *schema.NexlayerYAML) {
 	// Convert configs to YAML for comparison
 	currentYAML, _ := yaml.Marshal(current)
 	newYAML, _ := yaml.Marshal(new)
@@ -309,19 +352,6 @@ func shouldIgnoreDir(path string) bool {
 	return base[0] == '.' || base == "node_modules" || base == "vendor" || base == "dist" || base == "build" || base == "__pycache__" || base == ".git"
 }
 
-// promptYesNo asks the user to confirm an action
-func promptYesNo(label string) bool {
-	prompt := promptui.Prompt{
-		Label:     label,
-		IsConfirm: true,
-	}
-	result, err := prompt.Run()
-	if err != nil {
-		return false
-	}
-	return strings.ToLower(result) == "y"
-}
-
 // findDockerImages scans the project for Dockerfile and docker-compose.yml files
 func findDockerImages(dir string) ([]string, error) {
 	var images []string
@@ -365,16 +395,16 @@ func findDockerImages(dir string) ([]string, error) {
 }
 
 // loadCurrentConfig loads the current nexlayer.yaml configuration
-func loadCurrentConfig(configFile string) (*template.NexlayerYAML, error) {
+func loadCurrentConfig(configFile string) (*schema.NexlayerYAML, error) {
 	data, err := os.ReadFile(configFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &template.NexlayerYAML{}, nil
+			return &schema.NexlayerYAML{}, nil
 		}
 		return nil, err
 	}
 
-	var config template.NexlayerYAML
+	var config schema.NexlayerYAML
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, err
 	}
@@ -383,7 +413,7 @@ func loadCurrentConfig(configFile string) (*template.NexlayerYAML, error) {
 }
 
 // configsEqual compares two configurations for equality
-func configsEqual(a, b *template.NexlayerYAML) bool {
+func configsEqual(a, b *schema.NexlayerYAML) bool {
 	aData, err := yaml.Marshal(a)
 	if err != nil {
 		return false
@@ -396,7 +426,7 @@ func configsEqual(a, b *template.NexlayerYAML) bool {
 }
 
 // writeYAMLToFile writes the configuration to a file
-func writeYAMLToFile(configFile string, config *template.NexlayerYAML) error {
+func writeYAMLToFile(configFile string, config *schema.NexlayerYAML) error {
 	data, err := yaml.Marshal(config)
 	if err != nil {
 		return err
@@ -405,7 +435,7 @@ func writeYAMLToFile(configFile string, config *template.NexlayerYAML) error {
 }
 
 // hasDatabase checks if the project has a database
-func hasDatabase(projectInfo *types.ProjectInfo) bool {
+func hasDatabase(projectInfo *schema.ProjectInfo) bool {
 	// Check dependencies for database-related packages
 	for name := range projectInfo.Dependencies {
 		switch name {
@@ -417,14 +447,15 @@ func hasDatabase(projectInfo *types.ProjectInfo) bool {
 	return false
 }
 
-// addAIConfigurations adds AI-specific configurations to the configuration
-func addAIConfigurations(config *template.NexlayerYAML, projectInfo *types.ProjectInfo) {
-	// Add AI-specific annotations to all pods
-	for i := range config.Application.Pods {
-		if config.Application.Pods[i].Annotations == nil {
-			config.Application.Pods[i].Annotations = make(map[string]string)
-		}
-		config.Application.Pods[i].Annotations["ai.nexlayer.io/provider"] = projectInfo.LLMProvider
-		config.Application.Pods[i].Annotations["ai.nexlayer.io/enabled"] = "true"
+// promptYesNo asks the user to confirm an action
+func promptYesNo(label string) bool {
+	prompt := promptui.Prompt{
+		Label:     label,
+		IsConfirm: true,
 	}
+	result, err := prompt.Run()
+	if err != nil {
+		return false
+	}
+	return strings.ToLower(result) == "y"
 }

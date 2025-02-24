@@ -23,6 +23,25 @@ testing-cli-*/
 *-testing-*/
 sal-testing-*/
 
+# Vendor (only ignore specific files)
+vendor/**/.git
+vendor/**/.gitignore
+vendor/**/.travis.yml
+vendor/**/.gitlab-ci.yml
+vendor/**/.github
+vendor/**/go.mod
+vendor/**/go.sum
+vendor/**/*_test.go
+vendor/**/testdata
+vendor/**/.gitattributes
+vendor/**/LICENSE*
+vendor/**/COPYING*
+vendor/**/PATENT*
+vendor/**/README*
+vendor/**/CHANGELOG*
+vendor/**/CONTRIBUTING*
+vendor/**/.editorconfig
+
 # Test files and directories
 **/*_test.go
 **/*_test/
@@ -103,7 +122,6 @@ venv/
 dist/
 build/
 *.out
-vendor/
 go.work
 go.work.sum
 **/go.sum

@@ -16,22 +16,28 @@ import (
 func NewFeedbackCommand(client api.ClientAPI) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "feedback",
-		Short: "Send feedback",
-		Long:  "Send feedback about your experience with Nexlayer",
+		Short: "Send feedback about your Nexlayer experience",
+		Long: `Send feedback about your experience with the Nexlayer platform.
+Your feedback helps us improve the platform and build better features.
+
+Examples:
+  • Report bugs or issues
+  • Suggest new features
+  • Share your success stories
+  • Request improvements`,
 	}
 
 	sendCmd := &cobra.Command{
 		Use:   "send",
-		Short: "Send feedback",
-		Long: `Send feedback about Nexlayer.
+		Short: "Send feedback to Nexlayer team",
+		Long: `Send feedback about your experience with the Nexlayer platform.
 
-Endpoint: POST /feedback
+The feedback will be sent directly to our development team and product managers.
+We read every piece of feedback and use it to improve the platform.
 
-Arguments:
-  --message        Your feedback message
-
-Example:
-  nexlayer feedback send --message "Great product!"`,
+Examples:
+  nexlayer feedback send --message "Love the new AI deployment features!"
+  nexlayer feedback send --message "Would like to see support for custom domains"`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			msg, _ := cmd.Flags().GetString("message")
@@ -39,7 +45,7 @@ Example:
 		},
 	}
 
-	sendCmd.Flags().String("message", "", "Feedback message (required)")
+	sendCmd.Flags().String("message", "", "Your feedback message (required)")
 	sendCmd.MarkFlagRequired("message")
 
 	cmd.AddCommand(sendCmd)
@@ -47,10 +53,13 @@ Example:
 }
 
 func runFeedback(cmd *cobra.Command, ctx context.Context, client api.APIClient, text string) error {
+	fmt.Fprintln(cmd.OutOrStdout(), "📝 Sending feedback to Nexlayer team...")
+
 	if err := client.SendFeedback(ctx, text); err != nil {
 		return fmt.Errorf("failed to send feedback: %w", err)
 	}
 
-	fmt.Fprintln(cmd.OutOrStdout(), "Thank you for your feedback!")
+	fmt.Fprintln(cmd.OutOrStdout(), "\n✨ Thank you for your feedback!")
+	fmt.Fprintln(cmd.OutOrStdout(), "Your input helps us improve the Nexlayer platform.")
 	return nil
 }

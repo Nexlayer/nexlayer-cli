@@ -73,8 +73,36 @@ nexlayer deploy
 4. **nexlayer info <namespace> <appID>** – Get deployment details.  
 5. **nexlayer domain** – Manage custom domains.  
 6. **nexlayer login** – Authenticate with Nexlayer.  
-7. **nexlayer watch** – Monitor & auto-deploy changes.  
+7. **nexlayer watch** – Monitor project changes and update configuration.  
 8. **nexlayer feedback** – Send CLI feedback.  
+
+### Watch Mode
+The `watch` command runs in the foreground, actively monitoring your project for changes:
+
+```bash
+nexlayer watch
+```
+
+**Key Features:**
+- Monitors project directory in real-time
+- Auto-detects new dependencies, frameworks, and services
+- Updates `nexlayer.yaml` automatically when changes are detected
+- Handles Docker image updates and configuration changes
+- Press `Ctrl+C` to stop watching
+
+**Example Output:**
+```
+Watching for project changes...
+Configuration will be updated when new components are detected.
+
+Analyzing project changes...
+📝 Configuration changes detected:
++ Added new Docker image: postgres:latest
++ Updated service configuration
++ Added database dependencies
+
+Configuration updated successfully.
+```
 
 ### Global Flags
 ```bash
@@ -132,34 +160,6 @@ nexlayer deploy
 - Nexlayer detects `next.config.js` and automatically provisions a Next.js environment
 - It builds the static site and deploys it on an optimized global CDN
 - Rollbacks are instant if something goes wrong
-
-## 💻 Command Reference
-
-```bash
-# Initialize a new project
-nexlayer init                # Auto-detect project type
-nexlayer init -i             # Interactive mode
-nexlayer init --type react   # Initialize React project
-
-# Deploy an application
-nexlayer deploy              # Deploy using nexlayer.yaml
-nexlayer deploy myapp        # Deploy specific application
-nexlayer deploy -f config.yaml  # Deploy with a custom config
-
-# Watch mode for auto-deployment
-nexlayer watch               # Auto-redeploy on changes
-
-# Monitoring
-nexlayer list                # Show all deployments
-nexlayer info myapp          # Show deployment details
-nexlayer list --json         # Output results in JSON format
-
-# Configure a custom domain
-nexlayer domain set myapp --domain example.com
-
-# Send feedback
-nexlayer feedback            # Share feedback or report issues
-```
 
 ## 📚 Documentation
 - 📖 [YAML Reference](docs/reference/schemas/yaml/README.md) – Configure `nexlayer.yaml`
