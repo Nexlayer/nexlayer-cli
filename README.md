@@ -148,6 +148,8 @@ application:
     - 80
 ```
 
+> **Note:** The definitive schema for nexlayer.yaml configuration is maintained in the [schema package](pkg/schema/README.md), which serves as the single source of truth for all YAML configurations.
+
 ### 🚀 Deploy the App
 ```bash
 nexlayer deploy
@@ -162,7 +164,7 @@ nexlayer deploy
 - Rollbacks are instant if something goes wrong
 
 ## 📚 Documentation
-- 📖 [YAML Reference](docs/reference/schemas/yaml/README.md) – Configure `nexlayer.yaml`
+- 📖 [YAML Schema](pkg/schema/README.md) – Single source of truth for `nexlayer.yaml` configuration
 - 📡 [API Reference](docs/reference/api/README.md) – Manage deployments via API
 
 ## 💪 Contributing
