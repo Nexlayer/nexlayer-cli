@@ -50,7 +50,7 @@ func NewDefaultValidator() *Validator {
 
 // ValidateYAML performs validation of a YAML structure
 func (v *Validator) ValidateYAML(config interface{}) []ValidationError {
-	var errors []ValidationError
+	errors := []ValidationError{} // Initialize with empty slice, not nil
 
 	// First, perform JSON Schema validation
 	if v.schemaSource != nil {
@@ -67,7 +67,7 @@ func (v *Validator) ValidateYAML(config interface{}) []ValidationError {
 
 // validateWithJSONSchema validates a configuration using JSON Schema
 func (v *Validator) validateWithJSONSchema(config interface{}) []ValidationError {
-	var errors []ValidationError
+	errors := []ValidationError{} // Initialize with empty slice, not nil
 
 	// In a real implementation, we would use a JSON schema validation library
 	// For now, this is just a placeholder to show how it would work
@@ -91,7 +91,7 @@ func (v *Validator) validateWithJSONSchema(config interface{}) []ValidationError
 
 // validateWithRegistry performs semantic validation using the validator registry
 func (v *Validator) validateWithRegistry(config interface{}, ctx *ValidationContext) []ValidationError {
-	var errors []ValidationError
+	errors := []ValidationError{} // Initialize with empty slice, not nil
 
 	// In a real implementation, we would walk through the config structure
 	// and validate each field using the appropriate validator
