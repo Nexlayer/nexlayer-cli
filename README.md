@@ -44,19 +44,24 @@ It automates **containerized full-stack AI deployments** on production-ready ent
 ## ⚡ Quick Start
 
 ### **1️⃣ Install Nexlayer CLI**
-```bash
-# Recommended: Install with the automated script
-curl -sSL https://raw.githubusercontent.com/Nexlayer/nexlayer-cli/main/install.sh | bash
 
-# Alternative: Install directly using Go
+**Recommended**: Install with the automated script (supports all features)
+```bash
+curl -sSL https://raw.githubusercontent.com/Nexlayer/nexlayer-cli/main/install.sh | bash
+```
+- ✅ Configures shell environment automatically
+- ✅ Verifies system requirements
+- ✅ Supports both global and local installation
+- ✅ Better project path handling and error reporting
+
+**Alternative**: Install directly using Go (minimal installation)
+```bash
 go install github.com/Nexlayer/nexlayer-cli@latest
 ```
-
-**Installation Options:**
-- The script supports global or local installation
-- Works on macOS, Linux, and Windows (WSL)
-- Automatically detects and installs dependencies
-- Configures your shell environment
+- ✅ Simple one-line installation
+- ✅ Uses Go's standard package management
+- ⚠️ Manual shell configuration may be needed
+- ⚠️ Limited to current working directory
 
 ### **2️⃣ Create and Initialize a Project**
 ```bash
