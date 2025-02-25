@@ -1,6 +1,26 @@
-# Nexlayer YAML Schema: Single Source of Truth
+# Nexlayer YAML Schema: The Definitive Source of Truth
 
-This document serves as the definitive, single source of truth for the Nexlayer YAML schema. It consolidates all schema-related information from various packages (`pkg/schema`, `pkg/validation`, and `pkg/vars`) into one comprehensive reference.
+This package serves as the **DEFINITIVE**, single source of truth for the Nexlayer YAML schema. All other packages in the codebase that need to work with Nexlayer configuration should use the types defined here. This ensures consistency across the entire platform and prevents schema drift between different components.
+
+## Role of this Package
+
+The `pkg/schema` package has several important responsibilities:
+
+1. **Type Definitions**: Centralized definition of all configuration types used in Nexlayer
+2. **Validation Logic**: Comprehensive validation of configuration structure and values
+3. **Schema Generation**: Utilities for generating valid configuration
+4. **Consistency Enforcement**: Ensuring all parts of the codebase use the same schema
+
+**DO NOT** define duplicate schema types in other packages. Instead, import and use the types defined here.
+
+## Integration With Other Packages
+
+Other packages in the codebase should interact with this package as follows:
+
+- **Commands Package**: Should use the schema types directly for validation and generation
+- **Template Package**: Should use schema types or provide explicit conversion to/from schema types
+- **Validation Package**: Should be deprecated in favor of validation logic in this package
+- **Core Types**: Should be aligned with schema types or provide explicit conversion
 
 ## Schema Overview
 
@@ -11,11 +31,13 @@ The Nexlayer YAML schema defines the structure for deploying applications on the
 ```
 pkg/schema/
 ├── README.md           # This documentation (single source of truth)
-├── types.go           # Core schema types and structures
-├── validator.go       # Schema validation logic
-├── generator.go       # Schema generation utilities
-└── examples/          # Example templates
-    └── standard.go    # Standard schema examples
+├── types.go            # Core schema types and structures
+├── validation.go       # Schema validation logic
+├── errors.go           # Validation error handling
+├── jsonschema.go       # JSON Schema utilities
+├── generator.go        # Schema generation utilities
+└── examples/           # Example templates
+    └── standard.go     # Standard schema examples
 ```
 
 ## Schema Structure
@@ -24,22 +46,47 @@ pkg/schema/
 
 ```yaml
 application:
-  name: "<app-name>"          # Required: Unique deployment name
-  url: "<custom-domain>"      # Optional: Custom domain (e.g., "myapp.com")
-  registryLogin:              # Optional: Required for private images
-    registry: "<registry-url>"
-    username: "<username>"
-    personalAccessToken: "<token>"
-  pods:                       # Required: Array of pod configurations
-    - name: "<pod-name>"
-      type: "<pod-type>"      # Optional: Pod type (e.g., nextjs, react)
-      path: "<route-path>"    # Optional: URL path for routing
-      image: "<image-url>"    # Required: Container image
-      servicePorts:           # Required: Array of port configurations
-        - port: <port-number>
-          targetPort: <target-port-number>
-          name: "<port-name>"
-          protocol: "<protocol>"  # Optional: Default is TCP
+  name: The name of the deployment
+  url: Permanent domain URL (optional). No need to add this key if this is not going to be a permanent deployment.
+  registryLogin:
+    registry: The registry where private images are stored.
+    username: Registry username.
+    personalAccessToken: Read-only registry Personal Access Token.
+  pods:
+    - name: Pod name (must start with a lowercase letter and can include only alphanumeric characters, '-', '.')
+      path: Path to render pod at (such as '/' for frontend). Only required for forward-facing pods.
+      image: Docker image for the pod. 
+        # For private images, use the following schema exactly as shown: '<% REGISTRY %>/some/path/image:tag'.
+        # Images will be tagged as private if they include '<% REGISTRY %>', which will be replaced with the registry specified above.
+      entrypoint: command to replace ENTRYPOINT of image
+      command: command to replace CMD of image
+      volumes:
+        # Array of volumes to be mounted for this pod. Example:
+        - name: Name of the volume (lowercase, alphanumeric, '-')
+          size: 1Gi  # Required: Volume size (e.g., "1Gi", "500Mi").
+          mountPath: /var/some/directory  # Required: Must start with '/'.
+      secrets:
+        # Array of secret files for this pod. Example:
+        - name: Secret name (lowercase, alphanumeric, '-')
+          data: Raw text or Base64-encoded string for the secret (e.g., JSON files should be encoded).
+          mountPath: Mount path where the secret file will be stored (must start with '/').
+          fileName: Name of the secret file (e.g., "secret-file.txt"). 
+            # This will be available at "/var/secrets/my-secret-volume/secret-file.txt".
+      vars:
+        # Array of environment variables for this pod. Example:
+        - key: ENV_VAR_NAME
+          value: Value of the environment variable.
+        # Can use <pod-name>.pod to reference other pods dynamically. Example:
+        - key: API_URL
+          value: http://express.pod:3000  # Where 'express' is the name of another pod.
+        # Can use <% URL %> to reference the deployment's base URL dynamically. Example:
+        - key: API_URL
+          value: <% URL %>/api
+    servicePorts:
+      # Array of ports to expose for this pod. Example:
+      - 3000  # Exposing port 3000.
+  entrypoint: Custom container entrypoint (optional).
+  command: Custom container command (optional).
 ```
 
 ## Detailed Field Specifications

@@ -207,7 +207,7 @@ func applyUserOverrides(info *types.ProjectInfo, opts *InitOptions) error {
 
 	// If in interactive mode, prompt for confirmation/changes
 	if opts.Interactive {
-		if err := promptForOverrides(info, opts); err != nil {
+		if err := promptForOverrides(info); err != nil {
 			return err
 		}
 	}
@@ -217,35 +217,36 @@ func applyUserOverrides(info *types.ProjectInfo, opts *InitOptions) error {
 
 // generateConfiguration creates a minimal but complete nexlayer.yaml configuration
 func generateConfiguration(info *types.ProjectInfo, opts *InitOptions) (*template.NexlayerYAML, error) {
-	// Create base configuration
-	config := &template.NexlayerYAML{
-		Application: template.Application{
+	// Create base configuration using schema types first for validation
+	schemaConfig := &schema.NexlayerYAML{
+		Application: schema.Application{
 			Name: info.Name,
-			Pods: []template.Pod{},
+			Pods: []schema.Pod{},
 		},
 	}
 
 	// Add main pod
 	mainPod := generateMainPod(info, opts)
-	config.Application.Pods = append(config.Application.Pods, mainPod)
+	schemaConfig.Application.Pods = append(schemaConfig.Application.Pods, mainPod)
 
 	// Add database if needed
 	if hasDatabase(info) {
 		dbPod := generateDatabasePod(info)
-		config.Application.Pods = append(config.Application.Pods, dbPod)
+		schemaConfig.Application.Pods = append(schemaConfig.Application.Pods, dbPod)
 	}
 
 	// Add AI configurations if detected
 	if info.LLMProvider != "" {
-		addAIConfigurations(config, info)
+		addAIConfigurations(schemaConfig, info)
 	}
 
-	return config, nil
+	// Convert schema config to template.NexlayerYAML for serialization
+	return template.FromSchemaType(schemaConfig), nil
 }
 
 // generateMainPod creates the main pod configuration based on project type
-func generateMainPod(info *types.ProjectInfo, opts *InitOptions) template.Pod {
-	pod := template.Pod{
+func generateMainPod(info *types.ProjectInfo, opts *InitOptions) schema.Pod {
+	pod := schema.Pod{
 		Name: opts.PodName,
 		Type: string(info.Type),
 	}
@@ -274,7 +275,7 @@ func generateMainPod(info *types.ProjectInfo, opts *InitOptions) template.Pod {
 	if port == 0 {
 		port = info.Port
 	}
-	pod.ServicePorts = []template.ServicePort{
+	pod.ServicePorts = []schema.ServicePort{
 		{Name: "http", Port: port, TargetPort: port},
 	}
 
@@ -292,12 +293,12 @@ func generateMainPod(info *types.ProjectInfo, opts *InitOptions) template.Pod {
 }
 
 // generateEnvironmentVars creates environment variables with pod references
-func generateEnvironmentVars(info *types.ProjectInfo) []template.EnvVar {
-	var vars []template.EnvVar
+func generateEnvironmentVars(info *types.ProjectInfo) []schema.EnvVar {
+	var vars []schema.EnvVar
 
 	// Add base URL if needed
 	if isWebOrAPI(info.Type) {
-		vars = append(vars, template.EnvVar{
+		vars = append(vars, schema.EnvVar{
 			Key:   "BASE_URL",
 			Value: "<% URL %>",
 		})
@@ -307,37 +308,37 @@ func generateEnvironmentVars(info *types.ProjectInfo) []template.EnvVar {
 	for name := range info.Dependencies {
 		switch {
 		case strings.Contains(name, "postgres"):
-			vars = append(vars, template.EnvVar{
+			vars = append(vars, schema.EnvVar{
 				Key:   "DATABASE_URL",
 				Value: "postgresql://postgres:<% DB_PASSWORD %>@postgres.pod:5432/app",
 			})
 		case strings.Contains(name, "mongodb"):
-			vars = append(vars, template.EnvVar{
+			vars = append(vars, schema.EnvVar{
 				Key:   "MONGODB_URI",
 				Value: "mongodb://root:<% MONGO_ROOT_PASSWORD %>@mongodb.pod:27017/app",
 			})
 		case strings.Contains(name, "mysql"):
-			vars = append(vars, template.EnvVar{
+			vars = append(vars, schema.EnvVar{
 				Key:   "MYSQL_URL",
 				Value: "mysql://root:<% MYSQL_ROOT_PASSWORD %>@mysql.pod:3306/app",
 			})
 		case strings.Contains(name, "redis"):
-			vars = append(vars, template.EnvVar{
+			vars = append(vars, schema.EnvVar{
 				Key:   "REDIS_URL",
 				Value: "redis://:<% REDIS_PASSWORD %>@redis.pod:6379",
 			})
 		case strings.Contains(name, "ai-model"):
-			vars = append(vars, template.EnvVar{
+			vars = append(vars, schema.EnvVar{
 				Key:   "AI_MODEL_URL",
 				Value: "http://ai-model.pod:5000",
 			})
 		case strings.Contains(name, "vector-db"):
-			vars = append(vars, template.EnvVar{
+			vars = append(vars, schema.EnvVar{
 				Key:   "VECTOR_DB_URL",
 				Value: "http://vector-db.pod:8080",
 			})
 		case strings.Contains(name, "minio"):
-			vars = append(vars, []template.EnvVar{
+			vars = append(vars, []schema.EnvVar{
 				{Key: "MINIO_ENDPOINT", Value: "minio.pod:9000"},
 				{Key: "MINIO_ACCESS_KEY", Value: "<% MINIO_ACCESS_KEY %>"},
 				{Key: "MINIO_SECRET_KEY", Value: "<% MINIO_SECRET_KEY %>"},
@@ -347,7 +348,7 @@ func generateEnvironmentVars(info *types.ProjectInfo) []template.EnvVar {
 
 	// Add AI-specific environment variables if needed
 	if info.LLMProvider != "" {
-		vars = append(vars, []template.EnvVar{
+		vars = append(vars, []schema.EnvVar{
 			{Key: "LLM_PROVIDER", Value: info.LLMProvider},
 			{Key: "LLM_MODEL", Value: info.LLMModel},
 			{Key: "LLM_API_KEY", Value: "<% LLM_API_KEY %>"},
@@ -358,16 +359,16 @@ func generateEnvironmentVars(info *types.ProjectInfo) []template.EnvVar {
 }
 
 // generateDatabasePod creates a database pod configuration
-func generateDatabasePod(info *types.ProjectInfo) template.Pod {
+func generateDatabasePod(info *types.ProjectInfo) schema.Pod {
 	dbType := detectDatabaseType(info)
-	pod := template.Pod{
+	pod := schema.Pod{
 		Name:  fmt.Sprintf("db-%s", dbType),
 		Type:  dbType,
 		Image: fmt.Sprintf("%s:latest", dbType),
-		ServicePorts: []template.ServicePort{
+		ServicePorts: []schema.ServicePort{
 			{Name: "db", Port: getDefaultDBPort(dbType), TargetPort: getDefaultDBPort(dbType)},
 		},
-		Volumes: []template.Volume{
+		Volumes: []schema.Volume{
 			{
 				Name: fmt.Sprintf("%s-data", dbType),
 				Path: getDefaultDBPath(dbType),
@@ -380,7 +381,7 @@ func generateDatabasePod(info *types.ProjectInfo) template.Pod {
 	pod.Vars = getDefaultDBVars(dbType)
 
 	// Add health check environment variables
-	pod.Vars = append(pod.Vars, template.EnvVar{
+	pod.Vars = append(pod.Vars, schema.EnvVar{
 		Key:   "POD_NAME",
 		Value: fmt.Sprintf("%s.pod", pod.Name),
 	})
@@ -391,81 +392,7 @@ func generateDatabasePod(info *types.ProjectInfo) template.Pod {
 // validateConfiguration ensures the configuration is valid
 func validateConfiguration(config *template.NexlayerYAML) error {
 	// Convert template.NexlayerYAML to schema.NexlayerYAML
-	schemaConfig := &schema.NexlayerYAML{
-		Application: schema.Application{
-			Name: config.Application.Name,
-			URL:  config.Application.URL,
-		},
-	}
-
-	// Convert registry login if present
-	if config.Application.RegistryLogin != nil {
-		schemaConfig.Application.RegistryLogin = &schema.RegistryLogin{
-			Registry:            config.Application.RegistryLogin.Registry,
-			Username:            config.Application.RegistryLogin.Username,
-			PersonalAccessToken: config.Application.RegistryLogin.PersonalAccessToken,
-		}
-	}
-
-	// Convert pods
-	for _, pod := range config.Application.Pods {
-		schemaPod := schema.Pod{
-			Name:        pod.Name,
-			Type:        pod.Type,
-			Path:        pod.Path,
-			Image:       pod.Image,
-			Command:     pod.Command,
-			Entrypoint:  pod.Entrypoint,
-			Annotations: pod.Annotations,
-		}
-
-		// Convert service ports
-		for _, port := range pod.ServicePorts {
-			// Ensure port name is set (required in schema.ServicePort)
-			portName := port.Name
-			if portName == "" {
-				portName = "http" // Default name if not specified
-			}
-
-			schemaPod.ServicePorts = append(schemaPod.ServicePorts, schema.ServicePort{
-				Name:       portName,
-				Port:       port.Port,
-				TargetPort: port.TargetPort,
-				Protocol:   port.Protocol,
-			})
-		}
-
-		// Convert environment variables
-		for _, envVar := range pod.Vars {
-			schemaPod.Vars = append(schemaPod.Vars, schema.EnvVar{
-				Key:   envVar.Key,
-				Value: envVar.Value,
-			})
-		}
-
-		// Convert volumes
-		for _, volume := range pod.Volumes {
-			schemaPod.Volumes = append(schemaPod.Volumes, schema.Volume{
-				Name:     volume.Name,
-				Path:     volume.Path,
-				Size:     volume.Size,
-				Type:     volume.Type,
-				ReadOnly: volume.ReadOnly,
-			})
-		}
-
-		// Convert secrets
-		for _, secret := range pod.Secrets {
-			schemaPod.Secrets = append(schemaPod.Secrets, schema.Secret{
-				Name:     secret.Name,
-				Data:     secret.Data,
-				Path:     secret.Path,
-				FileName: secret.FileName,
-			})
-		}
-
-		schemaConfig.Application.Pods = append(schemaConfig.Application.Pods, schemaPod)
-	}
+	schemaConfig := config.ToSchemaType()
 
 	// Validate using schema validator
 	validator := schema.NewValidator(true)
@@ -553,26 +480,26 @@ func getDefaultDBPath(dbType string) string {
 	}
 }
 
-func getDefaultDBVars(dbType string) []template.EnvVar {
+func getDefaultDBVars(dbType string) []schema.EnvVar {
 	switch dbType {
 	case "postgres":
-		return []template.EnvVar{
+		return []schema.EnvVar{
 			{Key: "POSTGRES_USER", Value: "postgres"},
 			{Key: "POSTGRES_PASSWORD", Value: "<% DB_PASSWORD %>"},
 			{Key: "POSTGRES_DB", Value: "app"},
 		}
 	case "mongodb":
-		return []template.EnvVar{
+		return []schema.EnvVar{
 			{Key: "MONGO_INITDB_ROOT_USERNAME", Value: "root"},
 			{Key: "MONGO_INITDB_ROOT_PASSWORD", Value: "<% MONGO_ROOT_PASSWORD %>"},
 		}
 	case "mysql":
-		return []template.EnvVar{
+		return []schema.EnvVar{
 			{Key: "MYSQL_ROOT_PASSWORD", Value: "<% MYSQL_ROOT_PASSWORD %>"},
 			{Key: "MYSQL_DATABASE", Value: "app"},
 		}
 	case "redis":
-		return []template.EnvVar{
+		return []schema.EnvVar{
 			{Key: "REDIS_PASSWORD", Value: "<% REDIS_PASSWORD %>"},
 		}
 	default:
@@ -731,7 +658,7 @@ func writeYAMLToFile(filename string, tmpl *template.NexlayerYAML) error {
 }
 
 // addAIConfigurations adds AI-specific settings to the template
-func addAIConfigurations(tmpl *template.NexlayerYAML, info *types.ProjectInfo) {
+func addAIConfigurations(tmpl *schema.NexlayerYAML, info *types.ProjectInfo) {
 	// Add AI-specific annotations
 	for i := range tmpl.Application.Pods {
 		if tmpl.Application.Pods[i].Annotations == nil {
@@ -744,7 +671,7 @@ func addAIConfigurations(tmpl *template.NexlayerYAML, info *types.ProjectInfo) {
 }
 
 // printSuccessMessage prints a detailed success message
-func printSuccessMessage(info *types.ProjectInfo, _ *template.NexlayerYAML) {
+func printSuccessMessage(info *types.ProjectInfo, config *template.NexlayerYAML) {
 	fmt.Println(successStyle.Render("\n✨ Project initialized successfully!"))
 	fmt.Println(infoStyle.Render("\nDetected Configuration:"))
 	fmt.Printf("• Project Type: %s\n", info.Type)
@@ -755,6 +682,11 @@ func printSuccessMessage(info *types.ProjectInfo, _ *template.NexlayerYAML) {
 		fmt.Printf("• AI Integration: %s (%s)\n", info.LLMProvider, info.LLMModel)
 	}
 	fmt.Printf("• Port: %d\n", info.Port)
+
+	// Use the config parameter to show additional information
+	if len(config.Application.Pods) > 0 {
+		fmt.Printf("• Main Pod: %s\n", config.Application.Pods[0].Name)
+	}
 
 	fmt.Println(infoStyle.Render("\nNext Steps:"))
 	fmt.Println("1. Review nexlayer.yaml")
@@ -776,7 +708,7 @@ func hasDatabase(info *types.ProjectInfo) bool {
 }
 
 // promptForOverrides prompts the user to confirm or modify detected settings
-func promptForOverrides(info *types.ProjectInfo, opts *InitOptions) error {
+func promptForOverrides(info *types.ProjectInfo) error {
 	// Confirm application name
 	prompt := promptui.Prompt{
 		Label:     fmt.Sprintf("Application name [%s]", info.Name),

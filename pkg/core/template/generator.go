@@ -30,9 +30,9 @@ func (g *Generator) GenerateFromProjectInfo(name, podType string, port int) (*Ne
 
 	// Create base template
 	tmpl := &NexlayerYAML{
-		Application: Application{
+		Application: ApplicationYAML{
 			Name: name,
-			Pods: make([]Pod, 0),
+			Pods: make([]PodYAML, 0),
 		},
 	}
 
@@ -41,7 +41,22 @@ func (g *Generator) GenerateFromProjectInfo(name, podType string, port int) (*Ne
 	if err != nil {
 		return nil, fmt.Errorf("failed to create pod: %w", err)
 	}
-	tmpl.Application.Pods = append(tmpl.Application.Pods, *pod)
+
+	// Convert Pod to PodYAML
+	podYAML := PodYAML{
+		Name:         pod.Name,
+		Type:         pod.Type,
+		Path:         pod.Path,
+		Image:        pod.Image,
+		Command:      pod.Command,
+		Entrypoint:   pod.Entrypoint,
+		ServicePorts: pod.ServicePorts,
+		Vars:         pod.Vars,
+		Volumes:      pod.Volumes,
+		Secrets:      pod.Secrets,
+		Annotations:  pod.Annotations,
+	}
+	tmpl.Application.Pods = append(tmpl.Application.Pods, podYAML)
 
 	return tmpl, nil
 }
@@ -205,7 +220,21 @@ func (g *Generator) AddPod(tmpl *NexlayerYAML, podType string, port int) error {
 		counter++
 	}
 
-	tmpl.Application.Pods = append(tmpl.Application.Pods, *pod)
+	// Convert Pod to PodYAML
+	podYAML := PodYAML{
+		Name:         pod.Name,
+		Type:         pod.Type,
+		Path:         pod.Path,
+		Image:        pod.Image,
+		Command:      pod.Command,
+		Entrypoint:   pod.Entrypoint,
+		ServicePorts: pod.ServicePorts,
+		Vars:         pod.Vars,
+		Volumes:      pod.Volumes,
+		Secrets:      pod.Secrets,
+		Annotations:  pod.Annotations,
+	}
+	tmpl.Application.Pods = append(tmpl.Application.Pods, podYAML)
 	return nil
 }
 

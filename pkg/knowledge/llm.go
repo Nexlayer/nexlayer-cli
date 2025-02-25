@@ -92,12 +92,22 @@ func (e *LLMEnricher) EnrichContext(ctx context.Context, yamlConfig *template.Ne
 					current := enriched.ProjectStructure
 					for i, part := range parts {
 						if i == len(parts)-1 {
-							current[part] = node.Metadata[MetadataDeployment]
+							if metadata, ok := node.Metadata[MetadataDeployment]; ok {
+								current[part] = metadata
+							} else {
+								current[part] = nil
+							}
 						} else {
 							if _, exists := current[part]; !exists {
 								current[part] = make(map[string]interface{})
 							}
-							current = current[part].(map[string]interface{})
+							if nextLevel, ok := current[part].(map[string]interface{}); ok {
+								current = nextLevel
+							} else {
+								// Handle type mismatch gracefully
+								current[part] = make(map[string]interface{})
+								current = current[part].(map[string]interface{})
+							}
 						}
 					}
 				}
@@ -190,67 +200,20 @@ func (e *LLMEnricher) EnrichContext(ctx context.Context, yamlConfig *template.Ne
 	return enriched, nil
 }
 
-// GeneratePrompt creates an enhanced prompt for template generation
+// GeneratePrompt generates an LLM prompt with enriched context
 func (e *LLMEnricher) GeneratePrompt(ctx context.Context, basePrompt string, yamlConfig *template.NexlayerYAML) (string, error) {
-	enrichedCtx, err := e.EnrichContext(ctx, yamlConfig)
+	enriched, err := e.EnrichContext(ctx, yamlConfig)
 	if err != nil {
 		return "", fmt.Errorf("failed to enrich context: %w", err)
 	}
 
-	var sb strings.Builder
-	sb.WriteString(basePrompt)
-	sb.WriteString("\n\nDeployment Analysis:\n")
-
-	// Add resource requirements
-	if len(enrichedCtx.Resources) > 0 {
-		sb.WriteString("\nResource Requirements:\n")
-		for pod, resources := range enrichedCtx.Resources {
-			sb.WriteString(fmt.Sprintf("- %s: %v\n", pod, resources))
-		}
+	// Convert enriched context to JSON
+	contextJSON, err := json.MarshalIndent(enriched, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal context: %w", err)
 	}
 
-	// Add networking configuration
-	if len(enrichedCtx.Network) > 0 {
-		sb.WriteString("\nNetworking Configuration:\n")
-		for pod, network := range enrichedCtx.Network {
-			sb.WriteString(fmt.Sprintf("- %s: %v\n", pod, network))
-		}
-	}
-
-	// Add storage requirements
-	if len(enrichedCtx.Storage) > 0 {
-		sb.WriteString("\nStorage Requirements:\n")
-		for pod, storage := range enrichedCtx.Storage {
-			sb.WriteString(fmt.Sprintf("- %s: %v\n", pod, storage))
-		}
-	}
-
-	// Add API endpoints
-	if len(enrichedCtx.APIEndpoints) > 0 {
-		sb.WriteString("\nAPI Endpoints:\n")
-		for _, endpoint := range enrichedCtx.APIEndpoints {
-			ep := endpoint.(map[string]interface{})
-			sb.WriteString(fmt.Sprintf("- %s %s\n", ep["method"], ep["path"]))
-		}
-	}
-
-	// Add pod communication flows
-	if len(enrichedCtx.PodFlows) > 0 {
-		sb.WriteString("\nPod Communication Flows:\n")
-		for _, flow := range enrichedCtx.PodFlows {
-			f := flow.(map[string]interface{})
-			sb.WriteString(fmt.Sprintf("- %s -> %s via %s\n", f["source"], f["target"], f["var"]))
-		}
-	}
-
-	// Add deployment patterns
-	if len(enrichedCtx.Patterns) > 0 {
-		sb.WriteString("\nDeployment Patterns:\n")
-		for _, pattern := range enrichedCtx.Patterns {
-			p := pattern.(map[string]interface{})
-			sb.WriteString(fmt.Sprintf("- %s: %s\n", p["name"], p["description"]))
-		}
-	}
-
-	return sb.String(), nil
+	// Combine base prompt with enriched context
+	prompt := fmt.Sprintf("%s\n\nContext:\n%s", basePrompt, string(contextJSON))
+	return prompt, nil
 }

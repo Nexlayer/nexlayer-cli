@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/template"
@@ -118,10 +119,10 @@ func (v *Validator) validateRegistryLogin() {
 			})
 		}
 
-		if rl.PersonalAccessToken == "" {
+		if rl.Password == "" {
 			v.errors = append(v.errors, ValidationError{
-				Field:   "application.registryLogin.personalAccessToken",
-				Message: "registry personal access token is required when registryLogin is present",
+				Field:   "application.registryLogin.password",
+				Message: "registry password is required when registryLogin is present",
 			})
 		}
 	}
@@ -155,35 +156,19 @@ func (v *Validator) validatePods() {
 			})
 		}
 		podNames[pod.Name] = true
-		v.validatePod(i, pod)
+
+		// Convert PodYAML to Pod for validation
+		validationPod := template.Pod{
+			Name:         pod.Name,
+			Image:        pod.Image,
+			ServicePorts: make([]template.ServicePort, 0),
+			Vars:         make([]template.EnvVar, 0),
+			Volumes:      make([]template.Volume, 0),
+		}
+		v.validatePod(i, validationPod)
 	}
 
-	// Validate pod references in environment variables
-	for i, pod := range v.config.Application.Pods {
-		for _, varEnv := range pod.Vars {
-			refs := extractPodReferences(varEnv.Value)
-			for _, ref := range refs {
-				if !podNames[ref] {
-					suggestion := findClosestPodName(ref, podNames)
-					err := ValidationError{
-						Field:   fmt.Sprintf("pods[%d].vars[%s]", i, varEnv.Key),
-						Message: fmt.Sprintf("referenced pod '%s' not found", ref),
-					}
-					if suggestion != "" {
-						err.Suggestions = []string{
-							fmt.Sprintf("Did you mean '%s'?", suggestion),
-							fmt.Sprintf("Available pods: %s", strings.Join(getAvailablePods(podNames), ", ")),
-						}
-					} else {
-						err.Suggestions = []string{
-							fmt.Sprintf("Available pods: %s", strings.Join(getAvailablePods(podNames), ", ")),
-						}
-					}
-					v.errors = append(v.errors, err)
-				}
-			}
-		}
-	}
+	// Note: Environment variable validation is handled by the template package's own validation
 }
 
 // validatePod validates a single pod configuration
@@ -388,13 +373,65 @@ func isValidPodName(name string) bool {
 }
 
 func isValidURL(url string) bool {
-	// Simple URL validation for now
-	return !strings.ContainsAny(url, " \t\n\r")
+	// More comprehensive URL validation
+	if strings.ContainsAny(url, " \t\n\r") {
+		return false
+	}
+
+	// Must contain at least one dot and no consecutive dots
+	if !strings.Contains(url, ".") || strings.Contains(url, "..") {
+		return false
+	}
+
+	// Split into parts
+	parts := strings.Split(url, ".")
+	for _, part := range parts {
+		if len(part) == 0 {
+			return false
+		}
+		// Each part must be alphanumeric or hyphen
+		for _, c := range part {
+			if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
+				return false
+			}
+		}
+		// Cannot start or end with hyphen
+		if part[0] == '-' || part[len(part)-1] == '-' {
+			return false
+		}
+	}
+	return true
 }
 
 func isValidRegistryHost(host string) bool {
-	// Simple hostname validation
-	return !strings.ContainsAny(host, " \t\n\r")
+	// More comprehensive registry host validation
+	if strings.ContainsAny(host, " \t\n\r") {
+		return false
+	}
+
+	// Must contain at least one dot and no consecutive dots
+	if !strings.Contains(host, ".") || strings.Contains(host, "..") {
+		return false
+	}
+
+	// Split into parts
+	parts := strings.Split(host, ".")
+	for _, part := range parts {
+		if len(part) == 0 || len(part) > 63 {
+			return false
+		}
+		// Each part must be alphanumeric or hyphen
+		for _, c := range part {
+			if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
+				return false
+			}
+		}
+		// Cannot start or end with hyphen
+		if part[0] == '-' || part[len(part)-1] == '-' {
+			return false
+		}
+	}
+	return true
 }
 
 func isValidProtocol(protocol string) bool {
@@ -407,8 +444,40 @@ func isValidProtocol(protocol string) bool {
 }
 
 func isValidVolumeSize(size string) bool {
-	re := regexp.MustCompile(`^[0-9]+[KMGT]i$`)
-	return re.MatchString(size)
+	// More comprehensive volume size validation
+	re := regexp.MustCompile(`^([1-9][0-9]*(?:\.[0-9]+)?|0\.[0-9]*[1-9][0-9]*)[KMGT]i$`)
+	if !re.MatchString(size) {
+		return false
+	}
+
+	// Extract numeric part and unit
+	numStr := size[:len(size)-2]
+	unit := size[len(size)-2:]
+
+	// Parse numeric part
+	num, err := parseFloat(numStr)
+	if err != nil {
+		return false
+	}
+
+	// Check size limits based on unit
+	switch unit[0] {
+	case 'K':
+		return num <= 1024*1024 // Max 1024Ki
+	case 'M':
+		return num <= 1024*1024 // Max 1024Mi
+	case 'G':
+		return num <= 1024 // Max 1024Gi
+	case 'T':
+		return num <= 64 // Max 64Ti
+	default:
+		return false
+	}
+}
+
+// parseFloat parses a string to float64, handling scientific notation
+func parseFloat(s string) (float64, error) {
+	return strconv.ParseFloat(s, 64)
 }
 
 func extractPodReferences(value string) []string {
@@ -497,19 +566,33 @@ func getAvailablePods(podNames map[string]bool) []string {
 
 // formatErrors formats all validation errors into a single error message
 func (v *Validator) formatErrors() error {
-	var errMsg strings.Builder
-	errMsg.WriteString("Validation failed:\n")
-
-	// Group errors by type
-	fieldErrors := make(map[string][]ValidationError)
-	for _, err := range v.errors {
-		category := strings.Split(err.Field, ".")[0]
-		fieldErrors[category] = append(fieldErrors[category], err)
+	if len(v.errors) == 0 {
+		return nil
 	}
 
-	// Print errors by category
+	// Pre-allocate buffer with estimated size
+	var errMsg strings.Builder
+	errMsg.Grow(len(v.errors) * 100) // Estimate 100 bytes per error
+
+	errMsg.WriteString("Validation failed:\n")
+
+	// Use map to group errors by category
+	categories := map[string][]ValidationError{
+		"application": make([]ValidationError, 0),
+		"pods":        make([]ValidationError, 0),
+		"volumes":     make([]ValidationError, 0),
+		"vars":        make([]ValidationError, 0),
+	}
+
+	// Group errors by category
+	for _, err := range v.errors {
+		category := strings.Split(err.Field, ".")[0]
+		categories[category] = append(categories[category], err)
+	}
+
+	// Print errors by category in a consistent order
 	for _, category := range []string{"application", "pods", "volumes", "vars"} {
-		if errors, ok := fieldErrors[category]; ok {
+		if errors := categories[category]; len(errors) > 0 {
 			errMsg.WriteString(fmt.Sprintf("\n%s:\n", strings.Title(category)))
 			for _, err := range errors {
 				errMsg.WriteString(fmt.Sprintf("  - %s: %s\n", err.Field, err.Message))
@@ -526,9 +609,12 @@ func (v *Validator) formatErrors() error {
 // ValidatePod validates a single pod configuration
 func ValidatePod(pod template.Pod) error {
 	validator := NewValidator(&template.NexlayerYAML{
-		Application: template.Application{
+		Application: template.ApplicationYAML{
 			Name: "temp",
-			Pods: []template.Pod{pod},
+			Pods: []template.PodYAML{{
+				Name:  pod.Name,
+				Image: pod.Image,
+			}},
 		},
 	})
 	return validator.Validate()

@@ -291,8 +291,12 @@ func printTroubleshootingSteps(deployment apischema.Deployment) {
 func ValidateDeployConfig(yamlConfig *schema.NexlayerYAML) error {
 	validator := schema.NewValidator(true)
 	errors := validator.ValidateYAML(yamlConfig)
+
 	if len(errors) > 0 {
-		return fmt.Errorf("validation failed:\n%v", errors)
+		report := schema.NewValidationReport()
+		report.AddErrors(errors)
+		return fmt.Errorf("validation failed:\n%v", report.String())
 	}
+
 	return nil
 }
