@@ -722,10 +722,12 @@ func DetectLLMModel() string {
 		"gemini-2.0-flash", "codex", "tabnine",
 	}
 
-	// Check for running LLM processes
-	for _, model := range llmModels {
-		if _, err := os.Stat("/proc/" + model); err == nil {
-			return model
+	// Check for running LLM processes - only on Linux systems
+	if runtime.GOOS == "linux" {
+		for _, model := range llmModels {
+			if _, err := os.Stat("/proc/" + model); err == nil {
+				return model
+			}
 		}
 	}
 
