@@ -7,23 +7,26 @@ import (
 // ForwardValidator adapts the new validator to work with old schema types
 type ForwardValidator struct {
 	validator *Validator
+	strict    bool
 }
 
 // NewForwardValidator creates a new validation adapter for old schema types
 func NewForwardValidator(strict bool) *ForwardValidator {
 	return &ForwardValidator{
 		validator: NewDefaultValidator(),
+		strict:    strict,
 	}
 }
 
 // ValidateOldYAML validates a Nexlayer YAML configuration from the old schema package
 func (v *ForwardValidator) ValidateOldYAML(yaml *oldschema.NexlayerYAML) []oldschema.ValidationError {
-	// Convert the old schema to a generic map
-	// This is a simplified approach - in a real implementation we would
-	// convert to a proper struct-to-struct mapping
+	// Since we now have a direct implementation in the schema package,
+	// we just delegate to it for simplicity and to avoid import cycles
 
-	// For now, just return an empty slice to indicate no errors
-	return []oldschema.ValidationError{}
+	// This approach allows us to fully implement validation in the schema package
+	// while still maintaining the new validation structure in pkg/validation/schema
+	validator := oldschema.NewValidator(v.strict)
+	return validator.ValidateYAML(yaml)
 }
 
 // ConvertToNewError converts an old schema.ValidationError to a NewValidationError
