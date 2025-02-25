@@ -5,68 +5,68 @@ import "time"
 
 // NexlayerYAML represents a complete Nexlayer application template
 type NexlayerYAML struct {
-	Application Application `yaml:"application"`
+	Application Application `yaml:"application" validate:"required"`
 }
 
 // Application represents a Nexlayer application configuration
 type Application struct {
-	Name          string         `yaml:"name"`
-	URL           string         `yaml:"url,omitempty"`
-	RegistryLogin *RegistryLogin `yaml:"registryLogin,omitempty"`
-	Pods          []Pod          `yaml:"pods"`
+	Name          string         `yaml:"name" validate:"required,podname"`
+	URL           string         `yaml:"url,omitempty" validate:"omitempty,url"`
+	RegistryLogin *RegistryLogin `yaml:"registryLogin,omitempty" validate:"omitempty"`
+	Pods          []Pod          `yaml:"pods" validate:"required,min=1,dive"`
 }
 
 // RegistryLogin represents private registry authentication
 type RegistryLogin struct {
-	Registry            string `yaml:"registry"`
-	Username            string `yaml:"username"`
-	PersonalAccessToken string `yaml:"personalAccessToken"`
+	Registry            string `yaml:"registry" validate:"required"`
+	Username            string `yaml:"username" validate:"required"`
+	PersonalAccessToken string `yaml:"personalAccessToken" validate:"required"`
 }
 
 // Pod represents a container in the deployment
 type Pod struct {
-	Name         string            `yaml:"name"`
-	Type         string            `yaml:"type,omitempty"`
-	Path         string            `yaml:"path,omitempty"`
-	Image        string            `yaml:"image"`
-	Entrypoint   string            `yaml:"entrypoint,omitempty"`
-	Command      string            `yaml:"command,omitempty"`
-	Volumes      []Volume          `yaml:"volumes,omitempty"`
-	Secrets      []Secret          `yaml:"secrets,omitempty"`
-	Vars         []EnvVar          `yaml:"vars,omitempty"`
-	ServicePorts []ServicePort     `yaml:"servicePorts"`
-	Annotations  map[string]string `yaml:"annotations,omitempty"`
+	Name         string            `yaml:"name" validate:"required,podname"`
+	Type         string            `yaml:"type,omitempty" validate:"omitempty"`
+	Path         string            `yaml:"path,omitempty" validate:"omitempty,startswith=/"`
+	Image        string            `yaml:"image" validate:"required,image"`
+	Entrypoint   string            `yaml:"entrypoint,omitempty" validate:"omitempty"`
+	Command      string            `yaml:"command,omitempty" validate:"omitempty"`
+	Volumes      []Volume          `yaml:"volumes,omitempty" validate:"omitempty,dive"`
+	Secrets      []Secret          `yaml:"secrets,omitempty" validate:"omitempty,dive"`
+	Vars         []EnvVar          `yaml:"vars,omitempty" validate:"omitempty,dive"`
+	ServicePorts []ServicePort     `yaml:"servicePorts" validate:"required,min=1,dive"`
+	Annotations  map[string]string `yaml:"annotations,omitempty" validate:"omitempty"`
 }
 
 // ServicePort represents a service port configuration
 type ServicePort struct {
-	Name       string `yaml:"name"`
-	Port       int    `yaml:"port"`
-	TargetPort int    `yaml:"targetPort"`
-	Protocol   string `yaml:"protocol,omitempty"`
+	Name       string `yaml:"name" validate:"required,alphanum"`
+	Port       int    `yaml:"port" validate:"required,gt=0,lt=65536"`
+	TargetPort int    `yaml:"targetPort" validate:"required,gt=0,lt=65536"`
+	Protocol   string `yaml:"protocol,omitempty" validate:"omitempty,oneof=TCP UDP"`
 }
 
 // Volume represents a persistent storage volume
 type Volume struct {
-	Name     string `yaml:"name"`
-	Path     string `yaml:"path"`
-	Size     string `yaml:"size,omitempty"`
-	Type     string `yaml:"type,omitempty"`
+	Name     string `yaml:"name" validate:"required,alphanum"`
+	Path     string `yaml:"path" validate:"required,startswith=/"`
+	Size     string `yaml:"size,omitempty" validate:"omitempty,volumesize"`
+	Type     string `yaml:"type,omitempty" validate:"omitempty"`
 	ReadOnly bool   `yaml:"readOnly,omitempty"`
 }
 
 // Secret represents encrypted credentials or config files
 type Secret struct {
-	Name     string `yaml:"name"`
-	Data     string `yaml:"data"`
-	Path     string `yaml:"path"`
-	FileName string `yaml:"fileName"`
+	Name     string `yaml:"name" validate:"required,alphanum"`
+	Data     string `yaml:"data" validate:"required"`
+	Path     string `yaml:"path" validate:"required,startswith=/"`
+	FileName string `yaml:"fileName" validate:"required,filename"`
 }
 
 // EnvVar represents an environment variable
 type EnvVar struct {
-	Key   string `yaml:"key"`
-	Value string `yaml:"value"`
+	Key   string `yaml:"key" validate:"required,envvar"`
+	Value string `yaml:"value" validate:"required"`
 }
 
 // ProjectType represents the detected type of project
