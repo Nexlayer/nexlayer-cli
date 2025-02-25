@@ -96,7 +96,7 @@ Optional Fields (included when needed):
   - vars: For environment variables (AI, database configs)
   - registryLogin: For private images (registry, username, password)`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			// Get target directory
 			dir := "."
 			if len(args) > 0 {
