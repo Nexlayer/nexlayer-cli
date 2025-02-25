@@ -16,6 +16,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -28,7 +29,7 @@ type ClientAPI interface {
 	SendFeedback(ctx context.Context, text string) error
 	SaveCustomDomain(ctx context.Context, appID string, domain string) (*schema.APIResponse[struct{}], error)
 	ListDeployments(ctx context.Context) (*schema.APIResponse[[]schema.Deployment], error)
-	GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*schema.APIResponse[schema.Deployment], error)
+	GetDeploymentInfo(ctx context.Context, namespace string) (*schema.APIResponse[schema.Deployment], error)
 	GetLogs(ctx context.Context, namespace string, appID string, follow bool, tail int) ([]string, error)
 }
 
@@ -40,7 +41,7 @@ type ClientAPI interface {
 type APIClient interface {
 	// StartDeployment starts a new deployment using a YAML configuration file.
 	// The YAML file should be provided as binary data using the 'text/x-yaml' content type.
-	// Endpoint: POST /startUserDeployment/{applicationID?}
+	// Endpoint: POST /startUserDeployment
 	StartDeployment(ctx context.Context, appID string, configPath string) (*schema.APIResponse[schema.DeploymentResponse], error)
 
 	// SendFeedback submits feedback to Nexlayer regarding deployment or application experience.
@@ -56,8 +57,8 @@ type APIClient interface {
 	ListDeployments(ctx context.Context) (*schema.APIResponse[[]schema.Deployment], error)
 
 	// GetDeploymentInfo retrieves detailed information about a specific deployment.
-	// Endpoint: GET /getDeploymentInfo/{namespace}/{applicationID}
-	GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*schema.APIResponse[schema.Deployment], error)
+	// Endpoint: GET /getDeploymentInfo/{namespace}
+	GetDeploymentInfo(ctx context.Context, namespace string) (*schema.APIResponse[schema.Deployment], error)
 
 	// GetLogs retrieves logs for a specific deployment.
 	// If follow is true, streams logs in real-time.
@@ -67,7 +68,7 @@ type APIClient interface {
 
 // APIClientForCommands interface is used for API client operations used in commands.
 type APIClientForCommands interface {
-	GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*schema.APIResponse[schema.Deployment], error)
+	GetDeploymentInfo(ctx context.Context, namespace string) (*schema.APIResponse[schema.Deployment], error)
 	GetDeployments(ctx context.Context, appID string) (*schema.APIResponse[[]schema.Deployment], error)
 	SaveCustomDomain(ctx context.Context, appID string, domain string) (*schema.APIResponse[struct{}], error)
 	// Add other methods as needed
@@ -166,54 +167,49 @@ func (c *Client) SetToken(token string) {
 }
 
 // StartDeployment starts a new deployment using a YAML configuration file.
-// Endpoint: POST /startUserDeployment/{applicationID?}
-//
-// Parameters:
-// - ctx: Context for the request
-// - appID: Optional application ID. If empty, uses Nexlayer profile
-// - yamlFile: Path to YAML configuration file
-//
-// The YAML file must follow the Nexlayer schema v2 format with:
-// - Required: application.name, pods[].name, pods[].image, pods[].servicePorts
-// - Optional: application.url, application.registryLogin
-//
-// Returns:
-// - StartDeploymentResponse containing:
-//   - message: Deployment status message
-//   - namespace: Generated namespace
-//   - url: Application URL
-//
-// - error: Any error that occurred
+// Endpoint: POST /startUserDeployment or POST /startUserDeployment/{applicationID}
 func (c *Client) StartDeployment(ctx context.Context, appID string, yamlFile string) (*schema.APIResponse[schema.DeploymentResponse], error) {
-	// Read YAML file
-	data, err := os.ReadFile(yamlFile)
+	// Read and validate YAML file
+	yamlData, err := os.ReadFile(yamlFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read configuration file: %w", err)
+		return nil, fmt.Errorf("failed to read YAML file: %w", err)
 	}
 
-	// Build URL - if appID is empty, use base endpoint
-	url := fmt.Sprintf("%s/startUserDeployment", c.baseURL)
+	// Create request body
+	reqBody := map[string]interface{}{
+		"yamlContent": string(yamlData),
+	}
+
+	// Convert to JSON
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	var url string
 	if appID != "" {
-		url = fmt.Sprintf("%s/%s", url, appID)
+		// If appID is provided, include it in the URL
+		url = path.Join(c.baseURL, "startUserDeployment", appID)
+	} else {
+		// If no appID, use base endpoint
+		url = path.Join(c.baseURL, "startUserDeployment")
 	}
 
-	// Send as YAML
-	resp, err := c.postYAML(ctx, url, data)
+	// Debug: Print the URL we're requesting
+	fmt.Printf("DEBUG: Starting deployment at URL: %s\n", url)
+
+	resp, err := c.post(ctx, url, jsonData)
 	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, c.handleAPIError(resp)
+		return nil, fmt.Errorf("failed to start deployment: %w", err)
 	}
 
-	var result schema.APIResponse[schema.DeploymentResponse]
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	// Parse response
+	var apiResp schema.APIResponse[schema.DeploymentResponse]
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	return &result, nil
+	return &apiResp, nil
 }
 
 // SaveCustomDomain associates a custom domain with a specific application deployment.
@@ -273,29 +269,67 @@ func (c *Client) GetDeployments(ctx context.Context, appID string) (*schema.APIR
 }
 
 // GetDeploymentInfo retrieves detailed information about a specific deployment.
-// Endpoint: GET /getDeploymentInfo/{namespace}/{applicationID}
-func (c *Client) GetDeploymentInfo(ctx context.Context, namespace string, appID string) (*schema.APIResponse[schema.Deployment], error) {
-	url := fmt.Sprintf("%s/getDeploymentInfo/%s/%s", c.baseURL, namespace, appID)
+// Endpoint: GET /getDeploymentInfo/{namespace}
+func (c *Client) GetDeploymentInfo(ctx context.Context, namespace string) (*schema.APIResponse[schema.Deployment], error) {
+	// Ensure namespace is not empty
+	if namespace == "" {
+		return nil, fmt.Errorf("namespace is required and cannot be empty")
+	}
+
+	// Remove any leading or trailing whitespace
+	namespace = strings.TrimSpace(namespace)
+	if namespace == "" {
+		return nil, fmt.Errorf("namespace cannot be only whitespace")
+	}
+
+	// Additional validation to prevent double slashes in URL
+	if strings.Contains(namespace, "/") {
+		return nil, fmt.Errorf("namespace cannot contain slashes")
+	}
+
+	// Use path.Join to properly construct URL without double slashes
+	url := path.Join(c.baseURL, "getDeploymentInfo", namespace)
+
+	// Debug: Print the URL we're requesting
+	fmt.Printf("DEBUG: Checking deployment status at URL: %s\n", url)
+
 	resp, err := c.get(ctx, url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get deployment info: %w", err)
 	}
-	defer resp.Body.Close()
 
+	// Check for non-200 responses
 	if resp.StatusCode != http.StatusOK {
-		return nil, c.handleAPIError(resp)
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	var response schema.APIResponse[schema.Deployment]
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	var apiResp schema.APIResponse[schema.Deployment]
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	return &response, nil
+	return &apiResp, nil
 }
 
 // Helper methods for making HTTP requests
 func (c *Client) get(ctx context.Context, url string) (*http.Response, error) {
+	// Check for double slashes in URL (except for http:// or https://)
+	if strings.Contains(url, "//") &&
+		!strings.Contains(url, "http://") &&
+		!strings.Contains(url, "https://") {
+		fmt.Printf("WARNING: URL contains double slashes: %s\n", url)
+		// Fix the URL by replacing multiple slashes with a single slash
+		fixedURL := strings.Replace(url, "//", "/", -1)
+		// But preserve http:// or https://
+		fixedURL = strings.Replace(fixedURL, "http:/", "http://", 1)
+		fixedURL = strings.Replace(fixedURL, "https:/", "https://", 1)
+		fmt.Printf("WARNING: Fixed URL: %s\n", fixedURL)
+		url = fixedURL
+	}
+
+	fmt.Printf("GET Request URL: %s\n", url)
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -304,11 +338,13 @@ func (c *Client) get(ctx context.Context, url string) (*http.Response, error) {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
 	}
 
+	fmt.Printf("Making GET request with headers: %v\n", req.Header)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
 
+	fmt.Printf("Response status: %s\n", resp.Status)
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))

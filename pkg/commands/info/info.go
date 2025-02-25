@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
@@ -51,6 +52,10 @@ The command shows:
   • Volume mounts
   • Network configuration
 
+Arguments:
+  namespace      The deployment namespace (required)
+  applicationID  The application ID (required)
+
 Examples:
   nexlayer info my-namespace my-app
   nexlayer info production api-backend`,
@@ -59,11 +64,35 @@ Examples:
 			namespace := args[0]
 			appID := args[1]
 
+			// Validate namespace
+			if namespace == "" {
+				return fmt.Errorf("namespace is required")
+			}
+			namespace = strings.TrimSpace(namespace)
+			if namespace == "" {
+				return fmt.Errorf("namespace cannot be only whitespace")
+			}
+			if strings.Contains(namespace, "/") {
+				return fmt.Errorf("namespace cannot contain slashes")
+			}
+
+			// Validate applicationID
+			if appID == "" {
+				return fmt.Errorf("applicationID is required")
+			}
+			appID = strings.TrimSpace(appID)
+			if appID == "" {
+				return fmt.Errorf("applicationID cannot be only whitespace")
+			}
+			if strings.Contains(appID, "/") {
+				return fmt.Errorf("applicationID cannot contain slashes")
+			}
+
 			// Show progress
 			fmt.Fprintf(cmd.OutOrStdout(), "📊 Fetching deployment information...\n\n")
 
-			// Get deployment info
-			resp, err := client.GetDeploymentInfo(cmd.Context(), namespace, appID)
+			// Get deployment info using namespace
+			resp, err := client.GetDeploymentInfo(cmd.Context(), namespace)
 			if err != nil {
 				return fmt.Errorf("failed to get deployment info: %w", err)
 			}
