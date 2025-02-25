@@ -27,8 +27,8 @@ type errorHandler struct {
 	next APIClient
 }
 
-func (h *errorHandler) GetDeploymentInfo(ctx context.Context, namespace, appID string) (*schema.APIResponse[schema.Deployment], error) {
-	resp, err := h.next.GetDeploymentInfo(ctx, namespace, appID)
+func (h *errorHandler) GetDeploymentInfo(ctx context.Context, namespace string) (*schema.APIResponse[schema.Deployment], error) {
+	resp, err := h.next.GetDeploymentInfo(ctx, namespace)
 	if err != nil {
 		return nil, h.handleError(err)
 	}
