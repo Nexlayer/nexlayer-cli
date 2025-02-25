@@ -10,12 +10,12 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 LOG_FILE="$HOME/nexlayer_install.log"
-MIN_GO_VERSION="1.23.0"
+MIN_GO_VERSION="1.20.0"
 MIN_DISK_SPACE=100  # MB
 DEFAULT_GLOBAL_DIR="$HOME/.local/bin"
 LOCAL_DIR="./bin"
 
-# Create log file directory if it doesn’t exist
+# Create log file directory if it doesn't exist
 mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
 echo "Nexlayer CLI installation started at $(date)" > "$LOG_FILE"
 
@@ -99,9 +99,9 @@ check_version() {
     version="${version#v}"
     required="${required#v}"
     if [ "$(printf '%s\n' "$required" "$version" | sort -V | head -n1)" != "$required" ]; then
-        return 0
-    else
         return 1
+    else
+        return 0
     fi
 }
 
