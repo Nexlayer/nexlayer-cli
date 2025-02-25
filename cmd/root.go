@@ -17,6 +17,7 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/initcmd"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/list"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/login"
+	"github.com/Nexlayer/nexlayer-cli/pkg/commands/version"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/watch"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/config"
@@ -81,6 +82,14 @@ func NewRootCommand() *cobra.Command {
 			cmd.SetContext(context.Background())
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Check if version flag is set
+			versionFlag, _ := cmd.Flags().GetBool("version")
+			if versionFlag {
+				versionCmd := version.NewCommand()
+				versionCmd.Run(cmd, args)
+				return nil
+			}
+
 			if len(args) == 0 {
 				return cmd.Help()
 			}
@@ -90,6 +99,7 @@ func NewRootCommand() *cobra.Command {
 
 	// Add global flags
 	cmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "Output response in JSON format")
+	cmd.Flags().Bool("version", false, "Print version information")
 
 	// Disable auto-generation of completion command
 	cmd.CompletionOptions.DisableDefaultCmd = true
@@ -104,6 +114,7 @@ func NewRootCommand() *cobra.Command {
 		login.NewLoginCommand(apiClient),
 		watch.NewCommand(),
 		feedback.NewFeedbackCommand(apiClient),
+		version.NewCommand(),
 	)
 
 	// Disable suggestions and help command
@@ -120,6 +131,7 @@ func NewRootCommand() *cobra.Command {
   login       Authenticate with Nexlayer
   watch       Monitor project changes and update configuration
   feedback    Send CLI feedback
+  version     Print the version number of Nexlayer CLI
 
 Flags:
   -h, --help         Show help for commands
