@@ -10,15 +10,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
@@ -27,6 +23,7 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/template"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
 	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
+	"github.com/Nexlayer/nexlayer-cli/pkg/schema"
 )
 
 const (
@@ -45,9 +42,6 @@ var (
 
 	infoStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#00ffff"))
-
-	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#ff0000"))
 
 	warningStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#ffff00"))
@@ -121,7 +115,7 @@ Optional Fields (included when needed):
 				PodPath:     podPath,
 			}
 
-			return runInitCommand(cmd, opts)
+			return runInitCommand(opts)
 		},
 	}
 
@@ -150,7 +144,7 @@ type InitOptions struct {
 }
 
 // runInitCommand handles the execution of the init command
-func runInitCommand(cmd *cobra.Command, opts *InitOptions) error {
+func runInitCommand(opts *InitOptions) error {
 	// Show welcome message
 	fmt.Println(infoStyle.Render("🚀 Initializing Nexlayer project..."))
 
@@ -396,65 +390,90 @@ func generateDatabasePod(info *types.ProjectInfo) template.Pod {
 
 // validateConfiguration ensures the configuration is valid
 func validateConfiguration(config *template.NexlayerYAML) error {
-	if config.Application.Name == "" {
-		return fmt.Errorf("application name is required")
+	// Convert template.NexlayerYAML to schema.NexlayerYAML
+	schemaConfig := &schema.NexlayerYAML{
+		Application: schema.Application{
+			Name: config.Application.Name,
+			URL:  config.Application.URL,
+		},
 	}
 
-	if len(config.Application.Pods) == 0 {
-		return fmt.Errorf("at least one pod is required")
-	}
-
-	// Validate individual pods
-	for i, pod := range config.Application.Pods {
-		if err := validatePod(pod, i); err != nil {
-			return err
+	// Convert registry login if present
+	if config.Application.RegistryLogin != nil {
+		schemaConfig.Application.RegistryLogin = &schema.RegistryLogin{
+			Registry:            config.Application.RegistryLogin.Registry,
+			Username:            config.Application.RegistryLogin.Username,
+			PersonalAccessToken: config.Application.RegistryLogin.PersonalAccessToken,
 		}
 	}
 
-	// Validate pod references in environment variables
-	if errors := validatePodReferences(config); len(errors) > 0 {
-		var errMsg strings.Builder
-		errMsg.WriteString("Invalid pod references found:\n")
-		for _, err := range errors {
-			errMsg.WriteString(fmt.Sprintf("- %s: %s\n", err.Field, err.Message))
-			for _, suggestion := range err.Suggestions {
-				errMsg.WriteString(fmt.Sprintf("  %s\n", suggestion))
+	// Convert pods
+	for _, pod := range config.Application.Pods {
+		schemaPod := schema.Pod{
+			Name:        pod.Name,
+			Type:        pod.Type,
+			Path:        pod.Path,
+			Image:       pod.Image,
+			Command:     pod.Command,
+			Entrypoint:  pod.Entrypoint,
+			Annotations: pod.Annotations,
+		}
+
+		// Convert service ports
+		for _, port := range pod.ServicePorts {
+			// Ensure port name is set (required in schema.ServicePort)
+			portName := port.Name
+			if portName == "" {
+				portName = "http" // Default name if not specified
 			}
+
+			schemaPod.ServicePorts = append(schemaPod.ServicePorts, schema.ServicePort{
+				Name:       portName,
+				Port:       port.Port,
+				TargetPort: port.TargetPort,
+				Protocol:   port.Protocol,
+			})
 		}
-		return fmt.Errorf(errMsg.String())
-	}
 
-	return nil
-}
-
-// validatePod validates a single pod configuration
-func validatePod(pod template.Pod, index int) error {
-	if pod.Name == "" {
-		return fmt.Errorf("pod[%d]: name is required", index)
-	}
-
-	if !isValidPodName(pod.Name) {
-		return fmt.Errorf("pod[%d]: invalid name '%s' (must start with lowercase letter, contain only alphanumeric characters, '-', or '.')", index, pod.Name)
-	}
-
-	if pod.Image == "" {
-		return fmt.Errorf("pod[%d]: image is required", index)
-	}
-
-	if len(pod.ServicePorts) == 0 {
-		return fmt.Errorf("pod[%d]: at least one service port is required", index)
-	}
-
-	for _, port := range pod.ServicePorts {
-		if port.Port < 1 || port.Port > 65535 {
-			return fmt.Errorf("pod[%d]: invalid port %d (must be between 1 and 65535)", index, port.Port)
+		// Convert environment variables
+		for _, envVar := range pod.Vars {
+			schemaPod.Vars = append(schemaPod.Vars, schema.EnvVar{
+				Key:   envVar.Key,
+				Value: envVar.Value,
+			})
 		}
+
+		// Convert volumes
+		for _, volume := range pod.Volumes {
+			schemaPod.Volumes = append(schemaPod.Volumes, schema.Volume{
+				Name:     volume.Name,
+				Path:     volume.Path,
+				Size:     volume.Size,
+				Type:     volume.Type,
+				ReadOnly: volume.ReadOnly,
+			})
+		}
+
+		// Convert secrets
+		for _, secret := range pod.Secrets {
+			schemaPod.Secrets = append(schemaPod.Secrets, schema.Secret{
+				Name:     secret.Name,
+				Data:     secret.Data,
+				Path:     secret.Path,
+				FileName: secret.FileName,
+			})
+		}
+
+		schemaConfig.Application.Pods = append(schemaConfig.Application.Pods, schemaPod)
 	}
 
-	for _, volume := range pod.Volumes {
-		if !strings.HasPrefix(volume.Path, "/") {
-			return fmt.Errorf("pod[%d]: volume path '%s' must start with '/'", index, volume.Path)
-		}
+	// Validate using schema validator
+	validator := schema.NewValidator(true)
+	errors := validator.ValidateYAML(schemaConfig)
+	if len(errors) > 0 {
+		report := schema.NewValidationReport()
+		report.AddErrors(errors)
+		return fmt.Errorf("validation failed:\n%s", report.String())
 	}
 
 	return nil
@@ -559,21 +578,6 @@ func getDefaultDBVars(dbType string) []template.EnvVar {
 	default:
 		return nil
 	}
-}
-
-func isValidPodName(name string) bool {
-	if len(name) == 0 {
-		return false
-	}
-	if name[0] < 'a' || name[0] > 'z' {
-		return false
-	}
-	for _, c := range name {
-		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '.') {
-			return false
-		}
-	}
-	return true
 }
 
 // detectProjectParallel runs project detection in parallel
@@ -740,7 +744,7 @@ func addAIConfigurations(tmpl *template.NexlayerYAML, info *types.ProjectInfo) {
 }
 
 // printSuccessMessage prints a detailed success message
-func printSuccessMessage(info *types.ProjectInfo, tmpl *template.NexlayerYAML) {
+func printSuccessMessage(info *types.ProjectInfo, _ *template.NexlayerYAML) {
 	fmt.Println(successStyle.Render("\n✨ Project initialized successfully!"))
 	fmt.Println(infoStyle.Render("\nDetected Configuration:"))
 	fmt.Printf("• Project Type: %s\n", info.Type)
@@ -756,48 +760,6 @@ func printSuccessMessage(info *types.ProjectInfo, tmpl *template.NexlayerYAML) {
 	fmt.Println("1. Review nexlayer.yaml")
 	fmt.Println("2. Run 'nexlayer deploy' to deploy your application")
 	fmt.Println("3. Run 'nexlayer help' for more commands")
-}
-
-// spinnerModel represents the progress spinner
-type spinnerModel struct {
-	spinner  spinner.Model
-	message  string
-	quitting bool
-}
-
-func newSpinnerModel(message string) spinnerModel {
-	s := spinner.New()
-	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	return spinnerModel{spinner: s, message: message}
-}
-
-func (m spinnerModel) Init() tea.Cmd {
-	return m.spinner.Tick
-}
-
-func (m spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "esc", "ctrl+c":
-			m.quitting = true
-			return m, tea.Quit
-		default:
-			return m, nil
-		}
-	default:
-		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
-	}
-}
-
-func (m spinnerModel) View() string {
-	if m.quitting {
-		return ""
-	}
-	return fmt.Sprintf("%s %s", m.spinner.View(), m.message)
 }
 
 // hasDatabase checks if the project needs a database
@@ -965,7 +927,7 @@ func isServiceDependency(name string) bool {
 }
 
 // getDefaultServiceURL returns a default URL for a service
-func getDefaultServiceURL(name, version string) string {
+func getDefaultServiceURL(name, _ string) string {
 	switch {
 	case strings.Contains(name, "postgres"):
 		return "postgres.pod:5432"
@@ -1002,136 +964,4 @@ func getDefaultPodNames(info *types.ProjectInfo) []string {
 	}
 
 	return pods
-}
-
-// validatePodReferences checks if all referenced pods exist
-func validatePodReferences(config *template.NexlayerYAML) []ValidationError {
-	var errors []ValidationError
-	podNames := make(map[string]bool)
-
-	// Build map of existing pod names
-	for _, pod := range config.Application.Pods {
-		podNames[pod.Name] = true
-	}
-
-	// Check each pod's environment variables
-	for podIndex, pod := range config.Application.Pods {
-		for _, envVar := range pod.Vars {
-			refs := extractPodReferences(envVar.Value)
-			for _, ref := range refs {
-				if !podNames[ref] {
-					suggestion := findClosestPodName(ref, podNames)
-					err := ValidationError{
-						Field:   fmt.Sprintf("pods[%d].vars[%s]", podIndex, envVar.Key),
-						Message: fmt.Sprintf("referenced pod '%s' not found", ref),
-					}
-					if suggestion != "" {
-						err.Suggestions = []string{
-							fmt.Sprintf("Did you mean '%s'?", suggestion),
-							fmt.Sprintf("Available pods: %s", strings.Join(getAvailablePods(podNames), ", ")),
-						}
-					}
-					errors = append(errors, err)
-				}
-			}
-		}
-	}
-
-	return errors
-}
-
-// extractPodReferences finds all pod references in a string
-func extractPodReferences(value string) []string {
-	re := regexp.MustCompile(podRefPattern)
-	matches := re.FindAllStringSubmatch(value, -1)
-	refs := make([]string, 0, len(matches))
-	for _, match := range matches {
-		if len(match) > 1 {
-			refs = append(refs, match[1])
-		}
-	}
-	return refs
-}
-
-// findClosestPodName finds the most similar pod name using Levenshtein distance
-func findClosestPodName(ref string, podNames map[string]bool) string {
-	minDist := 1000
-	var closest string
-	for name := range podNames {
-		dist := levenshteinDistance(ref, name)
-		if dist < minDist {
-			minDist = dist
-			closest = name
-		}
-	}
-	if minDist <= len(ref)/2 {
-		return closest
-	}
-	return ""
-}
-
-// levenshteinDistance calculates the edit distance between two strings
-func levenshteinDistance(s1, s2 string) int {
-	if len(s1) == 0 {
-		return len(s2)
-	}
-	if len(s2) == 0 {
-		return len(s1)
-	}
-
-	matrix := make([][]int, len(s1)+1)
-	for i := range matrix {
-		matrix[i] = make([]int, len(s2)+1)
-		matrix[i][0] = i
-	}
-	for j := range matrix[0] {
-		matrix[0][j] = j
-	}
-
-	for i := 1; i <= len(s1); i++ {
-		for j := 1; j <= len(s2); j++ {
-			cost := 1
-			if s1[i-1] == s2[j-1] {
-				cost = 0
-			}
-			matrix[i][j] = min(
-				matrix[i-1][j]+1,
-				matrix[i][j-1]+1,
-				matrix[i-1][j-1]+cost,
-			)
-		}
-	}
-
-	return matrix[len(s1)][len(s2)]
-}
-
-// min returns the minimum of three integers
-func min(a, b, c int) int {
-	if a < b {
-		if a < c {
-			return a
-		}
-		return c
-	}
-	if b < c {
-		return b
-	}
-	return c
-}
-
-// getAvailablePods returns a sorted list of pod names
-func getAvailablePods(podNames map[string]bool) []string {
-	pods := make([]string, 0, len(podNames))
-	for name := range podNames {
-		pods = append(pods, name)
-	}
-	sort.Strings(pods)
-	return pods
-}
-
-// ValidationError type
-type ValidationError struct {
-	Field       string
-	Message     string
-	Suggestions []string
 }
