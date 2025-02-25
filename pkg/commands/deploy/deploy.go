@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
@@ -136,30 +137,68 @@ func runDeploy(client api.APIClient, yamlFile string, appID string) error {
 		return fmt.Errorf("deployment aborted due to validation errors")
 	}
 
-	// Start deployment
-	if appID == "" {
-		fmt.Println("No application ID provided, using Nexlayer profile")
-	}
-
 	// Show deployment summary before proceeding
 	fmt.Println("\n📋 Deployment Summary:")
 	fmt.Printf("• Application: %s\n", config.Application.Name)
+	if appID != "" {
+		fmt.Printf("• Application ID: %s\n", appID)
+	} else {
+		fmt.Println("• No Application ID provided (using anonymous deployment)")
+	}
 	fmt.Printf("• Pods: %d\n", len(config.Application.Pods))
 	for _, pod := range config.Application.Pods {
 		fmt.Printf("  - %s (%s)\n", pod.Name, pod.Image)
 	}
-	fmt.Println()
 
-	resp, err := client.StartDeployment(context.Background(), appID, yamlFile)
+	// Start deployment
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	fmt.Println("\n🚀 Starting deployment...")
+	resp, err := client.StartDeployment(ctx, appID, yamlFile)
 	if err != nil {
 		return fmt.Errorf("failed to start deployment: %w", err)
 	}
 
-	ui.RenderSuccess("Deployment started successfully!")
+	if resp.Data.Namespace == "" {
+		return fmt.Errorf("deployment started but no namespace was returned from the API")
+	}
+
+	fmt.Printf("✅ Deployment started successfully\n")
+	fmt.Printf("• Namespace: %s\n", resp.Data.Namespace)
 	fmt.Printf("🚀 URL: %s\n", resp.Data.URL)
 
+	// Use application name as namespace if not provided
+	if resp.Data.Namespace == "" {
+		// First try to use the application name as a fallback
+		if config.Application.Name != "" {
+			resp.Data.Namespace = config.Application.Name
+			ui.RenderWarning(fmt.Sprintf("API did not return a namespace. Using application name '%s' as namespace", resp.Data.Namespace))
+		} else if appID != "" {
+			// If app name is also not available, use the appID
+			resp.Data.Namespace = appID
+			ui.RenderWarning(fmt.Sprintf("No namespace or application name available. Using application ID '%s' as namespace", resp.Data.Namespace))
+		} else {
+			// If we still don't have a namespace, generate a random one
+			resp.Data.Namespace = fmt.Sprintf("app-%d", time.Now().Unix())
+			ui.RenderWarning(fmt.Sprintf("No namespace, application name, or ID available. Using generated namespace '%s'", resp.Data.Namespace))
+		}
+	}
+
+	// Double-check that namespace is valid
+	resp.Data.Namespace = strings.TrimSpace(resp.Data.Namespace)
+	if resp.Data.Namespace == "" {
+		return fmt.Errorf("failed to determine a valid namespace for status checks")
+	}
+
+	// Ensure namespace doesn't contain slashes
+	if strings.Contains(resp.Data.Namespace, "/") {
+		resp.Data.Namespace = strings.ReplaceAll(resp.Data.Namespace, "/", "-")
+		ui.RenderWarning(fmt.Sprintf("Namespace contained invalid characters. Using sanitized namespace '%s'", resp.Data.Namespace))
+	}
+
 	// Create context with timeout for status polling
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	// Poll for deployment status with exponential backoff
@@ -174,53 +213,42 @@ func runDeploy(client api.APIClient, yamlFile string, appID string) error {
 		case <-ctx.Done():
 			spinner.Stop()
 			ui.RenderWarning("Deployment status check timed out after 5 minutes")
-			fmt.Printf("The deployment is still in progress. Check status with: nexlayer info %s\n", appID)
+			fmt.Printf("The deployment is still in progress. Check status with: nexlayer info %s\n", resp.Data.Namespace)
 			return nil
 		case <-time.After(backoff):
-			info, err := client.GetDeploymentInfo(ctx, resp.Data.Namespace, appID)
+			// Debug logging for namespace
+			fmt.Printf("DEBUG: Using namespace '%s' for status check\n", resp.Data.Namespace)
+
+			info, err := client.GetDeploymentInfo(ctx, resp.Data.Namespace)
 			if err != nil {
-				// Only log the error and continue polling
-				fmt.Fprintf(os.Stderr, "Error checking status: %v\n", err)
-			} else {
 				spinner.Stop()
-
-				// Print deployment details
-				ui.RenderTitleWithBorder("Deployment Details")
-				fmt.Printf("✨ Status:  %s\n", info.Data.Status)
-				fmt.Printf("🌐 URL:     %s\n", info.Data.URL)
-				fmt.Printf("📚 Version: %s\n", info.Data.Version)
-
-				if len(info.Data.PodStatuses) > 0 {
-					fmt.Println("\n📦 Pods:")
-					table := ui.NewTable()
-					table.AddHeader("NAME", "STATUS", "READY", "RESTARTS")
-					for _, pod := range info.Data.PodStatuses {
-						table.AddRow(
-							pod.Name,
-							formatPodStatus(pod.Status),
-							fmt.Sprintf("%v", pod.Ready),
-							fmt.Sprintf("%d", pod.Restarts),
-						)
-					}
-					table.Render()
-				}
-
-				// Check if deployment is complete
-				if isDeploymentStable(info.Data) {
-					if info.Data.Status == "running" {
-						ui.RenderSuccess("\n✅ Deployment completed successfully!")
-						printNextSteps(info.Data)
-					} else {
-						ui.RenderError("\n❌ Deployment failed")
-						printTroubleshootingSteps(info.Data)
-					}
-					return nil
-				}
-
-				// Continue polling with updated spinner message
-				spinner = ui.NewSpinner(fmt.Sprintf("Waiting for pods to be ready (%s)", info.Data.Status))
-				spinner.Start()
+				return fmt.Errorf("error checking status: %w", err)
 			}
+
+			// Print deployment details
+			spinner.Stop()
+			fmt.Printf("Status: %s\n", formatPodStatus(info.Data.Status))
+
+			// Check if deployment has reached a stable state
+			if isDeploymentStable(info.Data) {
+				// Normalize status to lowercase for consistent comparison
+				status := strings.ToLower(info.Data.Status)
+
+				if status == "running" || status == "completed" {
+					ui.RenderSuccess(fmt.Sprintf("Deployment is %s!", info.Data.Status))
+					fmt.Printf("You can access your application at: %s\n", resp.Data.URL)
+					printNextSteps(info.Data)
+					return nil
+				} else {
+					// Deployment is stable but failed
+					ui.RenderError("Deployment failed")
+					printTroubleshootingSteps(info.Data)
+					return fmt.Errorf("deployment failed. Check logs for details")
+				}
+			}
+
+			spinner = ui.NewSpinner(fmt.Sprintf("Waiting for pods to be ready (%s)", info.Data.Status))
+			spinner.Start()
 
 			// Increase backoff time exponentially, but cap it
 			backoff = time.Duration(float64(backoff) * 1.5)
@@ -233,7 +261,10 @@ func runDeploy(client api.APIClient, yamlFile string, appID string) error {
 
 // isDeploymentStable checks if the deployment has reached a stable state
 func isDeploymentStable(deployment apischema.Deployment) bool {
-	if deployment.Status == "running" || deployment.Status == "failed" {
+	// Normalize status to lowercase for consistent comparison
+	status := strings.ToLower(deployment.Status)
+
+	if status == "running" || status == "failed" || status == "completed" {
 		return true
 	}
 
@@ -249,13 +280,18 @@ func isDeploymentStable(deployment apischema.Deployment) bool {
 
 // formatPodStatus returns a colored status string
 func formatPodStatus(status string) string {
-	switch status {
+	// Normalize status to lowercase for consistent comparison
+	normalizedStatus := strings.ToLower(status)
+
+	switch normalizedStatus {
 	case "running":
 		return runningStyle.Render(status)
 	case "pending":
 		return pendingStyle.Render(status)
 	case "failed":
 		return failedStyle.Render(status)
+	case "completed":
+		return successStyle.Render(status)
 	default:
 		return status
 	}
@@ -271,14 +307,14 @@ func printNextSteps(deployment apischema.Deployment) {
 		fmt.Printf("2. Configure a custom domain: nexlayer domain set %s --domain your-domain.com\n", deployment.Namespace)
 	}
 	fmt.Printf("3. Monitor logs: nexlayer logs %s\n", deployment.Namespace)
-	fmt.Printf("4. Check status: nexlayer info %s %s\n", deployment.Namespace, deployment.Namespace)
+	fmt.Printf("4. Check status: nexlayer info %s\n", deployment.Namespace)
 }
 
 // printTroubleshootingSteps prints helpful debugging steps when deployment fails
 func printTroubleshootingSteps(deployment apischema.Deployment) {
 	fmt.Println("\n🔍 Troubleshooting Steps:")
-	fmt.Printf("1. Check pod logs: nexlayer logs %s %s\n", deployment.Namespace, deployment.Namespace)
-	fmt.Printf("2. View detailed status: nexlayer info %s %s --verbose\n", deployment.Namespace, deployment.Namespace)
+	fmt.Printf("1. Check pod logs: nexlayer logs %s\n", deployment.Namespace)
+	fmt.Printf("2. View detailed status: nexlayer info %s --verbose\n", deployment.Namespace)
 	fmt.Println("3. Common issues:")
 	fmt.Println("   - Image pull errors: Check image name and registry credentials")
 	fmt.Println("   - Resource limits: Ensure pods have sufficient CPU/memory")
