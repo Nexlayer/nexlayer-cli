@@ -85,8 +85,8 @@ func (p *Parser) MergeWithDetected(detected *NexlayerYAML) (*NexlayerYAML, error
 }
 
 // mergePods combines pod configurations from base and detected settings
-func mergePods(basePods, detectedPods []Pod) []Pod {
-	podMap := make(map[string]Pod)
+func mergePods(basePods, detectedPods []PodYAML) []PodYAML {
+	podMap := make(map[string]PodYAML)
 
 	// Add base pods to map
 	for _, pod := range basePods {
@@ -105,19 +105,19 @@ func mergePods(basePods, detectedPods []Pod) []Pod {
 	}
 
 	// Convert map back to slice
-	var mergedPods []Pod
+	merged := make([]PodYAML, 0, len(podMap))
 	for _, pod := range podMap {
-		mergedPods = append(mergedPods, pod)
+		merged = append(merged, pod)
 	}
 
-	return mergedPods
+	return merged
 }
 
 // mergePod combines settings from two pod configurations
-func mergePod(base, detected Pod) Pod {
+func mergePod(base, detected PodYAML) PodYAML {
 	merged := base
 
-	// Update fields if detected values are set
+	// Merge fields if they are set in detected
 	if detected.Type != "" {
 		merged.Type = detected.Type
 	}
@@ -127,18 +127,34 @@ func mergePod(base, detected Pod) Pod {
 	if detected.Image != "" {
 		merged.Image = detected.Image
 	}
+	if detected.Command != "" {
+		merged.Command = detected.Command
+	}
+	if detected.Entrypoint != "" {
+		merged.Entrypoint = detected.Entrypoint
+	}
+
+	// Merge service ports
 	if len(detected.ServicePorts) > 0 {
 		merged.ServicePorts = detected.ServicePorts
 	}
+
+	// Merge environment variables
 	if len(detected.Vars) > 0 {
-		merged.Vars = mergeEnvVars(base.Vars, detected.Vars)
+		merged.Vars = detected.Vars
 	}
+
+	// Merge volumes
 	if len(detected.Volumes) > 0 {
 		merged.Volumes = detected.Volumes
 	}
+
+	// Merge secrets
 	if len(detected.Secrets) > 0 {
 		merged.Secrets = detected.Secrets
 	}
+
+	// Merge annotations
 	if len(detected.Annotations) > 0 {
 		if merged.Annotations == nil {
 			merged.Annotations = make(map[string]string)

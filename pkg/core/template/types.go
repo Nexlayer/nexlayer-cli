@@ -6,11 +6,47 @@ package template
 
 import (
 	"fmt"
+
+	"github.com/Nexlayer/nexlayer-cli/pkg/schema"
 )
 
-// NexlayerYAML represents the root structure of a Nexlayer deployment template
+// NexlayerYAML represents the structure of a Nexlayer configuration file
+// This is a serialization-friendly version of schema.NexlayerYAML
 type NexlayerYAML struct {
-	Application Application `yaml:"application" validate:"required"`
+	Application ApplicationYAML `yaml:"application"`
+}
+
+// ApplicationYAML represents the application section of a Nexlayer configuration
+// This is a serialization-friendly version of schema.Application
+type ApplicationYAML struct {
+	Name          string             `yaml:"name"`
+	URL           string             `yaml:"url"`
+	RegistryLogin *RegistryLoginYAML `yaml:"registry_login,omitempty"`
+	Pods          []PodYAML          `yaml:"pods"`
+}
+
+// RegistryLoginYAML represents registry login information
+// This is a serialization-friendly version of schema.RegistryLogin
+type RegistryLoginYAML struct {
+	Registry string `yaml:"registry"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password,omitempty"`
+}
+
+// PodYAML represents a pod configuration
+// This is a serialization-friendly version of schema.Pod
+type PodYAML struct {
+	Name         string            `yaml:"name"`
+	Type         string            `yaml:"type,omitempty"`
+	Path         string            `yaml:"path,omitempty"`
+	Image        string            `yaml:"image"`
+	Command      string            `yaml:"command,omitempty"`
+	Entrypoint   string            `yaml:"entrypoint,omitempty"`
+	ServicePorts []ServicePort     `yaml:"servicePorts,omitempty"`
+	Vars         []EnvVar          `yaml:"vars,omitempty"`
+	Volumes      []Volume          `yaml:"volumes,omitempty"`
+	Secrets      []Secret          `yaml:"secrets,omitempty"`
+	Annotations  map[string]string `yaml:"annotations,omitempty"`
 }
 
 // Application represents the application configuration
@@ -108,4 +144,228 @@ type Secret struct {
 	Data     string `yaml:"data" validate:"required"`
 	Path     string `yaml:"path" validate:"required,startswith=/"`
 	FileName string `yaml:"fileName" validate:"required"`
+}
+
+// Conversion functions between schema types and template types
+
+// ToSchemaType converts the template NexlayerYAML to the schema NexlayerYAML
+func (t *NexlayerYAML) ToSchemaType() *schema.NexlayerYAML {
+	result := &schema.NexlayerYAML{
+		Application: schema.Application{
+			Name: t.Application.Name,
+			URL:  t.Application.URL,
+		},
+	}
+
+	// Convert registry login
+	if t.Application.RegistryLogin != nil {
+		result.Application.RegistryLogin = &schema.RegistryLogin{
+			Registry:            t.Application.RegistryLogin.Registry,
+			Username:            t.Application.RegistryLogin.Username,
+			PersonalAccessToken: t.Application.RegistryLogin.Password, // Map Password to PersonalAccessToken
+		}
+	}
+
+	// Convert pods
+	for _, pod := range t.Application.Pods {
+		schemaPod := schema.Pod{
+			Name:        pod.Name,
+			Type:        pod.Type,
+			Path:        pod.Path,
+			Image:       pod.Image,
+			Command:     pod.Command,
+			Entrypoint:  pod.Entrypoint,
+			Annotations: pod.Annotations,
+		}
+
+		// Convert service ports
+		for _, port := range pod.ServicePorts {
+			schemaPod.ServicePorts = append(schemaPod.ServicePorts, schema.ServicePort{
+				Name:       port.Name,
+				Port:       port.Port,
+				TargetPort: port.TargetPort,
+				Protocol:   port.Protocol,
+			})
+		}
+
+		// Convert environment variables
+		for _, envVar := range pod.Vars {
+			schemaPod.Vars = append(schemaPod.Vars, schema.EnvVar{
+				Key:   envVar.Key,
+				Value: envVar.Value,
+			})
+		}
+
+		// Convert volumes
+		for _, volume := range pod.Volumes {
+			schemaPod.Volumes = append(schemaPod.Volumes, schema.Volume{
+				Name:     volume.Name,
+				Path:     volume.Path,
+				Size:     volume.Size,
+				Type:     volume.Type,
+				ReadOnly: volume.ReadOnly,
+			})
+		}
+
+		// Convert secrets
+		for _, secret := range pod.Secrets {
+			schemaPod.Secrets = append(schemaPod.Secrets, schema.Secret{
+				Name:     secret.Name,
+				Data:     secret.Data,
+				Path:     secret.Path,
+				FileName: secret.FileName,
+			})
+		}
+
+		result.Application.Pods = append(result.Application.Pods, schemaPod)
+	}
+
+	return result
+}
+
+// FromSchemaType converts a schema.NexlayerYAML to template.NexlayerYAML
+func FromSchemaType(s *schema.NexlayerYAML) *NexlayerYAML {
+	result := &NexlayerYAML{
+		Application: ApplicationYAML{
+			Name: s.Application.Name,
+			URL:  s.Application.URL,
+		},
+	}
+
+	// Convert registry login
+	if s.Application.RegistryLogin != nil {
+		result.Application.RegistryLogin = &RegistryLoginYAML{
+			Registry: s.Application.RegistryLogin.Registry,
+			Username: s.Application.RegistryLogin.Username,
+			Password: s.Application.RegistryLogin.PersonalAccessToken, // Map PersonalAccessToken to Password
+		}
+	}
+
+	// Convert pods
+	for _, pod := range s.Application.Pods {
+		templatePod := PodYAML{
+			Name:        pod.Name,
+			Type:        pod.Type,
+			Path:        pod.Path,
+			Image:       pod.Image,
+			Command:     pod.Command,
+			Entrypoint:  pod.Entrypoint,
+			Annotations: pod.Annotations,
+		}
+
+		// Convert service ports
+		for _, port := range pod.ServicePorts {
+			templatePod.ServicePorts = append(templatePod.ServicePorts, ServicePort{
+				Name:       port.Name,
+				Port:       port.Port,
+				TargetPort: port.TargetPort,
+				Protocol:   port.Protocol,
+			})
+		}
+
+		// Convert environment variables
+		for _, envVar := range pod.Vars {
+			templatePod.Vars = append(templatePod.Vars, EnvVar{
+				Key:   envVar.Key,
+				Value: envVar.Value,
+			})
+		}
+
+		// Convert volumes
+		for _, volume := range pod.Volumes {
+			templatePod.Volumes = append(templatePod.Volumes, Volume{
+				Name:     volume.Name,
+				Path:     volume.Path,
+				Size:     volume.Size,
+				Type:     volume.Type,
+				ReadOnly: volume.ReadOnly,
+			})
+		}
+
+		// Convert secrets
+		for _, secret := range pod.Secrets {
+			templatePod.Secrets = append(templatePod.Secrets, Secret{
+				Name:     secret.Name,
+				Data:     secret.Data,
+				Path:     secret.Path,
+				FileName: secret.FileName,
+			})
+		}
+
+		result.Application.Pods = append(result.Application.Pods, templatePod)
+	}
+
+	return result
+}
+
+// ConvertPodToPodYAML converts a schema.Pod to a template.PodYAML
+func ConvertPodToPodYAML(pod schema.Pod) PodYAML {
+	return PodYAML{
+		Name:         pod.Name,
+		Type:         pod.Type,
+		Path:         pod.Path,
+		Image:        pod.Image,
+		Command:      pod.Command,
+		Entrypoint:   pod.Entrypoint,
+		ServicePorts: ConvertServicePorts(pod.ServicePorts),
+		Vars:         ConvertEnvVars(pod.Vars),
+		Volumes:      ConvertVolumes(pod.Volumes),
+		Secrets:      ConvertSecrets(pod.Secrets),
+		Annotations:  pod.Annotations,
+	}
+}
+
+// ConvertServicePorts converts schema.ServicePort slice to template.ServicePort slice
+func ConvertServicePorts(ports []schema.ServicePort) []ServicePort {
+	var result []ServicePort
+	for _, port := range ports {
+		result = append(result, ServicePort{
+			Name:       port.Name,
+			Port:       port.Port,
+			TargetPort: port.TargetPort,
+			Protocol:   port.Protocol,
+		})
+	}
+	return result
+}
+
+// ConvertEnvVars converts schema.EnvVar slice to template.EnvVar slice
+func ConvertEnvVars(vars []schema.EnvVar) []EnvVar {
+	var result []EnvVar
+	for _, v := range vars {
+		result = append(result, EnvVar{
+			Key:   v.Key,
+			Value: v.Value,
+		})
+	}
+	return result
+}
+
+// ConvertVolumes converts schema.Volume slice to template.Volume slice
+func ConvertVolumes(volumes []schema.Volume) []Volume {
+	var result []Volume
+	for _, v := range volumes {
+		result = append(result, Volume{
+			Name:     v.Name,
+			Path:     v.Path,
+			Size:     v.Size,
+			Type:     v.Type,
+			ReadOnly: v.ReadOnly,
+		})
+	}
+	return result
+}
+
+// ConvertSecrets converts schema.Secret slice to template.Secret slice
+func ConvertSecrets(secrets []schema.Secret) []Secret {
+	var result []Secret
+	for _, s := range secrets {
+		result = append(result, Secret{
+			Name:     s.Name,
+			Data:     s.Data,
+			Path:     s.Path,
+			FileName: s.FileName,
+		})
+	}
+	return result
 }

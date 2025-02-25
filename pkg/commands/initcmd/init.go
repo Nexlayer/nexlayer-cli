@@ -10,15 +10,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
@@ -27,6 +23,7 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/template"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
 	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
+	"github.com/Nexlayer/nexlayer-cli/pkg/schema"
 )
 
 const (
@@ -45,9 +42,6 @@ var (
 
 	infoStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#00ffff"))
-
-	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#ff0000"))
 
 	warningStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#ffff00"))
@@ -102,7 +96,7 @@ Optional Fields (included when needed):
   - vars: For environment variables (AI, database configs)
   - registryLogin: For private images (registry, username, password)`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			// Get target directory
 			dir := "."
 			if len(args) > 0 {
@@ -121,7 +115,7 @@ Optional Fields (included when needed):
 				PodPath:     podPath,
 			}
 
-			return runInitCommand(cmd, opts)
+			return runInitCommand(opts)
 		},
 	}
 
@@ -150,7 +144,7 @@ type InitOptions struct {
 }
 
 // runInitCommand handles the execution of the init command
-func runInitCommand(cmd *cobra.Command, opts *InitOptions) error {
+func runInitCommand(opts *InitOptions) error {
 	// Show welcome message
 	fmt.Println(infoStyle.Render("🚀 Initializing Nexlayer project..."))
 
@@ -213,7 +207,7 @@ func applyUserOverrides(info *types.ProjectInfo, opts *InitOptions) error {
 
 	// If in interactive mode, prompt for confirmation/changes
 	if opts.Interactive {
-		if err := promptForOverrides(info, opts); err != nil {
+		if err := promptForOverrides(info); err != nil {
 			return err
 		}
 	}
@@ -223,35 +217,36 @@ func applyUserOverrides(info *types.ProjectInfo, opts *InitOptions) error {
 
 // generateConfiguration creates a minimal but complete nexlayer.yaml configuration
 func generateConfiguration(info *types.ProjectInfo, opts *InitOptions) (*template.NexlayerYAML, error) {
-	// Create base configuration
-	config := &template.NexlayerYAML{
-		Application: template.Application{
+	// Create base configuration using schema types first for validation
+	schemaConfig := &schema.NexlayerYAML{
+		Application: schema.Application{
 			Name: info.Name,
-			Pods: []template.Pod{},
+			Pods: []schema.Pod{},
 		},
 	}
 
 	// Add main pod
 	mainPod := generateMainPod(info, opts)
-	config.Application.Pods = append(config.Application.Pods, mainPod)
+	schemaConfig.Application.Pods = append(schemaConfig.Application.Pods, mainPod)
 
 	// Add database if needed
 	if hasDatabase(info) {
 		dbPod := generateDatabasePod(info)
-		config.Application.Pods = append(config.Application.Pods, dbPod)
+		schemaConfig.Application.Pods = append(schemaConfig.Application.Pods, dbPod)
 	}
 
 	// Add AI configurations if detected
 	if info.LLMProvider != "" {
-		addAIConfigurations(config, info)
+		addAIConfigurations(schemaConfig, info)
 	}
 
-	return config, nil
+	// Convert schema config to template.NexlayerYAML for serialization
+	return template.FromSchemaType(schemaConfig), nil
 }
 
 // generateMainPod creates the main pod configuration based on project type
-func generateMainPod(info *types.ProjectInfo, opts *InitOptions) template.Pod {
-	pod := template.Pod{
+func generateMainPod(info *types.ProjectInfo, opts *InitOptions) schema.Pod {
+	pod := schema.Pod{
 		Name: opts.PodName,
 		Type: string(info.Type),
 	}
@@ -280,7 +275,7 @@ func generateMainPod(info *types.ProjectInfo, opts *InitOptions) template.Pod {
 	if port == 0 {
 		port = info.Port
 	}
-	pod.ServicePorts = []template.ServicePort{
+	pod.ServicePorts = []schema.ServicePort{
 		{Name: "http", Port: port, TargetPort: port},
 	}
 
@@ -298,12 +293,12 @@ func generateMainPod(info *types.ProjectInfo, opts *InitOptions) template.Pod {
 }
 
 // generateEnvironmentVars creates environment variables with pod references
-func generateEnvironmentVars(info *types.ProjectInfo) []template.EnvVar {
-	var vars []template.EnvVar
+func generateEnvironmentVars(info *types.ProjectInfo) []schema.EnvVar {
+	var vars []schema.EnvVar
 
 	// Add base URL if needed
 	if isWebOrAPI(info.Type) {
-		vars = append(vars, template.EnvVar{
+		vars = append(vars, schema.EnvVar{
 			Key:   "BASE_URL",
 			Value: "<% URL %>",
 		})
@@ -313,37 +308,37 @@ func generateEnvironmentVars(info *types.ProjectInfo) []template.EnvVar {
 	for name := range info.Dependencies {
 		switch {
 		case strings.Contains(name, "postgres"):
-			vars = append(vars, template.EnvVar{
+			vars = append(vars, schema.EnvVar{
 				Key:   "DATABASE_URL",
 				Value: "postgresql://postgres:<% DB_PASSWORD %>@postgres.pod:5432/app",
 			})
 		case strings.Contains(name, "mongodb"):
-			vars = append(vars, template.EnvVar{
+			vars = append(vars, schema.EnvVar{
 				Key:   "MONGODB_URI",
 				Value: "mongodb://root:<% MONGO_ROOT_PASSWORD %>@mongodb.pod:27017/app",
 			})
 		case strings.Contains(name, "mysql"):
-			vars = append(vars, template.EnvVar{
+			vars = append(vars, schema.EnvVar{
 				Key:   "MYSQL_URL",
 				Value: "mysql://root:<% MYSQL_ROOT_PASSWORD %>@mysql.pod:3306/app",
 			})
 		case strings.Contains(name, "redis"):
-			vars = append(vars, template.EnvVar{
+			vars = append(vars, schema.EnvVar{
 				Key:   "REDIS_URL",
 				Value: "redis://:<% REDIS_PASSWORD %>@redis.pod:6379",
 			})
 		case strings.Contains(name, "ai-model"):
-			vars = append(vars, template.EnvVar{
+			vars = append(vars, schema.EnvVar{
 				Key:   "AI_MODEL_URL",
 				Value: "http://ai-model.pod:5000",
 			})
 		case strings.Contains(name, "vector-db"):
-			vars = append(vars, template.EnvVar{
+			vars = append(vars, schema.EnvVar{
 				Key:   "VECTOR_DB_URL",
 				Value: "http://vector-db.pod:8080",
 			})
 		case strings.Contains(name, "minio"):
-			vars = append(vars, []template.EnvVar{
+			vars = append(vars, []schema.EnvVar{
 				{Key: "MINIO_ENDPOINT", Value: "minio.pod:9000"},
 				{Key: "MINIO_ACCESS_KEY", Value: "<% MINIO_ACCESS_KEY %>"},
 				{Key: "MINIO_SECRET_KEY", Value: "<% MINIO_SECRET_KEY %>"},
@@ -353,7 +348,7 @@ func generateEnvironmentVars(info *types.ProjectInfo) []template.EnvVar {
 
 	// Add AI-specific environment variables if needed
 	if info.LLMProvider != "" {
-		vars = append(vars, []template.EnvVar{
+		vars = append(vars, []schema.EnvVar{
 			{Key: "LLM_PROVIDER", Value: info.LLMProvider},
 			{Key: "LLM_MODEL", Value: info.LLMModel},
 			{Key: "LLM_API_KEY", Value: "<% LLM_API_KEY %>"},
@@ -364,16 +359,16 @@ func generateEnvironmentVars(info *types.ProjectInfo) []template.EnvVar {
 }
 
 // generateDatabasePod creates a database pod configuration
-func generateDatabasePod(info *types.ProjectInfo) template.Pod {
+func generateDatabasePod(info *types.ProjectInfo) schema.Pod {
 	dbType := detectDatabaseType(info)
-	pod := template.Pod{
+	pod := schema.Pod{
 		Name:  fmt.Sprintf("db-%s", dbType),
 		Type:  dbType,
 		Image: fmt.Sprintf("%s:latest", dbType),
-		ServicePorts: []template.ServicePort{
+		ServicePorts: []schema.ServicePort{
 			{Name: "db", Port: getDefaultDBPort(dbType), TargetPort: getDefaultDBPort(dbType)},
 		},
-		Volumes: []template.Volume{
+		Volumes: []schema.Volume{
 			{
 				Name: fmt.Sprintf("%s-data", dbType),
 				Path: getDefaultDBPath(dbType),
@@ -386,7 +381,7 @@ func generateDatabasePod(info *types.ProjectInfo) template.Pod {
 	pod.Vars = getDefaultDBVars(dbType)
 
 	// Add health check environment variables
-	pod.Vars = append(pod.Vars, template.EnvVar{
+	pod.Vars = append(pod.Vars, schema.EnvVar{
 		Key:   "POD_NAME",
 		Value: fmt.Sprintf("%s.pod", pod.Name),
 	})
@@ -396,65 +391,16 @@ func generateDatabasePod(info *types.ProjectInfo) template.Pod {
 
 // validateConfiguration ensures the configuration is valid
 func validateConfiguration(config *template.NexlayerYAML) error {
-	if config.Application.Name == "" {
-		return fmt.Errorf("application name is required")
-	}
+	// Convert template.NexlayerYAML to schema.NexlayerYAML
+	schemaConfig := config.ToSchemaType()
 
-	if len(config.Application.Pods) == 0 {
-		return fmt.Errorf("at least one pod is required")
-	}
-
-	// Validate individual pods
-	for i, pod := range config.Application.Pods {
-		if err := validatePod(pod, i); err != nil {
-			return err
-		}
-	}
-
-	// Validate pod references in environment variables
-	if errors := validatePodReferences(config); len(errors) > 0 {
-		var errMsg strings.Builder
-		errMsg.WriteString("Invalid pod references found:\n")
-		for _, err := range errors {
-			errMsg.WriteString(fmt.Sprintf("- %s: %s\n", err.Field, err.Message))
-			for _, suggestion := range err.Suggestions {
-				errMsg.WriteString(fmt.Sprintf("  %s\n", suggestion))
-			}
-		}
-		return fmt.Errorf(errMsg.String())
-	}
-
-	return nil
-}
-
-// validatePod validates a single pod configuration
-func validatePod(pod template.Pod, index int) error {
-	if pod.Name == "" {
-		return fmt.Errorf("pod[%d]: name is required", index)
-	}
-
-	if !isValidPodName(pod.Name) {
-		return fmt.Errorf("pod[%d]: invalid name '%s' (must start with lowercase letter, contain only alphanumeric characters, '-', or '.')", index, pod.Name)
-	}
-
-	if pod.Image == "" {
-		return fmt.Errorf("pod[%d]: image is required", index)
-	}
-
-	if len(pod.ServicePorts) == 0 {
-		return fmt.Errorf("pod[%d]: at least one service port is required", index)
-	}
-
-	for _, port := range pod.ServicePorts {
-		if port.Port < 1 || port.Port > 65535 {
-			return fmt.Errorf("pod[%d]: invalid port %d (must be between 1 and 65535)", index, port.Port)
-		}
-	}
-
-	for _, volume := range pod.Volumes {
-		if !strings.HasPrefix(volume.Path, "/") {
-			return fmt.Errorf("pod[%d]: volume path '%s' must start with '/'", index, volume.Path)
-		}
+	// Validate using schema validator
+	validator := schema.NewValidator(true)
+	errors := validator.ValidateYAML(schemaConfig)
+	if len(errors) > 0 {
+		report := schema.NewValidationReport()
+		report.AddErrors(errors)
+		return fmt.Errorf("validation failed:\n%s", report.String())
 	}
 
 	return nil
@@ -534,46 +480,31 @@ func getDefaultDBPath(dbType string) string {
 	}
 }
 
-func getDefaultDBVars(dbType string) []template.EnvVar {
+func getDefaultDBVars(dbType string) []schema.EnvVar {
 	switch dbType {
 	case "postgres":
-		return []template.EnvVar{
+		return []schema.EnvVar{
 			{Key: "POSTGRES_USER", Value: "postgres"},
 			{Key: "POSTGRES_PASSWORD", Value: "<% DB_PASSWORD %>"},
 			{Key: "POSTGRES_DB", Value: "app"},
 		}
 	case "mongodb":
-		return []template.EnvVar{
+		return []schema.EnvVar{
 			{Key: "MONGO_INITDB_ROOT_USERNAME", Value: "root"},
 			{Key: "MONGO_INITDB_ROOT_PASSWORD", Value: "<% MONGO_ROOT_PASSWORD %>"},
 		}
 	case "mysql":
-		return []template.EnvVar{
+		return []schema.EnvVar{
 			{Key: "MYSQL_ROOT_PASSWORD", Value: "<% MYSQL_ROOT_PASSWORD %>"},
 			{Key: "MYSQL_DATABASE", Value: "app"},
 		}
 	case "redis":
-		return []template.EnvVar{
+		return []schema.EnvVar{
 			{Key: "REDIS_PASSWORD", Value: "<% REDIS_PASSWORD %>"},
 		}
 	default:
 		return nil
 	}
-}
-
-func isValidPodName(name string) bool {
-	if len(name) == 0 {
-		return false
-	}
-	if name[0] < 'a' || name[0] > 'z' {
-		return false
-	}
-	for _, c := range name {
-		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '.') {
-			return false
-		}
-	}
-	return true
 }
 
 // detectProjectParallel runs project detection in parallel
@@ -727,7 +658,7 @@ func writeYAMLToFile(filename string, tmpl *template.NexlayerYAML) error {
 }
 
 // addAIConfigurations adds AI-specific settings to the template
-func addAIConfigurations(tmpl *template.NexlayerYAML, info *types.ProjectInfo) {
+func addAIConfigurations(tmpl *schema.NexlayerYAML, info *types.ProjectInfo) {
 	// Add AI-specific annotations
 	for i := range tmpl.Application.Pods {
 		if tmpl.Application.Pods[i].Annotations == nil {
@@ -740,7 +671,7 @@ func addAIConfigurations(tmpl *template.NexlayerYAML, info *types.ProjectInfo) {
 }
 
 // printSuccessMessage prints a detailed success message
-func printSuccessMessage(info *types.ProjectInfo, tmpl *template.NexlayerYAML) {
+func printSuccessMessage(info *types.ProjectInfo, config *template.NexlayerYAML) {
 	fmt.Println(successStyle.Render("\n✨ Project initialized successfully!"))
 	fmt.Println(infoStyle.Render("\nDetected Configuration:"))
 	fmt.Printf("• Project Type: %s\n", info.Type)
@@ -752,52 +683,15 @@ func printSuccessMessage(info *types.ProjectInfo, tmpl *template.NexlayerYAML) {
 	}
 	fmt.Printf("• Port: %d\n", info.Port)
 
+	// Use the config parameter to show additional information
+	if len(config.Application.Pods) > 0 {
+		fmt.Printf("• Main Pod: %s\n", config.Application.Pods[0].Name)
+	}
+
 	fmt.Println(infoStyle.Render("\nNext Steps:"))
 	fmt.Println("1. Review nexlayer.yaml")
 	fmt.Println("2. Run 'nexlayer deploy' to deploy your application")
 	fmt.Println("3. Run 'nexlayer help' for more commands")
-}
-
-// spinnerModel represents the progress spinner
-type spinnerModel struct {
-	spinner  spinner.Model
-	message  string
-	quitting bool
-}
-
-func newSpinnerModel(message string) spinnerModel {
-	s := spinner.New()
-	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	return spinnerModel{spinner: s, message: message}
-}
-
-func (m spinnerModel) Init() tea.Cmd {
-	return m.spinner.Tick
-}
-
-func (m spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "esc", "ctrl+c":
-			m.quitting = true
-			return m, tea.Quit
-		default:
-			return m, nil
-		}
-	default:
-		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
-	}
-}
-
-func (m spinnerModel) View() string {
-	if m.quitting {
-		return ""
-	}
-	return fmt.Sprintf("%s %s", m.spinner.View(), m.message)
 }
 
 // hasDatabase checks if the project needs a database
@@ -814,7 +708,7 @@ func hasDatabase(info *types.ProjectInfo) bool {
 }
 
 // promptForOverrides prompts the user to confirm or modify detected settings
-func promptForOverrides(info *types.ProjectInfo, opts *InitOptions) error {
+func promptForOverrides(info *types.ProjectInfo) error {
 	// Confirm application name
 	prompt := promptui.Prompt{
 		Label:     fmt.Sprintf("Application name [%s]", info.Name),
@@ -965,7 +859,7 @@ func isServiceDependency(name string) bool {
 }
 
 // getDefaultServiceURL returns a default URL for a service
-func getDefaultServiceURL(name, version string) string {
+func getDefaultServiceURL(name, _ string) string {
 	switch {
 	case strings.Contains(name, "postgres"):
 		return "postgres.pod:5432"
@@ -1002,136 +896,4 @@ func getDefaultPodNames(info *types.ProjectInfo) []string {
 	}
 
 	return pods
-}
-
-// validatePodReferences checks if all referenced pods exist
-func validatePodReferences(config *template.NexlayerYAML) []ValidationError {
-	var errors []ValidationError
-	podNames := make(map[string]bool)
-
-	// Build map of existing pod names
-	for _, pod := range config.Application.Pods {
-		podNames[pod.Name] = true
-	}
-
-	// Check each pod's environment variables
-	for podIndex, pod := range config.Application.Pods {
-		for _, envVar := range pod.Vars {
-			refs := extractPodReferences(envVar.Value)
-			for _, ref := range refs {
-				if !podNames[ref] {
-					suggestion := findClosestPodName(ref, podNames)
-					err := ValidationError{
-						Field:   fmt.Sprintf("pods[%d].vars[%s]", podIndex, envVar.Key),
-						Message: fmt.Sprintf("referenced pod '%s' not found", ref),
-					}
-					if suggestion != "" {
-						err.Suggestions = []string{
-							fmt.Sprintf("Did you mean '%s'?", suggestion),
-							fmt.Sprintf("Available pods: %s", strings.Join(getAvailablePods(podNames), ", ")),
-						}
-					}
-					errors = append(errors, err)
-				}
-			}
-		}
-	}
-
-	return errors
-}
-
-// extractPodReferences finds all pod references in a string
-func extractPodReferences(value string) []string {
-	re := regexp.MustCompile(podRefPattern)
-	matches := re.FindAllStringSubmatch(value, -1)
-	refs := make([]string, 0, len(matches))
-	for _, match := range matches {
-		if len(match) > 1 {
-			refs = append(refs, match[1])
-		}
-	}
-	return refs
-}
-
-// findClosestPodName finds the most similar pod name using Levenshtein distance
-func findClosestPodName(ref string, podNames map[string]bool) string {
-	minDist := 1000
-	var closest string
-	for name := range podNames {
-		dist := levenshteinDistance(ref, name)
-		if dist < minDist {
-			minDist = dist
-			closest = name
-		}
-	}
-	if minDist <= len(ref)/2 {
-		return closest
-	}
-	return ""
-}
-
-// levenshteinDistance calculates the edit distance between two strings
-func levenshteinDistance(s1, s2 string) int {
-	if len(s1) == 0 {
-		return len(s2)
-	}
-	if len(s2) == 0 {
-		return len(s1)
-	}
-
-	matrix := make([][]int, len(s1)+1)
-	for i := range matrix {
-		matrix[i] = make([]int, len(s2)+1)
-		matrix[i][0] = i
-	}
-	for j := range matrix[0] {
-		matrix[0][j] = j
-	}
-
-	for i := 1; i <= len(s1); i++ {
-		for j := 1; j <= len(s2); j++ {
-			cost := 1
-			if s1[i-1] == s2[j-1] {
-				cost = 0
-			}
-			matrix[i][j] = min(
-				matrix[i-1][j]+1,
-				matrix[i][j-1]+1,
-				matrix[i-1][j-1]+cost,
-			)
-		}
-	}
-
-	return matrix[len(s1)][len(s2)]
-}
-
-// min returns the minimum of three integers
-func min(a, b, c int) int {
-	if a < b {
-		if a < c {
-			return a
-		}
-		return c
-	}
-	if b < c {
-		return b
-	}
-	return c
-}
-
-// getAvailablePods returns a sorted list of pod names
-func getAvailablePods(podNames map[string]bool) []string {
-	pods := make([]string, 0, len(podNames))
-	for name := range podNames {
-		pods = append(pods, name)
-	}
-	sort.Strings(pods)
-	return pods
-}
-
-// ValidationError type
-type ValidationError struct {
-	Field       string
-	Message     string
-	Suggestions []string
 }

@@ -1,10 +1,15 @@
-// Copyright (c) 2025 Nexlayer. All rights reserved.n// Use of this source code is governed by an MIT-stylen// license that can be found in the LICENSE file.nn
+// Copyright (c) 2025 Nexlayer. All rights reserved.
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
+
+// Package config provides backward compatibility with the old configuration system.
+// New code should use the pkg/core/config package directly.
 package config
 
 import (
 	"sync"
 
-	"github.com/spf13/viper"
+	coreconfig "github.com/Nexlayer/nexlayer-cli/pkg/core/config"
 )
 
 // Manager handles configuration management
@@ -21,35 +26,28 @@ func NewManager() *Manager {
 func (m *Manager) GetString(key string) string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return viper.GetString(key)
+	return coreconfig.GetConfigProvider().GetString(key)
 }
 
 // GetStringMap gets a string map from configuration
 func (m *Manager) GetStringMap(key string) map[string]string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-
-	result := make(map[string]string)
-	for k, v := range viper.GetStringMap(key) {
-		if str, ok := v.(string); ok {
-			result[k] = str
-		}
-	}
-	return result
+	return coreconfig.GetConfigProvider().GetStringMapString(key)
 }
 
 // Set sets a configuration value
 func (m *Manager) Set(key string, value interface{}) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	viper.Set(key, value)
+	coreconfig.GetConfigProvider().Set(key, value)
 }
 
 // Save saves the configuration to disk
 func (m *Manager) Save() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return viper.WriteConfig()
+	return coreconfig.SaveConfig()
 }
 
 // GetAPIEndpoint returns the API endpoint for the given environment
@@ -69,11 +67,11 @@ func (m *Manager) GetAPIEndpoint(env string) string {
 
 // GetDefaultNamespace returns the default namespace
 func (m *Manager) GetDefaultNamespace() string {
-	return m.GetString("namespace")
+	return coreconfig.GetDefaultNamespace()
 }
 
 // SetDefaultNamespace sets the default namespace
 func (m *Manager) SetDefaultNamespace(namespace string) error {
-	m.Set("namespace", namespace)
+	coreconfig.SetDefaultNamespace(namespace)
 	return m.Save()
 }

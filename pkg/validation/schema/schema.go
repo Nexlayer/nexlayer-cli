@@ -1,6 +1,6 @@
-package validation
+package schema
 
-// SchemaV2 contains the JSON Schema for validating Nexlayer templates
+// SchemaV2 contains the JSON Schema for validating Nexlayer YAML configurations
 const SchemaV2 = `{
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",

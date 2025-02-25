@@ -23,6 +23,9 @@ testing-cli-*/
 *-testing-*/
 sal-testing-*/
 
+# Internal documentation and planning
+docs/refactoring/
+
 # Vendor (only ignore specific files)
 vendor/**/.git
 vendor/**/.gitignore

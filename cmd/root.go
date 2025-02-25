@@ -19,6 +19,7 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/login"
 	"github.com/Nexlayer/nexlayer-cli/pkg/commands/watch"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/config"
 	"github.com/Nexlayer/nexlayer-cli/pkg/errors"
 	"github.com/Nexlayer/nexlayer-cli/pkg/observability"
 	"github.com/spf13/cobra"
@@ -43,7 +44,7 @@ func init() {
 	// Enable colors for Windows terminals.
 	os.Setenv("TERM", "xterm-256color")
 
-	// Initialize the logger with rotation settings.
+	// Initialize logger.
 	logger = observability.NewLogger(
 		observability.INFO,
 		observability.WithJSON(),
@@ -51,7 +52,7 @@ func init() {
 	)
 
 	// Set default configuration values.
-	viper.SetDefault("nexlayer.api_url", "https://app.staging.nexlayer.io")
+	config.SetAPIURL("https://app.staging.nexlayer.io")
 
 	// Create the root command.
 	rootCmd = NewRootCommand()
@@ -59,8 +60,11 @@ func init() {
 
 // NewRootCommand creates and configures the root command for the CLI.
 func NewRootCommand() *cobra.Command {
+	// Initialize configuration first
+	lazyInitConfig()
+
 	// Retrieve API URL from configuration (overridable via config/env).
-	apiURL := viper.GetString("nexlayer.api_url")
+	apiURL := config.GetAPIURL()
 	apiClient := api.NewClient(apiURL)
 
 	cmd := &cobra.Command{
@@ -161,27 +165,21 @@ func Execute() {
 func lazyInitConfig() {
 	configOnce.Do(func() {
 		// Use custom config path if provided via flag.
-		if customConfig := viper.GetString("config"); customConfig != "" {
-			viper.SetConfigFile(customConfig)
-		} else {
-			viper.AddConfigPath("$HOME/.config/nexlayer")
-			viper.AddConfigPath(".") // Current directory fallback.
-			viper.SetConfigName("config")
-			viper.SetConfigType("yaml")
+		customConfig := viper.GetString("config")
+
+		// Initialize the configuration
+		if err := config.InitConfig(customConfig); err != nil {
+			logger.Error(context.Background(), "Error initializing config: %v", err)
+			fmt.Fprintln(os.Stderr, "Configuration initialization failed. Please check the syntax and try again.")
+			return
 		}
 
-		// Enable environment variable overrides.
-		viper.AutomaticEnv()
-
-		if err := viper.ReadInConfig(); err != nil {
-			if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-				logger.Info(context.Background(), "No config file found; using defaults")
-			} else {
-				logger.Error(context.Background(), "Error reading config file: %v", err)
-				fmt.Fprintln(os.Stderr, "Configuration file is invalid. Please check the syntax and try again.")
-			}
+		// Log the configuration file used
+		configDir, err := config.GetConfigDir()
+		if err != nil {
+			logger.Info(context.Background(), "No config file found; using defaults")
 		} else {
-			logger.Info(context.Background(), "Configuration loaded from %s", viper.ConfigFileUsed())
+			logger.Info(context.Background(), "Configuration loaded from %s", configDir)
 		}
 	})
 }
