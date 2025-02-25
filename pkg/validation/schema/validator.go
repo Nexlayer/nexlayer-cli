@@ -49,8 +49,8 @@ func NewDefaultValidator() *Validator {
 }
 
 // ValidateYAML performs validation of a YAML structure
-func (v *Validator) ValidateYAML(config interface{}) []ValidationError {
-	errors := []ValidationError{} // Initialize with empty slice, not nil
+func (v *Validator) ValidateYAML(config interface{}) []NewValidationError {
+	errors := []NewValidationError{} // Initialize with empty slice, not nil
 
 	// First, perform JSON Schema validation
 	if v.schemaSource != nil {
@@ -66,8 +66,8 @@ func (v *Validator) ValidateYAML(config interface{}) []ValidationError {
 }
 
 // validateWithJSONSchema validates a configuration using JSON Schema
-func (v *Validator) validateWithJSONSchema(config interface{}) []ValidationError {
-	errors := []ValidationError{} // Initialize with empty slice, not nil
+func (v *Validator) validateWithJSONSchema(config interface{}) []NewValidationError {
+	errors := []NewValidationError{} // Initialize with empty slice, not nil
 
 	// In a real implementation, we would use a JSON schema validation library
 	// For now, this is just a placeholder to show how it would work
@@ -77,7 +77,7 @@ func (v *Validator) validateWithJSONSchema(config interface{}) []ValidationError
 	// For demonstration, we validate that the config can be marshaled to JSON
 	_, err := json.Marshal(config)
 	if err != nil {
-		errors = append(errors, ValidationError{
+		errors = append(errors, NewValidationError{
 			Field:    "schema",
 			Message:  "Configuration cannot be converted to JSON: " + err.Error(),
 			Severity: string(ValidationErrorSeverityError),
@@ -90,8 +90,8 @@ func (v *Validator) validateWithJSONSchema(config interface{}) []ValidationError
 }
 
 // validateWithRegistry performs semantic validation using the validator registry
-func (v *Validator) validateWithRegistry(config interface{}, ctx *ValidationContext) []ValidationError {
-	errors := []ValidationError{} // Initialize with empty slice, not nil
+func (v *Validator) validateWithRegistry(config interface{}, ctx *ValidationContext) []NewValidationError {
+	errors := []NewValidationError{} // Initialize with empty slice, not nil
 
 	// In a real implementation, we would walk through the config structure
 	// and validate each field using the appropriate validator
@@ -101,8 +101,8 @@ func (v *Validator) validateWithRegistry(config interface{}, ctx *ValidationCont
 }
 
 // CreateError creates a validation error
-func CreateError(field, message, severity string, suggestions ...string) ValidationError {
-	return ValidationError{
+func CreateError(field, message, severity string, suggestions ...string) NewValidationError {
+	return NewValidationError{
 		Field:       field,
 		Message:     message,
 		Severity:    severity,
@@ -111,7 +111,7 @@ func CreateError(field, message, severity string, suggestions ...string) Validat
 }
 
 // CreateRequiredError creates a validation error for a required field
-func CreateRequiredError(field string) ValidationError {
+func CreateRequiredError(field string) NewValidationError {
 	return CreateError(
 		field,
 		"field is required",
@@ -121,7 +121,7 @@ func CreateRequiredError(field string) ValidationError {
 }
 
 // CreateFormatError creates a validation error for incorrectly formatted values
-func CreateFormatError(field, format string, examples ...string) ValidationError {
+func CreateFormatError(field, format string, examples ...string) NewValidationError {
 	suggestions := []string{
 		fmt.Sprintf("Format should be: %s", format),
 	}
@@ -137,7 +137,7 @@ func CreateFormatError(field, format string, examples ...string) ValidationError
 }
 
 // CreateReferenceError creates a validation error for invalid references
-func CreateReferenceError(field, ref string, available ...string) ValidationError {
+func CreateReferenceError(field, ref string, available ...string) NewValidationError {
 	suggestions := []string{
 		fmt.Sprintf("'%s' is not a valid reference", ref),
 	}

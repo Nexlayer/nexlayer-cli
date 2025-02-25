@@ -13,16 +13,16 @@ const (
 	ValidationErrorSeverityWarning ValidationErrorSeverity = "warning"
 )
 
-// ValidationError represents a validation error with context and suggestions
-type ValidationError struct {
+// NewValidationError represents a validation error with context and suggestions
+type NewValidationError struct {
 	Field       string   `json:"field"`
 	Message     string   `json:"message"`
 	Suggestions []string `json:"suggestions,omitempty"`
 	Severity    string   `json:"severity"` // error, warning
 }
 
-// Error implements the error interface for ValidationError
-func (e ValidationError) Error() string {
+// Error implements the error interface for NewValidationError
+func (e NewValidationError) Error() string {
 	base := fmt.Sprintf("%s: %s", e.Field, e.Message)
 	if len(e.Suggestions) > 0 {
 		base += "\nSuggestions:"
@@ -39,11 +39,11 @@ type ValidationContext struct {
 }
 
 // ValidatorFunc is a function that validates a field value
-type ValidatorFunc func(field, value string, ctx *ValidationContext) []ValidationError
+type ValidatorFunc func(field, value string, ctx *ValidationContext) []NewValidationError
 
 // ValidationRule represents a validation rule
 type ValidationRule interface {
-	Validate(field string, value interface{}, ctx *ValidationContext) []ValidationError
+	Validate(field string, value interface{}, ctx *ValidationContext) []NewValidationError
 }
 
 // ValidationFuncAdapter adapts a ValidatorFunc to implement ValidationRule
@@ -52,11 +52,11 @@ type ValidationFuncAdapter struct {
 }
 
 // Validate implements the ValidationRule interface
-func (a ValidationFuncAdapter) Validate(field string, value interface{}, ctx *ValidationContext) []ValidationError {
+func (a ValidationFuncAdapter) Validate(field string, value interface{}, ctx *ValidationContext) []NewValidationError {
 	if strValue, ok := value.(string); ok {
 		return a.ValidatorFunc(field, strValue, ctx)
 	}
-	return []ValidationError{
+	return []NewValidationError{
 		{
 			Field:    field,
 			Message:  "value must be a string",

@@ -16,11 +16,11 @@ const (
 )
 
 // validateName validates generic names
-func validateName(field, value string, ctx *ValidationContext) []ValidationError {
+func validateName(field, value string, ctx *ValidationContext) []NewValidationError {
 	matched, _ := regexp.MatchString(`^[a-z][a-z0-9\.\-]*$`, value)
 
 	if !matched {
-		return []ValidationError{
+		return []NewValidationError{
 			{
 				Field:    field,
 				Message:  fmt.Sprintf("invalid name: %s", value),
@@ -37,9 +37,9 @@ func validateName(field, value string, ctx *ValidationContext) []ValidationError
 }
 
 // validatePodName validates pod names
-func validatePodName(field, value string, ctx *ValidationContext) []ValidationError {
+func validatePodName(field, value string, ctx *ValidationContext) []NewValidationError {
 	if !isValidPodName(value) {
-		return []ValidationError{
+		return []NewValidationError{
 			{
 				Field:    field,
 				Message:  fmt.Sprintf("invalid pod name: %s", value),
@@ -56,13 +56,13 @@ func validatePodName(field, value string, ctx *ValidationContext) []ValidationEr
 }
 
 // validateURL validates URLs
-func validateURL(field, value string, ctx *ValidationContext) []ValidationError {
+func validateURL(field, value string, ctx *ValidationContext) []NewValidationError {
 	if value == "" {
 		return nil
 	}
 	_, err := url.Parse(value)
 	if err != nil {
-		return []ValidationError{
+		return []NewValidationError{
 			{
 				Field:    field,
 				Message:  "invalid URL format",
@@ -78,9 +78,9 @@ func validateURL(field, value string, ctx *ValidationContext) []ValidationError 
 }
 
 // validateImageName validates Docker image names
-func validateImageName(field, value string, ctx *ValidationContext) []ValidationError {
+func validateImageName(field, value string, ctx *ValidationContext) []NewValidationError {
 	if !isValidImageName(value) {
-		return []ValidationError{
+		return []NewValidationError{
 			{
 				Field:    field,
 				Message:  "invalid image format",
@@ -98,9 +98,9 @@ func validateImageName(field, value string, ctx *ValidationContext) []Validation
 }
 
 // validateVolumeSize validates volume sizes
-func validateVolumeSize(field, value string, ctx *ValidationContext) []ValidationError {
+func validateVolumeSize(field, value string, ctx *ValidationContext) []NewValidationError {
 	if !isValidVolumeSize(value) {
-		return []ValidationError{
+		return []NewValidationError{
 			{
 				Field:    field,
 				Message:  "invalid volume size",
@@ -117,12 +117,12 @@ func validateVolumeSize(field, value string, ctx *ValidationContext) []Validatio
 }
 
 // validateEnvVar validates environment variable names
-func validateEnvVar(field, value string, ctx *ValidationContext) []ValidationError {
+func validateEnvVar(field, value string, ctx *ValidationContext) []NewValidationError {
 	pattern := EnvVarPattern
 	matched, _ := regexp.MatchString(pattern, value)
 
 	if !matched {
-		return []ValidationError{
+		return []NewValidationError{
 			{
 				Field:    field,
 				Message:  "invalid environment variable name",
@@ -139,9 +139,9 @@ func validateEnvVar(field, value string, ctx *ValidationContext) []ValidationErr
 }
 
 // validateFileName validates filenames
-func validateFileName(field, value string, ctx *ValidationContext) []ValidationError {
+func validateFileName(field, value string, ctx *ValidationContext) []NewValidationError {
 	if !isValidFileName(value) {
-		return []ValidationError{
+		return []NewValidationError{
 			{
 				Field:    field,
 				Message:  "invalid filename",

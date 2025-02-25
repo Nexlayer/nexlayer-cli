@@ -38,10 +38,10 @@ func (r *ValidationRegistry) Get(name string) (ValidationRule, bool) {
 }
 
 // Validate runs a named validator against a value
-func (r *ValidationRegistry) Validate(name, field string, value interface{}, ctx *ValidationContext) []ValidationError {
+func (r *ValidationRegistry) Validate(name, field string, value interface{}, ctx *ValidationContext) []NewValidationError {
 	validator, ok := r.Get(name)
 	if !ok {
-		return []ValidationError{
+		return []NewValidationError{
 			{
 				Field:    field,
 				Message:  "no validator found for " + name,
