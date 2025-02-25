@@ -227,13 +227,15 @@ verify_installation() {
         exit 1
     fi
 
-    INSTALLED_VERSION=$("$nexlayer_path" version 2>>"$LOG_FILE" || nexlayer version 2>>"$LOG_FILE")
-    if [ $? -ne 0 ]; then
+    # Try to get version, but don't fail if version command is not available
+    INSTALLED_VERSION=$("$nexlayer_path" version 2>>"$LOG_FILE" || nexlayer version 2>>"$LOG_FILE" || echo "Unknown version")
+    if [ -x "$nexlayer_path" ] || command -v nexlayer >/dev/null 2>>"$LOG_FILE"; then
+        print_message "$GREEN" "✅ Installed: $INSTALLED_VERSION"
+    else
         print_message "$RED" "❌ Failed: nexlayer command error"
         print_message "$YELLOW" "Check $LOG_FILE"
         exit 1
     fi
-    print_message "$GREEN" "✅ Installed: $INSTALLED_VERSION"
 }
 
 # User confirmation
@@ -288,16 +290,24 @@ if [ "$location_choice" == "1" ]; then
 else
     INSTALL_DIR="$LOCAL_DIR"
 fi
-mkdir -p "$INSTALL_DIR" 2>>"$LOG_FILE"
+mkdir -p "$INSTALL_DIR" 2>>"$LOG_FILE" || {
+    print_message "$RED" "❌ Failed to create directory $INSTALL_DIR"
+    print_message "$YELLOW" "Try running with sudo or choose a different location"
+    exit 1
+}
+chmod 755 "$INSTALL_DIR" 2>>"$LOG_FILE" || {
+    print_message "$YELLOW" "⚠️ Warning: Could not set permissions on $INSTALL_DIR"
+}
 
 if [ "$choice" == "1" ]; then
     print_message "$BLUE" "📦 Installing via go install..."
     GO111MODULE=on go install github.com/Nexlayer/nexlayer-cli@latest >>"$LOG_FILE" 2>&1 &
     show_progress $!
     if [ "$location_choice" == "2" ]; then
-        mv "$HOME/go/bin/nexlayer" "$INSTALL_DIR/" 2>>"$LOG_FILE" || {
-            print_message "$RED" "❌ Failed to move binary"
-            exit 1
+        cp "$HOME/go/bin/nexlayer" "$INSTALL_DIR/" 2>>"$LOG_FILE" || {
+            print_message "$RED" "❌ Failed to copy binary to $INSTALL_DIR"
+            print_message "$YELLOW" "Using binary from $HOME/go/bin instead"
+            INSTALL_DIR="$HOME/go/bin"
         }
     else
         INSTALL_DIR="$HOME/go/bin"
