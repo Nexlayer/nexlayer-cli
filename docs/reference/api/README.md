@@ -280,11 +280,11 @@ curl -X GET "https://app.staging.nexlayer.io/getDeployments/<applicationID>" \
 
 ### 5. Get Deployment Info
 
-- **Path:** `/getDeploymentInfo/{namespace}/{applicationID}`
+- **Path:** `/getDeploymentInfo/{namespace}`
 - **Method:** `GET`
 - **Tags:** Deployment
 - **Summary:** Get detailed info for a specific deployment
-- **Description:** Retrieves detailed information about a specific deployment identified by its namespace and application ID, including status and template details.
+- **Description:** Retrieves detailed information about a specific deployment identified by its namespace, including status and template details.
 - **Operation ID:** `getDeploymentInfo`
 
 #### Path Parameters
@@ -292,7 +292,6 @@ curl -X GET "https://app.staging.nexlayer.io/getDeployments/<applicationID>" \
 | Parameter | In | Required | Type | Description |
 |-----------|----|----|----|----|
 | `namespace` | path | Yes | string | The namespace of the deployment. |
-| `applicationID` | path | Yes | string | The unique identifier of the application. |
 
 #### Responses
 
@@ -313,12 +312,12 @@ curl -X GET "https://app.staging.nexlayer.io/getDeployments/<applicationID>" \
 ```
 
 ##### 400 Bad Request
-- **Description:** Invalid namespace or application ID
+- **Description:** Invalid namespace
 - **Content Type:** `application/json`
 - **Example:**
 ```json
 {
-  "error": "Invalid namespace or application ID."
+  "error": "Invalid namespace."
 }
 ```
 
@@ -488,7 +487,7 @@ A successful response returns a JSON object listing deployments:
 Send a GET request to:
 
 ```http
-https://app.staging.nexlayer.io/getDeploymentInfo/{namespace}/{applicationID}
+https://app.staging.nexlayer.io/getDeploymentInfo/{namespace}
 ```
 
 A successful response returns detailed deployment information:

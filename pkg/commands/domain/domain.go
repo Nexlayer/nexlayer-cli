@@ -68,7 +68,7 @@ Examples:
 				return fmt.Errorf("failed to save custom domain: %w", err)
 			}
 
-			// Get the application URL from the deployment info
+			// Get the application URL from the deployment info to verify it exists
 			deployInfo, err := client.GetDeploymentInfo(cmd.Context(), applicationID)
 			if err != nil {
 				return fmt.Errorf("failed to get deployment info: %w", err)

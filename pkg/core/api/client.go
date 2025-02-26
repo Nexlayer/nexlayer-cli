@@ -16,7 +16,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
 	"strings"
 	"time"
 
@@ -167,7 +166,7 @@ func (c *Client) SetToken(token string) {
 }
 
 // StartDeployment starts a new deployment using a YAML configuration file.
-// Endpoint: POST /startUserDeployment or POST /startUserDeployment/{applicationID}
+// Endpoint: POST /startUserDeployment
 func (c *Client) StartDeployment(ctx context.Context, appID string, yamlFile string) (*schema.APIResponse[schema.DeploymentResponse], error) {
 	// Read and validate YAML file
 	yamlData, err := os.ReadFile(yamlFile)
@@ -189,10 +188,10 @@ func (c *Client) StartDeployment(ctx context.Context, appID string, yamlFile str
 	var url string
 	if appID != "" {
 		// If appID is provided, include it in the URL
-		url = path.Join(c.baseURL, "startUserDeployment", appID)
+		url = fmt.Sprintf("%s/startUserDeployment/%s", c.baseURL, appID)
 	} else {
 		// If no appID, use base endpoint
-		url = path.Join(c.baseURL, "startUserDeployment")
+		url = fmt.Sprintf("%s/startUserDeployment", c.baseURL)
 	}
 
 	// Debug: Print the URL we're requesting
@@ -287,8 +286,8 @@ func (c *Client) GetDeploymentInfo(ctx context.Context, namespace string) (*sche
 		return nil, fmt.Errorf("namespace cannot contain slashes")
 	}
 
-	// Use path.Join to properly construct URL without double slashes
-	url := path.Join(c.baseURL, "getDeploymentInfo", namespace)
+	// Construct URL properly preserving the scheme
+	url := fmt.Sprintf("%s/getDeploymentInfo/%s", c.baseURL, namespace)
 
 	// Debug: Print the URL we're requesting
 	fmt.Printf("DEBUG: Checking deployment status at URL: %s\n", url)

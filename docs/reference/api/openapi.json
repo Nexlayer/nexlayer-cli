@@ -11,23 +11,12 @@
     }
   ],
   "paths": {
-    "/startUserDeployment/{applicationID}": {
+    "/startUserDeployment": {
       "post": {
         "tags": ["Deployment"],
         "summary": "Start a user deployment by uploading a YAML configuration file",
-        "description": "Initiates a deployment for a user's application using a YAML configuration file uploaded via `--data-binary`. The YAML must follow the Nexlayer schema (see documentation for details). The `applicationID` parameter is optional; if omitted, the default application tied to the user's profile is used.",
+        "description": "Initiates a deployment for a user's application using a YAML configuration file uploaded via `--data-binary`. When a user deploys without login, no applicationID or namespace is provided—the Nexlayer platform generates these values automatically and returns them in the response for subsequent retrieval of deployment info.",
         "operationId": "startUserDeployment",
-        "parameters": [
-          {
-            "name": "applicationID",
-            "in": "path",
-            "required": false,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The unique identifier of the application to deploy. Optional; defaults to the user's profile application if not specified."
-          }
-        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -36,7 +25,7 @@
                 "type": "string",
                 "format": "binary"
               },
-              "example": "# Example YAML: See https://github.com/Nexlayer/templates/blob/main/new-readme.md"
+              "example": "# Example YAML: See nexlayer-cli/pkg/schema/README.md"
             }
           }
         },
@@ -327,11 +316,11 @@
         }
       }
     },
-    "/getDeploymentInfo/{namespace}/{applicationID}": {
+    "/getDeploymentInfo/{namespace}": {
       "get": {
         "tags": ["Deployment"],
         "summary": "Get detailed info for a specific deployment",
-        "description": "Retrieves detailed information about a specific deployment identified by its namespace and application ID, including status and template details.",
+        "description": "Retrieves detailed information about a specific deployment identified by its namespace, including status and template details.",
         "operationId": "getDeploymentInfo",
         "parameters": [
           {
@@ -342,15 +331,6 @@
               "type": "string"
             },
             "description": "The namespace of the deployment to retrieve."
-          },
-          {
-            "name": "applicationID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The unique identifier of the application associated with the deployment."
           }
         ],
         "responses": {
@@ -377,7 +357,7 @@
             }
           },
           "400": {
-            "description": "Bad Request - Invalid namespace or application ID",
+            "description": "Bad Request - Invalid namespace",
             "content": {
               "application/json": {
                 "schema": {
@@ -385,7 +365,7 @@
                   "properties": {
                     "error": {
                       "type": "string",
-                      "example": "Invalid namespace or application ID."
+                      "example": "Invalid namespace."
                     }
                   }
                 }
