@@ -67,9 +67,8 @@ Examples:
    ```
 
 2. Open a Pull Request against the `develop` branch.
-3. Ensure all CI checks pass.
-4. Request a code review.
-5. Address any feedback.
+3. Request a code review.
+4. Address any feedback.
 
 ### Merging Strategy
 
