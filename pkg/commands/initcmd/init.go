@@ -401,8 +401,8 @@ func generateDatabasePod(info *types.ProjectInfo) schema.Pod {
 // validateConfiguration ensures the configuration is valid
 func validateConfiguration(config *schema.NexlayerYAML) error {
 	// Validate using schema validator
-	if err := schema.Validate(config); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
+	if errs := schema.Validate(config); len(errs) > 0 {
+		return fmt.Errorf("validation failed: %v", errs)
 	}
 
 	return nil

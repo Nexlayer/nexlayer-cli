@@ -323,8 +323,8 @@ func printTroubleshootingSteps(deployment apischema.Deployment) {
 // ValidateDeployConfig validates a deployment configuration
 // This function is exported for use by other packages
 func ValidateDeployConfig(yamlConfig *schema.NexlayerYAML) error {
-	if err := schema.Validate(yamlConfig); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
+	if errs := schema.Validate(yamlConfig); len(errs) > 0 {
+		return fmt.Errorf("validation failed: %v", errs)
 	}
 	return nil
 }
