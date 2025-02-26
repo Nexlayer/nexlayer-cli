@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/compose"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/schema"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
 	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
@@ -216,6 +217,38 @@ func applyUserOverrides(info *types.ProjectInfo, opts *InitOptions) error {
 
 // generateConfiguration creates a minimal but complete nexlayer.yaml configuration
 func generateConfiguration(info *types.ProjectInfo, opts *InitOptions) (*schema.NexlayerYAML, error) {
+	// Check for Docker Compose first
+	if info.Type == types.TypeDockerRaw && info.HasDocker {
+		fmt.Println(infoStyle.Render("🔍 Detected Docker project, checking for Docker Compose..."))
+
+		// Check if we have docker-compose services in dependencies
+		if dcServices, ok := info.Dependencies["docker-compose"]; ok && dcServices != "" {
+			fmt.Println(infoStyle.Render(fmt.Sprintf("🔍 Found Docker Compose services: %s", dcServices)))
+
+			// Try to convert docker-compose to Nexlayer YAML
+			config, err := tryConvertDockerCompose(opts.Directory, info.Name)
+			if err == nil && config != nil {
+				// If we have a name override, use it
+				if opts.AppName != "" {
+					config.Application.Name = opts.AppName
+				}
+
+				// If we have a pod name override, use it for the first pod
+				if opts.PodName != "" && len(config.Application.Pods) > 0 {
+					config.Application.Pods[0].Name = opts.PodName
+				}
+
+				// Successfully converted Docker Compose
+				return config, nil
+			} else if err != nil {
+				fmt.Println(warningStyle.Render(fmt.Sprintf("⚠️ Docker Compose conversion failed: %v", err)))
+			}
+			// If conversion fails, fall back to default generation
+		} else {
+			fmt.Println(warningStyle.Render("⚠️ Docker project detected but no Docker Compose services found"))
+		}
+	}
+
 	// Create base configuration
 	config := &schema.NexlayerYAML{
 		Application: schema.Application{
@@ -514,6 +547,8 @@ func detectProjectParallel(dir string) (*types.ProjectInfo, error) {
 	registry := detection.NewDetectorRegistry()
 	detectors := registry.GetDetectors()
 
+	fmt.Println("🔍 Running project detection with", len(detectors), "detectors")
+
 	// Create channels for results and errors
 	resultCh := make(chan *types.ProjectInfo, len(detectors))
 	errCh := make(chan error, len(detectors))
@@ -527,6 +562,7 @@ func detectProjectParallel(dir string) (*types.ProjectInfo, error) {
 		go func(det detection.ProjectDetector) {
 			defer wg.Done()
 			if info, err := det.Detect(dir); err == nil && info != nil {
+				fmt.Printf("🔍 Detector %T found project type: %s\n", det, info.Type)
 				select {
 				case resultCh <- info:
 				case <-ctx.Done():
@@ -535,21 +571,74 @@ func detectProjectParallel(dir string) (*types.ProjectInfo, error) {
 		}(d)
 	}
 
-	// Wait for first successful result or all failures
+	// Wait for all detectors to complete or timeout
 	go func() {
 		wg.Wait()
 		close(resultCh)
 		close(errCh)
 	}()
 
-	select {
-	case info := <-resultCh:
-		return info, nil
-	case <-ctx.Done():
-		return nil, fmt.Errorf("detection timed out")
-	case err := <-errCh:
-		return nil, err
+	// Collect all results
+	var results []*types.ProjectInfo
+	for {
+		select {
+		case info, ok := <-resultCh:
+			if !ok {
+				// Channel closed, all detectors have completed
+				return selectBestProjectType(results, dir)
+			}
+			if info != nil {
+				results = append(results, info)
+			}
+		case <-ctx.Done():
+			return selectBestProjectType(results, dir)
+		case err := <-errCh:
+			if len(results) > 0 {
+				return selectBestProjectType(results, dir)
+			}
+			return nil, err
+		}
 	}
+}
+
+// selectBestProjectType selects the best project type from multiple detection results
+func selectBestProjectType(results []*types.ProjectInfo, dir string) (*types.ProjectInfo, error) {
+	if len(results) == 0 {
+		return nil, fmt.Errorf("no project type detected")
+	}
+
+	// Check if we have a Docker project with Docker Compose services
+	for _, info := range results {
+		if info.Type == types.TypeDockerRaw && info.HasDocker {
+			if services, ok := info.Dependencies["docker-compose"]; ok && services != "" {
+				fmt.Printf("🔍 Prioritizing Docker project with Docker Compose services: %s\n", services)
+				return info, nil
+			}
+		}
+	}
+
+	// Prioritize by project type
+	priorityOrder := []types.ProjectType{
+		types.TypeDockerRaw,
+		types.TypeNextjs,
+		types.TypeReact,
+		types.TypeNode,
+		types.TypePython,
+		types.TypeGo,
+	}
+
+	for _, priority := range priorityOrder {
+		for _, info := range results {
+			if info.Type == priority {
+				fmt.Printf("🔍 Selected project type by priority: %s\n", info.Type)
+				return info, nil
+			}
+		}
+	}
+
+	// If no priority match, return the first result
+	fmt.Printf("🔍 Selected first detected project type: %s\n", results[0].Type)
+	return results[0], nil
 }
 
 // promptForProjectType asks the user to select a project type
@@ -888,4 +977,42 @@ func getDefaultPodNames(info *types.ProjectInfo) []string {
 	}
 
 	return pods
+}
+
+// tryConvertDockerCompose attempts to convert a Docker Compose file to Nexlayer YAML
+func tryConvertDockerCompose(dir string, appName string) (*schema.NexlayerYAML, error) {
+	fmt.Println(infoStyle.Render("🔄 Attempting to convert Docker Compose file..."))
+
+	// Try to detect and convert Docker Compose file
+	config, err := compose.DetectAndConvert(dir, appName)
+	if err != nil {
+		// Log the error but don't abort the entire init process
+		fmt.Println(warningStyle.Render(fmt.Sprintf("⚠️ Warning: Found Docker Compose file but couldn't convert it: %v", err)))
+		return nil, err
+	}
+
+	// Print successful conversion details
+	if config != nil && len(config.Application.Pods) > 0 {
+		fmt.Println(infoStyle.Render(fmt.Sprintf("✅ Converted Docker Compose to Nexlayer YAML with %d pods:", len(config.Application.Pods))))
+		for i, pod := range config.Application.Pods {
+			fmt.Println(infoStyle.Render(fmt.Sprintf("  - Pod %d: %s (image: %s)", i+1, pod.Name, pod.Image)))
+		}
+	}
+
+	// Ensure the converted config is valid
+	if validationErrs := schema.Validate(config); len(validationErrs) > 0 {
+		// Combine validation errors into a single message
+		errMsgs := make([]string, 0, len(validationErrs))
+		for _, validErr := range validationErrs {
+			errMsgs = append(errMsgs, validErr.Error())
+		}
+		errStr := strings.Join(errMsgs, "; ")
+
+		fmt.Println(warningStyle.Render(fmt.Sprintf("⚠️ Warning: Converted Docker Compose file produced an invalid Nexlayer YAML: %s", errStr)))
+		return nil, fmt.Errorf("validation failed: %s", errStr)
+	}
+
+	fmt.Println(infoStyle.Render("✅ Successfully converted Docker Compose to Nexlayer YAML"))
+
+	return config, nil
 }

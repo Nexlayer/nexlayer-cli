@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
+	"gopkg.in/yaml.v3"
 )
 
 // ProjectDetector defines the interface for project detection
@@ -404,30 +405,105 @@ type DockerDetector struct{}
 func (d *DockerDetector) Priority() int { return 50 }
 
 func (d *DockerDetector) Detect(dir string) (*types.ProjectInfo, error) {
+	fmt.Println("🐳 DockerDetector running in directory:", dir)
 	// Check for Dockerfile or docker-compose.yml
 	dockerfilePath := filepath.Join(dir, "Dockerfile")
-	composePath := filepath.Join(dir, "docker-compose.yml")
-	if _, err := os.Stat(dockerfilePath); err != nil {
-		if _, err := os.Stat(composePath); err != nil {
-			return nil, nil
-		}
+	composePathYml := filepath.Join(dir, "docker-compose.yml")
+	composePathYaml := filepath.Join(dir, "docker-compose.yaml")
+
+	hasDockerfile := false
+	hasCompose := false
+	composePath := ""
+
+	// Check for Dockerfile
+	if _, err := os.Stat(dockerfilePath); err == nil {
+		fmt.Println("🐳 Found Dockerfile")
+		hasDockerfile = true
 	}
 
-	// Try to determine port from Dockerfile or docker-compose.yml
+	// Check for docker-compose.yml or docker-compose.yaml
+	if _, err := os.Stat(composePathYml); err == nil {
+		fmt.Println("🐳 Found docker-compose.yml")
+		hasCompose = true
+		composePath = composePathYml
+	} else if _, err := os.Stat(composePathYaml); err == nil {
+		fmt.Println("🐳 Found docker-compose.yaml")
+		hasCompose = true
+		composePath = composePathYaml
+	}
+
+	// If neither exists, not a Docker project
+	if !hasDockerfile && !hasCompose {
+		fmt.Println("🐳 No Docker files found")
+		return nil, nil
+	}
+
+	// Try to determine port from Dockerfile
 	port := 80 // Default Docker port
-	if content, err := os.ReadFile(dockerfilePath); err == nil {
-		contentStr := string(content)
-		if strings.Contains(contentStr, "EXPOSE") {
-			port = parsePort(contentStr)
+	if hasDockerfile {
+		if content, err := os.ReadFile(dockerfilePath); err == nil {
+			contentStr := string(content)
+			if strings.Contains(contentStr, "EXPOSE") {
+				port = parsePort(contentStr)
+			}
 		}
 	}
 
-	return &types.ProjectInfo{
-		Type:    types.TypeDockerRaw,
-		Port:    port,
-		Name:    filepath.Base(dir),
-		Version: "", // Version could be extracted from Dockerfile if needed
-	}, nil
+	// For docker-compose, we'll let the compose converter handle port mapping later
+
+	// Extract docker-compose services if available
+	var services []string
+	var dependencies map[string]string
+
+	if hasCompose && composePath != "" {
+		services = extractComposeServices(composePath)
+		// Create dependencies map with docker-compose services
+		dependencies = map[string]string{
+			"docker-compose": strings.Join(services, ","),
+		}
+		fmt.Println("🐳 Extracted services:", services)
+	} else {
+		// Initialize an empty dependencies map
+		dependencies = make(map[string]string)
+	}
+
+	// Create the project info
+	info := &types.ProjectInfo{
+		Type:         types.TypeDockerRaw,
+		Port:         port,
+		Name:         filepath.Base(dir),
+		Version:      "", // Version could be extracted from Dockerfile if needed
+		HasDocker:    true,
+		Dependencies: dependencies,
+	}
+
+	fmt.Printf("🐳 Returning Docker project info: %+v\n", info)
+	return info, nil
+}
+
+// extractComposeServices extracts service names from a docker-compose.yml file
+func extractComposeServices(composePath string) []string {
+	content, err := os.ReadFile(composePath)
+	if err != nil {
+		return nil
+	}
+
+	var compose struct {
+		Services map[string]struct {
+			Image string `yaml:"image"`
+		} `yaml:"services"`
+	}
+
+	if err := yaml.Unmarshal(content, &compose); err != nil {
+		return nil
+	}
+
+	services := make([]string, 0, len(compose.Services))
+	for name := range compose.Services {
+		services = append(services, name)
+	}
+
+	return services
 }
 
 // MERNDetector detects MERN stack projects (MongoDB + Express + React + Node.js)
