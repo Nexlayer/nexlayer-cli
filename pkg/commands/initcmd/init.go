@@ -23,7 +23,6 @@ import (
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/schema"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
 	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/schema"
 )
 
 const (
@@ -216,9 +215,9 @@ func applyUserOverrides(info *types.ProjectInfo, opts *InitOptions) error {
 }
 
 // generateConfiguration creates a minimal but complete nexlayer.yaml configuration
-func generateConfiguration(info *types.ProjectInfo, opts *InitOptions) (*template.NexlayerYAML, error) {
-	// Create base configuration using schema types first for validation
-	schemaConfig := &schema.NexlayerYAML{
+func generateConfiguration(info *types.ProjectInfo, opts *InitOptions) (*schema.NexlayerYAML, error) {
+	// Create base configuration
+	config := &schema.NexlayerYAML{
 		Application: schema.Application{
 			Name: info.Name,
 			Pods: []schema.Pod{},
@@ -227,21 +226,20 @@ func generateConfiguration(info *types.ProjectInfo, opts *InitOptions) (*templat
 
 	// Add main pod
 	mainPod := generateMainPod(info, opts)
-	schemaConfig.Application.Pods = append(schemaConfig.Application.Pods, mainPod)
+	config.Application.Pods = append(config.Application.Pods, mainPod)
 
 	// Add database if needed
 	if hasDatabase(info) {
 		dbPod := generateDatabasePod(info)
-		schemaConfig.Application.Pods = append(schemaConfig.Application.Pods, dbPod)
+		config.Application.Pods = append(config.Application.Pods, dbPod)
 	}
 
 	// Add AI configurations if detected
 	if info.LLMProvider != "" {
-		addAIConfigurations(schemaConfig, info)
+		addAIConfigurations(config, info)
 	}
 
-	// Convert schema config to template.NexlayerYAML for serialization
-	return template.FromSchemaType(schemaConfig), nil
+	return config, nil
 }
 
 // generateMainPod creates the main pod configuration based on project type
@@ -275,8 +273,13 @@ func generateMainPod(info *types.ProjectInfo, opts *InitOptions) schema.Pod {
 	if port == 0 {
 		port = info.Port
 	}
-	pod.ServicePorts = []interface{}{
-		port,
+	pod.ServicePorts = []schema.ServicePort{
+		{
+			Name:       "http",
+			Port:       port,
+			TargetPort: port,
+			Protocol:   "TCP",
+		},
 	}
 
 	// Set path for web/api pods
@@ -366,8 +369,13 @@ func generateDatabasePod(info *types.ProjectInfo) schema.Pod {
 		Name:  fmt.Sprintf("db-%s", dbType),
 		Type:  dbType,
 		Image: fmt.Sprintf("%s:latest", dbType),
-		ServicePorts: []interface{}{
-			dbPort,
+		ServicePorts: []schema.ServicePort{
+			{
+				Name:       "db",
+				Port:       dbPort,
+				TargetPort: dbPort,
+				Protocol:   "TCP",
+			},
 		},
 		Volumes: []schema.Volume{
 			{
@@ -391,17 +399,10 @@ func generateDatabasePod(info *types.ProjectInfo) schema.Pod {
 }
 
 // validateConfiguration ensures the configuration is valid
-func validateConfiguration(config *template.NexlayerYAML) error {
-	// Convert template.NexlayerYAML to schema.NexlayerYAML
-	schemaConfig := config.ToSchemaType()
-
+func validateConfiguration(config *schema.NexlayerYAML) error {
 	// Validate using schema validator
-	validator := schema.NewValidator(true)
-	errors := validator.ValidateYAML(schemaConfig)
-	if len(errors) > 0 {
-		report := schema.NewValidationReport()
-		report.AddErrors(errors)
-		return fmt.Errorf("validation failed:\n%s", report.String())
+	if err := schema.Validate(config); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
 	}
 
 	return nil
@@ -635,22 +636,23 @@ func saveToCache(dir string, info *types.ProjectInfo) error {
 }
 
 // writeYAMLToFile writes the template to a YAML file
-func writeYAMLToFile(filename string, tmpl *template.NexlayerYAML) error {
+func writeYAMLToFile(filename string, tmpl *schema.NexlayerYAML) error {
 	// Create backup if file exists
 	if _, err := os.Stat(filename); err == nil {
-		backupFile := filename + ".backup"
+		backupFile := filename + ".bak"
 		if err := os.Rename(filename, backupFile); err != nil {
 			return fmt.Errorf("failed to create backup: %w", err)
 		}
-		fmt.Printf("📦 Backed up existing %s to %s\n", filename, backupFile)
+		fmt.Printf("Created backup: %s\n", backupFile)
 	}
 
-	// Write new file
+	// Marshal configuration to YAML
 	data, err := yaml.Marshal(tmpl)
 	if err != nil {
 		return fmt.Errorf("failed to marshal YAML: %w", err)
 	}
 
+	// Write to file
 	if err := os.WriteFile(filename, data, 0644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
@@ -671,28 +673,17 @@ func addAIConfigurations(tmpl *schema.NexlayerYAML, info *types.ProjectInfo) {
 	}
 }
 
-// printSuccessMessage prints a detailed success message
-func printSuccessMessage(info *types.ProjectInfo, config *template.NexlayerYAML) {
+// printSuccessMessage displays a success message with next steps
+func printSuccessMessage(info *types.ProjectInfo, config *schema.NexlayerYAML) {
 	fmt.Println(successStyle.Render("\n✨ Project initialized successfully!"))
-	fmt.Println(infoStyle.Render("\nDetected Configuration:"))
-	fmt.Printf("• Project Type: %s\n", info.Type)
-	if info.Version != "" {
-		fmt.Printf("• Version: %s\n", info.Version)
-	}
-	if info.LLMProvider != "" {
-		fmt.Printf("• AI Integration: %s (%s)\n", info.LLMProvider, info.LLMModel)
-	}
-	fmt.Printf("• Port: %d\n", info.Port)
+	fmt.Printf("Created nexlayer.yaml for %s project\n", info.Type)
+	fmt.Printf("Application: %s\n", config.Application.Name)
+	fmt.Printf("Pods: %d\n", len(config.Application.Pods))
 
-	// Use the config parameter to show additional information
-	if len(config.Application.Pods) > 0 {
-		fmt.Printf("• Main Pod: %s\n", config.Application.Pods[0].Name)
-	}
-
-	fmt.Println(infoStyle.Render("\nNext Steps:"))
-	fmt.Println("1. Review nexlayer.yaml")
+	fmt.Println("\n📝 Next steps:")
+	fmt.Println("1. Review the generated nexlayer.yaml file")
 	fmt.Println("2. Run 'nexlayer deploy' to deploy your application")
-	fmt.Println("3. Run 'nexlayer help' for more commands")
+	fmt.Println("3. Run 'nexlayer watch' to monitor your deployment")
 }
 
 // hasDatabase checks if the project needs a database

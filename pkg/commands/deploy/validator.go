@@ -23,12 +23,12 @@ type ValidationError struct {
 
 // Validator holds the configuration and collects validation errors
 type Validator struct {
-	config *template.NexlayerYAML
+	config *schema.NexlayerYAML
 	errors []ValidationError
 }
 
 // NewValidator creates a new Validator instance
-func NewValidator(config *template.NexlayerYAML) *Validator {
+func NewValidator(config *schema.NexlayerYAML) *Validator {
 	return &Validator{config: config}
 }
 
@@ -119,10 +119,10 @@ func (v *Validator) validateRegistryLogin() {
 			})
 		}
 
-		if rl.Password == "" {
+		if rl.PersonalAccessToken == "" {
 			v.errors = append(v.errors, ValidationError{
-				Field:   "application.registryLogin.password",
-				Message: "registry password is required when registryLogin is present",
+				Field:   "application.registryLogin.personalAccessToken",
+				Message: "registry personal access token is required when registryLogin is present",
 			})
 		}
 	}
@@ -157,49 +157,42 @@ func (v *Validator) validatePods() {
 		}
 		podNames[pod.Name] = true
 
-		// Convert PodYAML to Pod for validation
-		validationPod := template.Pod{
-			Name:         pod.Name,
-			Image:        pod.Image,
-			ServicePorts: make([]template.ServicePort, 0),
-			Vars:         make([]template.EnvVar, 0),
-			Volumes:      make([]template.Volume, 0),
-		}
-		v.validatePod(i, validationPod)
+		// Validate pod directly
+		v.validatePod(pod)
 	}
 
 	// Note: Environment variable validation is handled by the template package's own validation
 }
 
-// validatePod validates a single pod configuration
-func (v *Validator) validatePod(index int, pod template.Pod) {
-	// Validate required fields
+// validatePod validates a pod configuration
+func (v *Validator) validatePod(pod schema.Pod) {
+	// Validate pod name
 	if pod.Name == "" {
 		v.errors = append(v.errors, ValidationError{
-			Field:   fmt.Sprintf("pods[%d].name", index),
+			Field:   "pod.name",
 			Message: "pod name is required",
 		})
 	} else if !isValidPodName(pod.Name) {
 		v.errors = append(v.errors, ValidationError{
-			Field:   fmt.Sprintf("pods[%d].name", index),
+			Field:   "pod.name",
 			Message: fmt.Sprintf("invalid pod name: %s", pod.Name),
 			Suggestions: []string{
 				"Pod names must start with a lowercase letter",
 				"Use only lowercase letters, numbers, and hyphens",
-				"Example: web-server, api-v1, db-postgres",
 			},
 		})
 	}
 
+	// Validate image
 	if pod.Image == "" {
 		v.errors = append(v.errors, ValidationError{
-			Field:   fmt.Sprintf("pods[%d].image", index),
+			Field:   "pod.image",
 			Message: "pod image is required",
 		})
 	} else if strings.Contains(pod.Image, "<% REGISTRY %>") {
 		if !strings.HasPrefix(pod.Image, "<% REGISTRY %>/") {
 			v.errors = append(v.errors, ValidationError{
-				Field:   fmt.Sprintf("pods[%d].image", index),
+				Field:   "pod.image",
 				Message: "private images must start with '<% REGISTRY %>/'",
 				Suggestions: []string{
 					"Example: <% REGISTRY %>/myapp/backend:v1.0.0",
@@ -211,17 +204,17 @@ func (v *Validator) validatePod(index int, pod template.Pod) {
 	// Validate service ports
 	if len(pod.ServicePorts) == 0 {
 		v.errors = append(v.errors, ValidationError{
-			Field:   fmt.Sprintf("pods[%d].servicePorts", index),
+			Field:   "pod.servicePorts",
 			Message: "at least one service port is required",
 		})
 	} else {
-		// Check for duplicate port names and numbers
 		portNames := make(map[string]bool)
 		portNumbers := make(map[int]bool)
-		for j, port := range pod.ServicePorts {
+
+		for i, port := range pod.ServicePorts {
 			if port.Name == "" {
 				v.errors = append(v.errors, ValidationError{
-					Field:   fmt.Sprintf("pods[%d].servicePorts[%d].name", index, j),
+					Field:   fmt.Sprintf("pod.servicePorts[%d].name", i),
 					Message: "port name is required",
 					Suggestions: []string{
 						"Use descriptive names like 'http', 'api', or 'metrics'",
@@ -229,64 +222,53 @@ func (v *Validator) validatePod(index int, pod template.Pod) {
 				})
 			} else if !isValidName(port.Name) {
 				v.errors = append(v.errors, ValidationError{
-					Field:   fmt.Sprintf("pods[%d].servicePorts[%d].name", index, j),
+					Field:   fmt.Sprintf("pod.servicePorts[%d].name", i),
 					Message: "port name must be lowercase alphanumeric with hyphens",
 				})
 			} else if portNames[port.Name] {
 				v.errors = append(v.errors, ValidationError{
-					Field:   fmt.Sprintf("pods[%d].servicePorts[%d].name", index, j),
+					Field:   fmt.Sprintf("pod.servicePorts[%d].name", i),
 					Message: fmt.Sprintf("duplicate port name: %s", port.Name),
 				})
 			}
-			portNames[port.Name] = true
 
 			if port.Port < 1 || port.Port > 65535 {
 				v.errors = append(v.errors, ValidationError{
-					Field:   fmt.Sprintf("pods[%d].servicePorts[%d].port", index, j),
-					Message: fmt.Sprintf("invalid port number: %d (must be between 1 and 65535)", port.Port),
+					Field:   fmt.Sprintf("pod.servicePorts[%d].port", i),
+					Message: "port must be between 1 and 65535",
 				})
 			} else if portNumbers[port.Port] {
 				v.errors = append(v.errors, ValidationError{
-					Field:   fmt.Sprintf("pods[%d].servicePorts[%d].port", index, j),
+					Field:   fmt.Sprintf("pod.servicePorts[%d].port", i),
 					Message: fmt.Sprintf("duplicate port number: %d", port.Port),
 				})
 			}
+
+			portNames[port.Name] = true
 			portNumbers[port.Port] = true
-
-			if port.TargetPort != 0 && (port.TargetPort < 1 || port.TargetPort > 65535) {
-				v.errors = append(v.errors, ValidationError{
-					Field:   fmt.Sprintf("pods[%d].servicePorts[%d].targetPort", index, j),
-					Message: fmt.Sprintf("invalid target port number: %d (must be between 1 and 65535)", port.TargetPort),
-				})
-			}
-
-			if port.Protocol != "" && !isValidProtocol(port.Protocol) {
-				v.errors = append(v.errors, ValidationError{
-					Field:   fmt.Sprintf("pods[%d].servicePorts[%d].protocol", index, j),
-					Message: fmt.Sprintf("invalid protocol: %s", port.Protocol),
-					Suggestions: []string{
-						"Valid protocols: TCP, UDP, SCTP",
-					},
-				})
-			}
 		}
 	}
 
-	// Validate volumes if present
+	// Validate volumes
 	if len(pod.Volumes) > 0 {
 		volumeNames := make(map[string]bool)
-		for j, volume := range pod.Volumes {
-			v.validateVolume(index, j, volume, volumeNames)
+		for i, volume := range pod.Volumes {
+			v.validateVolume(i, volume, volumeNames)
 		}
 	}
 
 	// Validate environment variables
 	if len(pod.Vars) > 0 {
 		envVarNames := make(map[string]bool)
-		for _, env := range pod.Vars {
-			if envVarNames[env.Key] {
+		for i, env := range pod.Vars {
+			if env.Key == "" {
 				v.errors = append(v.errors, ValidationError{
-					Field:   fmt.Sprintf("pods[%d].vars[%s]", index, env.Key),
+					Field:   fmt.Sprintf("pod.vars[%d].key", i),
+					Message: "environment variable key is required",
+				})
+			} else if envVarNames[env.Key] {
+				v.errors = append(v.errors, ValidationError{
+					Field:   fmt.Sprintf("pod.vars[%d].key", i),
 					Message: fmt.Sprintf("duplicate environment variable: %s", env.Key),
 				})
 			}
@@ -296,59 +278,62 @@ func (v *Validator) validatePod(index int, pod template.Pod) {
 }
 
 // validateVolume validates a volume configuration
-func (v *Validator) validateVolume(podIndex, volumeIndex int, volume template.Volume, volumeNames map[string]bool) {
+func (v *Validator) validateVolume(podIndex int, volume schema.Volume, volumeNames map[string]bool) {
 	if volume.Name == "" {
 		v.errors = append(v.errors, ValidationError{
-			Field:   fmt.Sprintf("pods[%d].volumes[%d].name", podIndex, volumeIndex),
+			Field:   fmt.Sprintf("pods[%d].volumes.name", podIndex),
 			Message: "volume name is required",
 		})
 	} else if !isValidName(volume.Name) {
 		v.errors = append(v.errors, ValidationError{
-			Field:   fmt.Sprintf("pods[%d].volumes[%d].name", podIndex, volumeIndex),
+			Field:   fmt.Sprintf("pods[%d].volumes.name", podIndex),
 			Message: "volume name must be lowercase alphanumeric with hyphens",
 		})
 	} else if volumeNames[volume.Name] {
 		v.errors = append(v.errors, ValidationError{
-			Field:   fmt.Sprintf("pods[%d].volumes[%d].name", podIndex, volumeIndex),
+			Field:   fmt.Sprintf("pods[%d].volumes.name", podIndex),
 			Message: fmt.Sprintf("duplicate volume name: %s", volume.Name),
 		})
 	}
-	volumeNames[volume.Name] = true
 
 	if volume.Path == "" {
 		v.errors = append(v.errors, ValidationError{
-			Field:   fmt.Sprintf("pods[%d].volumes[%d].path", podIndex, volumeIndex),
+			Field:   fmt.Sprintf("pods[%d].volumes.path", podIndex),
 			Message: "volume path is required",
+			Suggestions: []string{
+				"Volume paths must be absolute paths starting with '/'",
+			},
 		})
 	} else if !strings.HasPrefix(volume.Path, "/") {
 		v.errors = append(v.errors, ValidationError{
-			Field:   fmt.Sprintf("pods[%d].volumes[%d].path", podIndex, volumeIndex),
+			Field:   fmt.Sprintf("pods[%d].volumes.path", podIndex),
 			Message: fmt.Sprintf("volume path must start with '/': %s", volume.Path),
 			Suggestions: []string{
-				fmt.Sprintf("Change to '/%s'", strings.TrimPrefix(volume.Path, "/")),
+				"Volume paths must be absolute paths starting with '/'",
 			},
 		})
 	}
 
 	if volume.Size == "" {
 		v.errors = append(v.errors, ValidationError{
-			Field:   fmt.Sprintf("pods[%d].volumes[%d].size", podIndex, volumeIndex),
+			Field:   fmt.Sprintf("pods[%d].volumes.size", podIndex),
 			Message: "volume size is required",
 			Suggestions: []string{
-				"Specify size with units (e.g., 1Gi, 500Mi)",
+				"Specify size in Ki, Mi, or Gi (e.g., '1Gi', '500Mi')",
 			},
 		})
 	} else if !isValidVolumeSize(volume.Size) {
 		v.errors = append(v.errors, ValidationError{
-			Field:   fmt.Sprintf("pods[%d].volumes[%d].size", podIndex, volumeIndex),
+			Field:   fmt.Sprintf("pods[%d].volumes.size", podIndex),
 			Message: fmt.Sprintf("invalid volume size format: %s", volume.Size),
 			Suggestions: []string{
-				"Use format: <number><unit>",
-				"Valid units: Ki, Mi, Gi, Ti",
-				"Example: 1Gi, 500Mi",
+				"Use format: <number><unit> where unit is Ki, Mi, or Gi",
+				"Examples: 1Gi, 500Mi, 2048Ki",
 			},
 		})
 	}
+
+	volumeNames[volume.Name] = true
 }
 
 // Helper functions for validation
@@ -607,15 +592,70 @@ func (v *Validator) formatErrors() error {
 }
 
 // ValidatePod validates a single pod configuration
-func ValidatePod(pod template.Pod) error {
-	validator := NewValidator(&template.NexlayerYAML{
-		Application: template.ApplicationYAML{
+func ValidatePod(pod schema.Pod) error {
+	validator := NewValidator(&schema.NexlayerYAML{
+		Application: schema.Application{
 			Name: "temp",
-			Pods: []template.PodYAML{{
-				Name:  pod.Name,
-				Image: pod.Image,
-			}},
+			Pods: []schema.Pod{pod},
 		},
 	})
 	return validator.Validate()
+}
+
+// validateTemplate validates a template configuration
+func validateTemplate(tmpl *schema.NexlayerYAML) error {
+	if tmpl == nil {
+		return fmt.Errorf("template is nil")
+	}
+
+	// Validate application
+	if tmpl.Application.Name == "" {
+		return fmt.Errorf("application name is required")
+	}
+
+	// Validate pods
+	if len(tmpl.Application.Pods) == 0 {
+		return fmt.Errorf("at least one pod is required")
+	}
+
+	for _, pod := range tmpl.Application.Pods {
+		if err := validatePod(pod); err != nil {
+			return fmt.Errorf("invalid pod %s: %w", pod.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// validatePod validates a pod configuration
+func validatePod(pod schema.Pod) error {
+	// Validate pod name
+	if pod.Name == "" {
+		return fmt.Errorf("pod name is required")
+	}
+
+	// Validate image
+	if pod.Image == "" {
+		return fmt.Errorf("image is required for pod %s", pod.Name)
+	}
+
+	// Validate service ports
+	if len(pod.ServicePorts) == 0 {
+		return fmt.Errorf("at least one service port is required for pod %s", pod.Name)
+	}
+
+	// Validate service ports
+	for _, port := range pod.ServicePorts {
+		if port.Name == "" {
+			return fmt.Errorf("port name is required for pod %s", pod.Name)
+		}
+		if port.Port < 1 || port.Port > 65535 {
+			return fmt.Errorf("invalid port number %d for pod %s (must be between 1 and 65535)", port.Port, pod.Name)
+		}
+		if port.TargetPort < 1 || port.TargetPort > 65535 {
+			return fmt.Errorf("invalid target port number %d for pod %s (must be between 1 and 65535)", port.TargetPort, pod.Name)
+		}
+	}
+
+	return nil
 }

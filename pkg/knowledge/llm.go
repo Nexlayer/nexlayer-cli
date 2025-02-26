@@ -66,7 +66,7 @@ func (e *LLMEnricher) LoadMetadata() error {
 }
 
 // EnrichContext creates an enriched context for LLM interactions
-func (e *LLMEnricher) EnrichContext(ctx context.Context, yamlConfig *template.NexlayerYAML) (*LLMContext, error) {
+func (e *LLMEnricher) EnrichContext(ctx context.Context, yamlConfig *schema.NexlayerYAML) (*LLMContext, error) {
 	enriched := &LLMContext{
 		ProjectStructure: make(map[string]interface{}),
 		Dependencies:     make(map[string]string),
@@ -201,7 +201,7 @@ func (e *LLMEnricher) EnrichContext(ctx context.Context, yamlConfig *template.Ne
 }
 
 // GeneratePrompt generates an LLM prompt with enriched context
-func (e *LLMEnricher) GeneratePrompt(ctx context.Context, basePrompt string, yamlConfig *template.NexlayerYAML) (string, error) {
+func (e *LLMEnricher) GeneratePrompt(ctx context.Context, basePrompt string, yamlConfig *schema.NexlayerYAML) (string, error) {
 	enriched, err := e.EnrichContext(ctx, yamlConfig)
 	if err != nil {
 		return "", fmt.Errorf("failed to enrich context: %w", err)

@@ -30,9 +30,9 @@ func (g *Generator) GenerateFromProjectInfo(name, podType string, port int) (*Ne
 
 	// Create base template
 	tmpl := &NexlayerYAML{
-		Application: ApplicationYAML{
+		Application: Application{
 			Name: name,
-			Pods: make([]PodYAML, 0),
+			Pods: make([]Pod, 0),
 		},
 	}
 
@@ -42,132 +42,32 @@ func (g *Generator) GenerateFromProjectInfo(name, podType string, port int) (*Ne
 		return nil, fmt.Errorf("failed to create pod: %w", err)
 	}
 
-	// Convert Pod to PodYAML
-	podYAML := PodYAML{
-		Name:         pod.Name,
-		Type:         pod.Type,
-		Path:         pod.Path,
-		Image:        pod.Image,
-		Command:      pod.Command,
-		Entrypoint:   pod.Entrypoint,
-		ServicePorts: pod.ServicePorts,
-		Vars:         pod.Vars,
-		Volumes:      pod.Volumes,
-		Secrets:      pod.Secrets,
-		Annotations:  pod.Annotations,
-	}
-	tmpl.Application.Pods = append(tmpl.Application.Pods, podYAML)
-
+	tmpl.Application.Pods = append(tmpl.Application.Pods, pod)
 	return tmpl, nil
 }
 
 // createPodForType creates a pod configuration based on the project type
-func (g *Generator) createPodForType(name, podType string, port int) (*Pod, error) {
-	// Use default port if none specified
-	if port == 0 {
-		if defaultPort, ok := DefaultPorts[podType]; ok {
-			port = defaultPort
-		} else {
-			port = 8080 // Fallback default
-		}
-	}
-
-	// Create base pod
-	pod := &Pod{
-		Name: "web",
-		Type: podType,
-		// Use schema-compliant registry format for private images
-		Image: fmt.Sprintf("%s/%s:%s", RegistryPlaceholder, name, g.Tag),
+func (g *Generator) createPodForType(name, podType string, port int) (Pod, error) {
+	pod := Pod{
+		Name:  name,
+		Type:  podType,
+		Image: g.getImageForType(podType),
 		ServicePorts: []ServicePort{
 			{
 				Name:       "http",
 				Port:       port,
 				TargetPort: port,
-				Protocol:   ProtocolTCP,
+				Protocol:   "TCP",
 			},
 		},
 	}
 
-	// Add default environment variables
-	if defaultVars, ok := DefaultEnvVars[podType]; ok {
-		pod.Vars = defaultVars
-	}
-
-	// Configure pod based on type
+	// Add type-specific configuration
 	switch podType {
-	case PodTypeNextJS, PodTypeReact, PodTypeVue:
+	case "nextjs", "react":
 		pod.Path = "/"
-		pod.Type = podType // Ensure specific frontend type
-		// Add URL reference for frontend
-		pod.Vars = append(pod.Vars, EnvVar{
-			Key:   "PUBLIC_URL",
-			Value: URLPlaceholder,
-		})
-
-	case PodTypeNode, PodTypeExpress:
-		pod.Name = "api"
+	case "express", "fastapi":
 		pod.Path = "/api"
-		pod.Type = podType // Keep original type for Node.js
-		// Add dynamic pod reference for database if needed
-		pod.Vars = append(pod.Vars, EnvVar{
-			Key:   "DATABASE_URL",
-			Value: "postgresql://postgres:postgres@postgres.pod:5432/app",
-		})
-
-	case PodTypePython, PodTypeDjango, PodTypeFastAPI:
-		pod.Name = "api"
-		pod.Path = "/api"
-		pod.Type = PodTypeBackend
-		// Add dynamic pod reference for database if needed
-		pod.Vars = append(pod.Vars, EnvVar{
-			Key:   "DATABASE_URL",
-			Value: "postgresql://postgres:postgres@postgres.pod:5432/app",
-		})
-
-	case PodTypeGolang:
-		pod.Name = "api"
-		pod.Path = "/api"
-		pod.Type = PodTypeBackend
-		// Add dynamic pod reference for database if needed
-		pod.Vars = append(pod.Vars, EnvVar{
-			Key:   "DATABASE_URL",
-			Value: "postgresql://postgres:postgres@postgres.pod:5432/app",
-		})
-
-	case PodTypePostgres, PodTypeMongoDB, PodTypeRedis:
-		pod.Name = strings.ToLower(strings.TrimPrefix(podType, "PodType"))
-		pod.Type = podType
-		// Use public image for databases
-		pod.Image = fmt.Sprintf("%s:latest", pod.Name)
-		// Add default volume for databases
-		pod.Volumes = []Volume{
-			{
-				Name:     fmt.Sprintf("%s-data", pod.Name),
-				Path:     fmt.Sprintf("/var/lib/%s/data", pod.Name),
-				Size:     "1Gi",
-				Type:     VolumeTypePersistent,
-				ReadOnly: false,
-			},
-		}
-		// Add default environment variables for databases
-		switch podType {
-		case PodTypePostgres:
-			pod.Vars = append(pod.Vars, []EnvVar{
-				{Key: "POSTGRES_USER", Value: "postgres"},
-				{Key: "POSTGRES_PASSWORD", Value: "<% DB_PASSWORD %>"},
-				{Key: "POSTGRES_DB", Value: "app"},
-			}...)
-		case PodTypeMongoDB:
-			pod.Vars = append(pod.Vars, []EnvVar{
-				{Key: "MONGO_INITDB_ROOT_USERNAME", Value: "root"},
-				{Key: "MONGO_INITDB_ROOT_PASSWORD", Value: "<% MONGO_ROOT_PASSWORD %>"},
-			}...)
-		case PodTypeRedis:
-			pod.Vars = append(pod.Vars, EnvVar{
-				Key:   "REDIS_PASSWORD",
-				Value: "<% REDIS_PASSWORD %>",
-			})
-		}
 	}
 
 	return pod, nil
@@ -220,21 +120,7 @@ func (g *Generator) AddPod(tmpl *NexlayerYAML, podType string, port int) error {
 		counter++
 	}
 
-	// Convert Pod to PodYAML
-	podYAML := PodYAML{
-		Name:         pod.Name,
-		Type:         pod.Type,
-		Path:         pod.Path,
-		Image:        pod.Image,
-		Command:      pod.Command,
-		Entrypoint:   pod.Entrypoint,
-		ServicePorts: pod.ServicePorts,
-		Vars:         pod.Vars,
-		Volumes:      pod.Volumes,
-		Secrets:      pod.Secrets,
-		Annotations:  pod.Annotations,
-	}
-	tmpl.Application.Pods = append(tmpl.Application.Pods, podYAML)
+	tmpl.Application.Pods = append(tmpl.Application.Pods, pod)
 	return nil
 }
 
@@ -259,6 +145,78 @@ func (g *Generator) SetTag(tmpl *NexlayerYAML, tag string) {
 		} else {
 			// Add tag if none exists
 			tmpl.Application.Pods[i].Image = fmt.Sprintf("%s:%s", pod.Image, tag)
+		}
+	}
+}
+
+// getImageForType returns the appropriate image for a given pod type
+func (g *Generator) getImageForType(podType string) string {
+	switch podType {
+	case "nextjs":
+		return fmt.Sprintf("%v/nextjs:%v", "<% REGISTRY %>", g.Tag)
+	case "react":
+		return fmt.Sprintf("%v/react:%v", "<% REGISTRY %>", g.Tag)
+	case "express":
+		return fmt.Sprintf("%v/express:%v", "<% REGISTRY %>", g.Tag)
+	case "fastapi":
+		return fmt.Sprintf("%v/fastapi:%v", "<% REGISTRY %>", g.Tag)
+	default:
+		return fmt.Sprintf("%v/%v:%v", "<% REGISTRY %>", podType, g.Tag)
+	}
+}
+
+// GenerateFromTemplate generates a template from an existing template
+func (g *Generator) GenerateFromTemplate(source *NexlayerYAML) (*NexlayerYAML, error) {
+	if source == nil {
+		return nil, fmt.Errorf("source configuration is nil")
+	}
+
+	// Create a copy of the source configuration
+	copy := &NexlayerYAML{
+		Application: Application{
+			Name: source.Application.Name,
+			URL:  source.Application.URL,
+			Pods: make([]Pod, len(source.Application.Pods)),
+		},
+	}
+
+	// Copy pods
+	for i, pod := range source.Application.Pods {
+		copy.Application.Pods[i] = pod
+	}
+
+	return copy, nil
+}
+
+// AddAIConfigurations adds AI-specific configurations to the template
+func (g *Generator) AddAIConfigurations(tmpl *NexlayerYAML, provider string) {
+	// Add environment variables for AI configuration
+	for _, pod := range tmpl.Application.Pods {
+		// Only add AI configs to application pods
+		if pod.Type == "nextjs" || pod.Type == "react" || pod.Type == "express" || pod.Type == "fastapi" {
+			pod.Vars = append(pod.Vars, EnvVar{
+				Key:   "LLM_PROVIDER",
+				Value: provider,
+			})
+
+			// Add provider-specific configurations
+			switch provider {
+			case "openai":
+				pod.Vars = append(pod.Vars, EnvVar{
+					Key:   "OPENAI_API_KEY",
+					Value: "<% OPENAI_API_KEY %>",
+				})
+			case "anthropic":
+				pod.Vars = append(pod.Vars, EnvVar{
+					Key:   "ANTHROPIC_API_KEY",
+					Value: "<% ANTHROPIC_API_KEY %>",
+				})
+			case "cohere":
+				pod.Vars = append(pod.Vars, EnvVar{
+					Key:   "COHERE_API_KEY",
+					Value: "<% COHERE_API_KEY %>",
+				})
+			}
 		}
 	}
 }

@@ -6,6 +6,7 @@ package schema
 
 import (
 	"context"
+	"fmt"
 	"sync"
 )
 
@@ -41,8 +42,8 @@ func getDefaultProcessor() VariableProcessor {
 	return defaultProcessor
 }
 
-// Process is a convenience function to process a template string
-func Process(ctx context.Context, input string, varCtx VariableContext) (string, error) {
+// ProcessString is a convenience function to process a template string
+func ProcessString(ctx context.Context, input string, varCtx VariableContext) (string, error) {
 	return GetProcessor(ctx).Process(input, varCtx)
 }
 
@@ -69,4 +70,53 @@ func NewContextFromConfig(config *NexlayerYAML) VariableContext {
 // NewContext is a convenience function to create a new variable context
 func NewContext() *DefaultVariableContext {
 	return NewVariableContext()
+}
+
+// Service provides high-level schema management functionality
+type Service struct {
+	processor VariableProcessor
+}
+
+// NewService creates a new schema service
+func NewService() *Service {
+	return &Service{
+		processor: NewVariableProcessor(),
+	}
+}
+
+// ProcessConfig processes a Nexlayer YAML configuration
+func (s *Service) ProcessConfig(config *NexlayerYAML) error {
+	ctx := NewContextFromConfig(config)
+
+	// Process all string fields in the configuration
+	for i, pod := range config.Application.Pods {
+		// Process image
+		processedImage, err := s.processor.Process(pod.Image, ctx)
+		if err != nil {
+			return fmt.Errorf("failed to process pod %s image: %w", pod.Name, err)
+		}
+		config.Application.Pods[i].Image = processedImage
+
+		// Process environment variables
+		if len(pod.Vars) > 0 {
+			for j, env := range pod.Vars {
+				processedValue, err := s.processor.Process(env.Value, ctx)
+				if err != nil {
+					return fmt.Errorf("failed to process pod %s env var %s: %w", pod.Name, env.Key, err)
+				}
+				config.Application.Pods[i].Vars[j].Value = processedValue
+			}
+		}
+
+		// Process annotations if present
+		if len(pod.Annotations) > 0 {
+			processedAnnotations, err := s.processor.ProcessMap(pod.Annotations, ctx)
+			if err != nil {
+				return fmt.Errorf("failed to process pod %s annotations: %w", pod.Name, err)
+			}
+			config.Application.Pods[i].Annotations = processedAnnotations
+		}
+	}
+
+	return nil
 }

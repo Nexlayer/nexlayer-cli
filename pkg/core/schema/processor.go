@@ -406,3 +406,111 @@ func Process(config *NexlayerYAML, vars map[string]string) error {
 
 	return nil
 }
+
+// ProcessConfig processes all variables in a NexlayerYAML configuration
+func ProcessConfig(processor VariableProcessor, config *NexlayerYAML, ctx VariableContext) (*NexlayerYAML, error) {
+	if config == nil {
+		return nil, fmt.Errorf("config is nil")
+	}
+
+	// Create a deep copy of the config
+	result := &NexlayerYAML{
+		Application: Application{
+			Name: config.Application.Name,
+			URL:  config.Application.URL,
+			Pods: make([]Pod, len(config.Application.Pods)),
+		},
+	}
+
+	// Process URL
+	if result.Application.URL != "" {
+		url, err := processor.Process(result.Application.URL, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to process URL: %w", err)
+		}
+		result.Application.URL = url
+	}
+
+	// Process registry login if present
+	if config.Application.RegistryLogin != nil {
+		result.Application.RegistryLogin = &RegistryLogin{
+			Registry:            config.Application.RegistryLogin.Registry,
+			Username:            config.Application.RegistryLogin.Username,
+			PersonalAccessToken: config.Application.RegistryLogin.PersonalAccessToken,
+		}
+
+		// Process registry
+		if result.Application.RegistryLogin.Registry != "" {
+			registry, err := processor.Process(result.Application.RegistryLogin.Registry, ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to process registry: %w", err)
+			}
+			result.Application.RegistryLogin.Registry = registry
+		}
+
+		// Process personal access token
+		if result.Application.RegistryLogin.PersonalAccessToken != "" {
+			token, err := processor.Process(result.Application.RegistryLogin.PersonalAccessToken, ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to process token: %w", err)
+			}
+			result.Application.RegistryLogin.PersonalAccessToken = token
+		}
+	}
+
+	// Process pods
+	for i, pod := range config.Application.Pods {
+		// Copy basic pod info
+		result.Application.Pods[i] = Pod{
+			Name:         pod.Name,
+			Type:         pod.Type,
+			Image:        pod.Image,
+			Path:         pod.Path,
+			ServicePorts: make([]ServicePort, len(pod.ServicePorts)),
+			Vars:         make([]EnvVar, len(pod.Vars)),
+			Volumes:      make([]Volume, len(pod.Volumes)),
+		}
+
+		// Process image
+		if result.Application.Pods[i].Image != "" {
+			image, err := processor.Process(result.Application.Pods[i].Image, ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to process image for pod %s: %w", pod.Name, err)
+			}
+			result.Application.Pods[i].Image = image
+		}
+
+		// Process path
+		if result.Application.Pods[i].Path != "" {
+			path, err := processor.Process(result.Application.Pods[i].Path, ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to process path for pod %s: %w", pod.Name, err)
+			}
+			result.Application.Pods[i].Path = path
+		}
+
+		// Copy service ports
+		copy(result.Application.Pods[i].ServicePorts, pod.ServicePorts)
+
+		// Process environment variables
+		for j, v := range pod.Vars {
+			result.Application.Pods[i].Vars[j] = EnvVar{
+				Key:   v.Key,
+				Value: v.Value,
+			}
+
+			if result.Application.Pods[i].Vars[j].Value != "" {
+				value, err := processor.Process(result.Application.Pods[i].Vars[j].Value, ctx)
+				if err != nil {
+					return nil, fmt.Errorf("failed to process env var %s for pod %s: %w", v.Key, pod.Name, err)
+				}
+				result.Application.Pods[i].Vars[j].Value = value
+			}
+		}
+
+		// Copy volumes
+		copy(result.Application.Pods[i].Volumes, pod.Volumes)
+	}
+
+	return result, nil
+}

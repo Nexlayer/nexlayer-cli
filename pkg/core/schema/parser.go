@@ -85,36 +85,28 @@ func (p *Parser) MergeWithDetected(detected *NexlayerYAML) (*NexlayerYAML, error
 }
 
 // mergePods combines pod configurations from base and detected settings
-func mergePods(basePods, detectedPods []PodYAML) []PodYAML {
-	podMap := make(map[string]PodYAML)
-
-	// Add base pods to map
+func mergePods(basePods, detectedPods []Pod) []Pod {
+	// Create a map of base pods by name for quick lookup
+	basePodMap := make(map[string]Pod)
 	for _, pod := range basePods {
-		podMap[pod.Name] = pod
+		basePodMap[pod.Name] = pod
 	}
 
-	// Merge or add detected pods
+	// Create merged pod list
+	var mergedPods []Pod
 	for _, pod := range detectedPods {
-		if basePod, exists := podMap[pod.Name]; exists {
-			// Merge with existing pod
-			podMap[pod.Name] = mergePod(basePod, pod)
+		if basePod, exists := basePodMap[pod.Name]; exists {
+			mergedPods = append(mergedPods, mergePod(basePod, pod))
 		} else {
-			// Add new pod
-			podMap[pod.Name] = pod
+			mergedPods = append(mergedPods, pod)
 		}
 	}
 
-	// Convert map back to slice
-	merged := make([]PodYAML, 0, len(podMap))
-	for _, pod := range podMap {
-		merged = append(merged, pod)
-	}
-
-	return merged
+	return mergedPods
 }
 
 // mergePod combines settings from two pod configurations
-func mergePod(base, detected PodYAML) PodYAML {
+func mergePod(base, detected Pod) Pod {
 	merged := base
 
 	// Merge fields if they are set in detected

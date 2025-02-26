@@ -41,7 +41,7 @@ type Pod struct {
 	Volumes      []Volume          `yaml:"volumes,omitempty" validate:"omitempty,dive"`
 	Secrets      []Secret          `yaml:"secrets,omitempty" validate:"omitempty,dive"`
 	Vars         []EnvVar          `yaml:"vars,omitempty" validate:"omitempty,dive"`
-	ServicePorts []interface{}     `yaml:"servicePorts" validate:"required,min=1"`
+	ServicePorts []ServicePort     `yaml:"servicePorts" validate:"required,min=1,dive"`
 	Annotations  map[string]string `yaml:"annotations,omitempty" validate:"omitempty"`
 }
 
@@ -87,9 +87,9 @@ func (p *Pod) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // ServicePort represents a service port configuration
 type ServicePort struct {
-	Name       string `yaml:"name" validate:"required,alphanum"`
-	Port       int    `yaml:"port" validate:"required,gt=0,lt=65536"`
-	TargetPort int    `yaml:"targetPort" validate:"required,gt=0,lt=65536"`
+	Name       string `yaml:"name" validate:"required"`
+	Port       int    `yaml:"port" validate:"required,min=1,max=65535"`
+	TargetPort int    `yaml:"targetPort" validate:"required,min=1,max=65535"`
 	Protocol   string `yaml:"protocol,omitempty" validate:"omitempty,oneof=TCP UDP"`
 }
 

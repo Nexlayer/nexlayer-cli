@@ -97,15 +97,15 @@ func ValidateDomain(domain string) error {
 	}
 
 	// Create a minimal YAML with just the domain to validate
-	yaml := &template.NexlayerYAML{
-		Application: template.Application{
+	yaml := &schema.NexlayerYAML{
+		Application: schema.Application{
 			Name: "temp",
 			URL:  domain,
 		},
 	}
 
 	// Validate the domain URL format
-	if err := template.Validate(yaml); err != nil {
+	if err := schema.Validate(yaml); err != nil {
 		return fmt.Errorf("invalid domain format: %v", err)
 	}
 

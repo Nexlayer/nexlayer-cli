@@ -128,12 +128,10 @@ func runDeploy(client api.APIClient, yamlFile string, appID string) error {
 	}
 
 	// Validate the configuration
-	validator := schema.NewValidator(true)
-	if errors := validator.ValidateYAML(&config); len(errors) > 0 {
+	validator := NewValidator(&config)
+	if err := validator.Validate(); err != nil {
 		ui.RenderError("Validation failed")
-		for _, err := range errors {
-			fmt.Println(err)
-		}
+		fmt.Println(err)
 		return fmt.Errorf("deployment aborted due to validation errors")
 	}
 
@@ -325,14 +323,8 @@ func printTroubleshootingSteps(deployment apischema.Deployment) {
 // ValidateDeployConfig validates a deployment configuration
 // This function is exported for use by other packages
 func ValidateDeployConfig(yamlConfig *schema.NexlayerYAML) error {
-	validator := schema.NewValidator(true)
-	errors := validator.ValidateYAML(yamlConfig)
-
-	if len(errors) > 0 {
-		report := schema.NewValidationReport()
-		report.AddErrors(errors)
-		return fmt.Errorf("validation failed:\n%v", report.String())
+	if err := schema.Validate(yamlConfig); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
 	}
-
 	return nil
 }
