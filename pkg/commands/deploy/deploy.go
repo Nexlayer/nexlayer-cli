@@ -13,7 +13,7 @@ import (
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
 	apischema "github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
-	"github.com/Nexlayer/nexlayer-cli/pkg/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/schema"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"

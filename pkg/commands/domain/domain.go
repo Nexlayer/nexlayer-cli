@@ -6,10 +6,9 @@ package domain
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
-	"github.com/Nexlayer/nexlayer-cli/pkg/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/schema"
 	"github.com/spf13/cobra"
 )
 
@@ -98,22 +97,16 @@ func ValidateDomain(domain string) error {
 	}
 
 	// Create a minimal YAML with just the domain to validate
-	yaml := &schema.NexlayerYAML{
-		Application: schema.Application{
+	yaml := &template.NexlayerYAML{
+		Application: template.Application{
 			Name: "temp",
 			URL:  domain,
 		},
 	}
 
-	validator := schema.NewValidator(true)
-	errors := validator.ValidateYAML(yaml)
-
-	if len(errors) > 0 {
-		// Return the first error with suggestions
-		err := errors[0]
-		return fmt.Errorf("invalid domain name: %s\n\nSuggestions:\n• %s",
-			err.Message,
-			strings.Join(err.Suggestions, "\n• "))
+	// Validate the domain URL format
+	if err := template.Validate(yaml); err != nil {
+		return fmt.Errorf("invalid domain format: %v", err)
 	}
 
 	return nil

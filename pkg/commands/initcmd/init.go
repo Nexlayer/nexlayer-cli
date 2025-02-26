@@ -20,10 +20,10 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/template"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/schema"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
 	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
-	"github.com/Nexlayer/nexlayer-cli/pkg/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/schema"
 )
 
 const (

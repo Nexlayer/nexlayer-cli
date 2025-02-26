@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/template"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/schema"
 )
 
 // ValidationError represents a single validation error with field path and suggestions

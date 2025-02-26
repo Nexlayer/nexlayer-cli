@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
-	"github.com/Nexlayer/nexlayer-cli/pkg/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/schema"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/fsnotify/fsnotify"
 	"github.com/manifoldco/promptui"

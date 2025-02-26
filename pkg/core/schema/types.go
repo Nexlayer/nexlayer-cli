@@ -1,4 +1,8 @@
-// Package schema provides centralized schema management for Nexlayer YAML configurations.
+// Copyright (c) 2025 Nexlayer. All rights reserved.
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
+
+// Package template provides centralized schema management and template processing for Nexlayer YAML configurations.
 package schema
 
 import (

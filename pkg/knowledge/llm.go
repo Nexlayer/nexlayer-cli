@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/core/template"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/schema"
 )
 
 // LLMContext represents the enriched context for LLM interactions

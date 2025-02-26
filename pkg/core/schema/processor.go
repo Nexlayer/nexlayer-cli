@@ -2,12 +2,15 @@
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
-package template
+package schema
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // VariableProcessor defines the interface for processing template variables
@@ -349,4 +352,57 @@ func NewVariableContextFromConfig(config *NexlayerYAML) *DefaultVariableContext 
 	}
 
 	return ctx
+}
+
+// LoadFromFile loads a NexlayerYAML configuration from a file
+func LoadFromFile(path string) (*NexlayerYAML, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %v", err)
+	}
+
+	var config NexlayerYAML
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML: %v", err)
+	}
+
+	return &config, nil
+}
+
+// Process processes a NexlayerYAML configuration, replacing template variables
+func Process(config *NexlayerYAML, vars map[string]string) error {
+	if config == nil {
+		return fmt.Errorf("configuration is nil")
+	}
+
+	// Process registry login
+	if config.Application.RegistryLogin != nil {
+		if registry, ok := vars["REGISTRY"]; ok {
+			config.Application.RegistryLogin.Registry = registry
+		}
+	}
+
+	// Process pods
+	for i := range config.Application.Pods {
+		pod := &config.Application.Pods[i]
+
+		// Process image
+		if strings.Contains(pod.Image, "<% REGISTRY %>") {
+			if registry, ok := vars["REGISTRY"]; ok {
+				pod.Image = strings.ReplaceAll(pod.Image, "<% REGISTRY %>", registry)
+			}
+		}
+
+		// Process environment variables
+		for j := range pod.Vars {
+			envVar := &pod.Vars[j]
+			if strings.Contains(envVar.Value, "<% URL %>") {
+				if url, ok := vars["URL"]; ok {
+					envVar.Value = strings.ReplaceAll(envVar.Value, "<% URL %>", url)
+				}
+			}
+		}
+	}
+
+	return nil
 }
