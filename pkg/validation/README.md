@@ -1,25 +1,25 @@
-# Nexlayer YAML Schema Validation [DEPRECATED]
+# Validation Package
 
-⚠️ **IMPORTANT: This package is deprecated** ⚠️
+This package provides validation utilities for Nexlayer configurations.
 
-The validation functionality has been consolidated into the `pkg/schema` package, which now serves as the single source of truth for all Nexlayer YAML schema definitions, validation, and utilities.
+## Migration Notice
 
-## Migration Guide
+This package has been consolidated with the schema package. Please:
 
-If your code currently depends on this package:
+1. Replace imports from `github.com/Nexlayer/nexlayer-cli/pkg/validation` with `github.com/Nexlayer/nexlayer-cli/pkg/core/schema`
+2. Use the validation functions provided by the schema package
 
-1. Replace imports from `github.com/Nexlayer/nexlayer-cli/pkg/validation` with `github.com/Nexlayer/nexlayer-cli/pkg/schema`
-2. Use the `schema.Validator` and related types for validation 
-3. Use the schema types directly instead of defining your own
-
-Example:
+## Example
 
 ```go
-// Old way (deprecated)
-import "github.com/Nexlayer/nexlayer-cli/pkg/validation"
+import "github.com/Nexlayer/nexlayer-cli/pkg/core/schema"
 
-// New way
-import "github.com/Nexlayer/nexlayer-cli/pkg/schema"
+// Create a new schema service
+service := schema.NewService()
+
+// Validate a configuration
+err := service.Validate(config)
+if err != nil {
+    log.Fatal(err)
+}
 ```
-
-Please refer to [pkg/schema/README.md](../schema/README.md) for the definitive schema documentation.
