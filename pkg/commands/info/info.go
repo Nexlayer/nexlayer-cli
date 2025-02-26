@@ -40,7 +40,7 @@ var (
 // NewInfoCommand creates a new info command
 func NewInfoCommand(client api.APIClient) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "info <namespace> <applicationID>",
+		Use:   "info <namespace> [applicationID]",
 		Short: "Get detailed deployment information",
 		Long: `Retrieve detailed information about a specific deployment.
 
@@ -54,15 +54,15 @@ The command shows:
 
 Arguments:
   namespace      The deployment namespace (required)
-  applicationID  The application ID (required)
+  applicationID  The application ID (optional)
 
 Examples:
+  nexlayer info my-namespace
   nexlayer info my-namespace my-app
-  nexlayer info production api-backend`,
-		Args: cobra.ExactArgs(2),
+  nexlayer info production api-backend --verbose`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace := args[0]
-			appID := args[1]
 
 			// Validate namespace
 			if namespace == "" {
@@ -76,16 +76,18 @@ Examples:
 				return fmt.Errorf("namespace cannot contain slashes")
 			}
 
-			// Validate applicationID
-			if appID == "" {
-				return fmt.Errorf("applicationID is required")
-			}
-			appID = strings.TrimSpace(appID)
-			if appID == "" {
-				return fmt.Errorf("applicationID cannot be only whitespace")
-			}
-			if strings.Contains(appID, "/") {
-				return fmt.Errorf("applicationID cannot contain slashes")
+			// Get applicationID if provided
+			appID := ""
+			if len(args) > 1 {
+				appID = args[1]
+				// Validate applicationID
+				appID = strings.TrimSpace(appID)
+				if appID == "" {
+					return fmt.Errorf("applicationID cannot be only whitespace")
+				}
+				if strings.Contains(appID, "/") {
+					return fmt.Errorf("applicationID cannot contain slashes")
+				}
 			}
 
 			// Show progress
@@ -129,6 +131,32 @@ Examples:
 				table.Render()
 			}
 
+			// Check verbose flag for additional details
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			if verbose {
+				// Print additional deployment details
+				fmt.Fprintf(cmd.OutOrStdout(), "\n%s\n", sectionStyle.Render("Detailed Information"))
+				fmt.Fprintf(cmd.OutOrStdout(), "Namespace:    %s\n", resp.Data.Namespace)
+				fmt.Fprintf(cmd.OutOrStdout(), "Template ID:  %s\n", resp.Data.TemplateID)
+				fmt.Fprintf(cmd.OutOrStdout(), "Template Name: %s\n", resp.Data.TemplateName)
+				fmt.Fprintf(cmd.OutOrStdout(), "Created At:   %s\n", formatTime(resp.Data.CreatedAt))
+
+				// Print detailed pod information
+				if len(resp.Data.PodStatuses) > 0 {
+					fmt.Fprintf(cmd.OutOrStdout(), "\n%s\n", sectionStyle.Render("Detailed Pod Information"))
+					for i, pod := range resp.Data.PodStatuses {
+						fmt.Fprintf(cmd.OutOrStdout(), "Pod %d: %s\n", i+1, pod.Name)
+						fmt.Fprintf(cmd.OutOrStdout(), "  Type:      %s\n", pod.Type)
+						fmt.Fprintf(cmd.OutOrStdout(), "  Status:    %s\n", formatStatus(pod.Status))
+						fmt.Fprintf(cmd.OutOrStdout(), "  Ready:     %s\n", formatBool(pod.Ready))
+						fmt.Fprintf(cmd.OutOrStdout(), "  Restarts:  %d\n", pod.Restarts)
+						fmt.Fprintf(cmd.OutOrStdout(), "  Image:     %s\n", pod.Image)
+						fmt.Fprintf(cmd.OutOrStdout(), "  Created:   %s\n", formatTime(pod.CreatedAt))
+						fmt.Fprintf(cmd.OutOrStdout(), "\n")
+					}
+				}
+			}
+
 			// Print next steps based on status
 			fmt.Fprintf(cmd.OutOrStdout(), "\n%s\n", sectionStyle.Render("Available Commands"))
 			switch resp.Data.Status {
@@ -153,6 +181,7 @@ Examples:
 	}
 
 	cmd.Flags().Bool("json", false, "Output in JSON format")
+	cmd.Flags().Bool("verbose", false, "Display detailed deployment information")
 	return cmd
 }
 

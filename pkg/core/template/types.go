@@ -123,6 +123,29 @@ func (sp *ServicePort) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+// MarshalYAML implements custom marshaling for ServicePort to support the simple format
+func (sp ServicePort) MarshalYAML() (interface{}, error) {
+	// If it's a simple port with default values, return just the port number
+	if sp.Name == fmt.Sprintf("port-%d", sp.Port) &&
+		sp.TargetPort == sp.Port &&
+		(sp.Protocol == ProtocolTCP || sp.Protocol == "") {
+		return sp.Port, nil
+	}
+
+	// Otherwise return the full structure
+	return struct {
+		Name       string `yaml:"name,omitempty"`
+		Port       int    `yaml:"port"`
+		TargetPort int    `yaml:"targetPort,omitempty"`
+		Protocol   string `yaml:"protocol,omitempty"`
+	}{
+		Name:       sp.Name,
+		Port:       sp.Port,
+		TargetPort: sp.TargetPort,
+		Protocol:   sp.Protocol,
+	}, nil
+}
+
 // EnvVar represents an environment variable
 type EnvVar struct {
 	Key   string `yaml:"key" validate:"required,envvar"`
@@ -180,12 +203,20 @@ func (t *NexlayerYAML) ToSchemaType() *schema.NexlayerYAML {
 
 		// Convert service ports
 		for _, port := range pod.ServicePorts {
-			schemaPod.ServicePorts = append(schemaPod.ServicePorts, schema.ServicePort{
-				Name:       port.Name,
-				Port:       port.Port,
-				TargetPort: port.TargetPort,
-				Protocol:   port.Protocol,
-			})
+			// For simple integer ports, convert to the simple format
+			if port.Name == fmt.Sprintf("port-%d", port.Port) &&
+				port.TargetPort == port.Port &&
+				(port.Protocol == ProtocolTCP || port.Protocol == "") {
+				schemaPod.ServicePorts = append(schemaPod.ServicePorts, port.Port)
+			} else {
+				// For complex ports, use the full structure
+				schemaPod.ServicePorts = append(schemaPod.ServicePorts, map[string]interface{}{
+					"name":       port.Name,
+					"port":       port.Port,
+					"targetPort": port.TargetPort,
+					"protocol":   port.Protocol,
+				})
+			}
 		}
 
 		// Convert environment variables
@@ -255,12 +286,59 @@ func FromSchemaType(s *schema.NexlayerYAML) *NexlayerYAML {
 
 		// Convert service ports
 		for _, port := range pod.ServicePorts {
-			templatePod.ServicePorts = append(templatePod.ServicePorts, ServicePort{
-				Name:       port.Name,
-				Port:       port.Port,
-				TargetPort: port.TargetPort,
-				Protocol:   port.Protocol,
-			})
+			switch p := port.(type) {
+			case int:
+				// Simple integer port
+				templatePod.ServicePorts = append(templatePod.ServicePorts, ServicePort{
+					Name:       fmt.Sprintf("port-%d", p),
+					Port:       p,
+					TargetPort: p,
+					Protocol:   ProtocolTCP,
+				})
+			case float64:
+				// JSON numbers might be unmarshaled as float64
+				intPort := int(p)
+				templatePod.ServicePorts = append(templatePod.ServicePorts, ServicePort{
+					Name:       fmt.Sprintf("port-%d", intPort),
+					Port:       intPort,
+					TargetPort: intPort,
+					Protocol:   ProtocolTCP,
+				})
+			case map[string]interface{}:
+				// Object format
+				sp := ServicePort{
+					Protocol: ProtocolTCP, // Default protocol
+				}
+
+				if name, ok := p["name"].(string); ok {
+					sp.Name = name
+				}
+
+				if portVal, ok := p["port"].(float64); ok {
+					sp.Port = int(portVal)
+					sp.TargetPort = int(portVal) // Default target port to port
+				} else if portVal, ok := p["port"].(int); ok {
+					sp.Port = portVal
+					sp.TargetPort = portVal
+				}
+
+				if targetPort, ok := p["targetPort"].(float64); ok {
+					sp.TargetPort = int(targetPort)
+				} else if targetPort, ok := p["targetPort"].(int); ok {
+					sp.TargetPort = targetPort
+				}
+
+				if protocol, ok := p["protocol"].(string); ok {
+					sp.Protocol = protocol
+				}
+
+				// Generate name if not provided
+				if sp.Name == "" {
+					sp.Name = fmt.Sprintf("port-%d", sp.Port)
+				}
+
+				templatePod.ServicePorts = append(templatePod.ServicePorts, sp)
+			}
 		}
 
 		// Convert environment variables
@@ -300,32 +378,115 @@ func FromSchemaType(s *schema.NexlayerYAML) *NexlayerYAML {
 
 // ConvertPodToPodYAML converts a schema.Pod to a template.PodYAML
 func ConvertPodToPodYAML(pod schema.Pod) PodYAML {
-	return PodYAML{
+	result := PodYAML{
 		Name:         pod.Name,
 		Type:         pod.Type,
 		Path:         pod.Path,
 		Image:        pod.Image,
 		Command:      pod.Command,
 		Entrypoint:   pod.Entrypoint,
-		ServicePorts: ConvertServicePorts(pod.ServicePorts),
+		ServicePorts: make([]ServicePort, 0, len(pod.ServicePorts)),
 		Vars:         ConvertEnvVars(pod.Vars),
 		Volumes:      ConvertVolumes(pod.Volumes),
 		Secrets:      ConvertSecrets(pod.Secrets),
 		Annotations:  pod.Annotations,
 	}
+
+	// Convert service ports based on type
+	for _, port := range pod.ServicePorts {
+		switch p := port.(type) {
+		case int:
+			// Simple integer port
+			result.ServicePorts = append(result.ServicePorts, ServicePort{
+				Name:       fmt.Sprintf("port-%d", p),
+				Port:       p,
+				TargetPort: p,
+				Protocol:   ProtocolTCP,
+			})
+		case map[string]interface{}:
+			// Object format
+			sp := ServicePort{
+				Protocol: ProtocolTCP, // Default protocol
+			}
+
+			if name, ok := p["name"].(string); ok {
+				sp.Name = name
+			}
+
+			if portVal, ok := p["port"].(float64); ok {
+				sp.Port = int(portVal)
+				sp.TargetPort = int(portVal) // Default target port to port
+			}
+
+			if targetPort, ok := p["targetPort"].(float64); ok {
+				sp.TargetPort = int(targetPort)
+			}
+
+			if protocol, ok := p["protocol"].(string); ok {
+				sp.Protocol = protocol
+			}
+
+			// Generate name if not provided
+			if sp.Name == "" {
+				sp.Name = fmt.Sprintf("port-%d", sp.Port)
+			}
+
+			result.ServicePorts = append(result.ServicePorts, sp)
+		}
+	}
+
+	return result
 }
 
-// ConvertServicePorts converts schema.ServicePort slice to template.ServicePort slice
-func ConvertServicePorts(ports []schema.ServicePort) []ServicePort {
-	var result []ServicePort
+// ConvertServicePorts converts schema service ports to template service ports
+func ConvertServicePorts(ports []interface{}) []ServicePort {
+	result := make([]ServicePort, 0, len(ports))
+
 	for _, port := range ports {
-		result = append(result, ServicePort{
-			Name:       port.Name,
-			Port:       port.Port,
-			TargetPort: port.TargetPort,
-			Protocol:   port.Protocol,
-		})
+		switch p := port.(type) {
+		case int:
+			// Simple integer port
+			result = append(result, ServicePort{
+				Name:       fmt.Sprintf("port-%d", p),
+				Port:       p,
+				TargetPort: p,
+				Protocol:   ProtocolTCP,
+			})
+		case map[string]interface{}:
+			// Object format
+			sp := ServicePort{}
+
+			if name, ok := p["name"].(string); ok {
+				sp.Name = name
+			}
+
+			if portVal, ok := p["port"].(int); ok {
+				sp.Port = portVal
+				sp.TargetPort = portVal // Default target port to port
+			}
+
+			if targetPort, ok := p["targetPort"].(int); ok {
+				sp.TargetPort = targetPort
+			}
+
+			if protocol, ok := p["protocol"].(string); ok {
+				sp.Protocol = protocol
+			} else {
+				sp.Protocol = ProtocolTCP
+			}
+
+			// Generate name if not provided
+			if sp.Name == "" {
+				sp.Name = fmt.Sprintf("port-%d", sp.Port)
+			}
+
+			result = append(result, sp)
+		case ServicePort:
+			// Already a ServicePort
+			result = append(result, p)
+		}
 	}
+
 	return result
 }
 

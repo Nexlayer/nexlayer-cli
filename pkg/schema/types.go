@@ -1,7 +1,10 @@
 // Package schema provides centralized schema management for Nexlayer YAML configurations.
 package schema
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // NexlayerYAML represents a complete Nexlayer application template
 type NexlayerYAML struct {
@@ -34,8 +37,48 @@ type Pod struct {
 	Volumes      []Volume          `yaml:"volumes,omitempty" validate:"omitempty,dive"`
 	Secrets      []Secret          `yaml:"secrets,omitempty" validate:"omitempty,dive"`
 	Vars         []EnvVar          `yaml:"vars,omitempty" validate:"omitempty,dive"`
-	ServicePorts []ServicePort     `yaml:"servicePorts" validate:"required,min=1,dive"`
+	ServicePorts []interface{}     `yaml:"servicePorts" validate:"required,min=1"`
 	Annotations  map[string]string `yaml:"annotations,omitempty" validate:"omitempty"`
+}
+
+// UnmarshalYAML implements custom unmarshaling for Pod to handle environment variables
+func (p *Pod) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// Define a temporary type without the custom unmarshaling
+	type tempPod Pod
+
+	// First, unmarshal into a map to check if vars is a map
+	var podMap map[string]interface{}
+	if err := unmarshal(&podMap); err != nil {
+		return err
+	}
+
+	// Create a temporary pod to unmarshal into
+	var tmp tempPod
+
+	// Unmarshal everything except vars
+	if err := unmarshal(&tmp); err != nil {
+		return err
+	}
+
+	// Copy all fields from tmp to p
+	*p = Pod(tmp)
+
+	// Check if vars exists and is a map
+	if varsInterface, ok := podMap["vars"]; ok {
+		if varsMap, ok := varsInterface.(map[string]interface{}); ok {
+			// Convert map to EnvVar slice
+			for k, v := range varsMap {
+				strValue := fmt.Sprintf("%v", v)
+				p.Vars = append(p.Vars, EnvVar{
+					Key:   k,
+					Value: strValue,
+				})
+			}
+			return nil
+		}
+	}
+
+	return nil
 }
 
 // ServicePort represents a service port configuration

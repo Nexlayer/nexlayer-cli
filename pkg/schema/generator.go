@@ -48,12 +48,8 @@ func (g *Generator) generateMainPod(projectType string, port int) Pod {
 		Name:  "main",
 		Type:  projectType,
 		Image: fmt.Sprintf("<%% REGISTRY %%>/%s:latest", strings.ToLower(projectType)),
-		ServicePorts: []ServicePort{
-			{
-				Name:       "http",
-				Port:       port,
-				TargetPort: port,
-			},
+		ServicePorts: []interface{}{
+			port,
 		},
 	}
 
@@ -89,12 +85,8 @@ func (g *Generator) AddPod(config *NexlayerYAML, podType string, port int) error
 		Name:  g.generatePodName(podType, len(config.Application.Pods)),
 		Type:  podType,
 		Image: g.getDefaultImageForType(podType),
-		ServicePorts: []ServicePort{
-			{
-				Name:       g.getDefaultPortNameForType(podType),
-				Port:       port,
-				TargetPort: port,
-			},
+		ServicePorts: []interface{}{
+			port,
 		},
 	}
 
@@ -268,11 +260,17 @@ func (g *Generator) AddSecret(pod *Pod, name, data, path, fileName string) {
 
 // AddServicePort adds a service port to a pod
 func (g *Generator) AddServicePort(pod *Pod, name string, port, targetPort int) {
-	pod.ServicePorts = append(pod.ServicePorts, ServicePort{
-		Name:       name,
-		Port:       port,
-		TargetPort: targetPort,
-	})
+	// If simple port (same port and target port with default name), use integer format
+	if name == fmt.Sprintf("port-%d", port) && port == targetPort {
+		pod.ServicePorts = append(pod.ServicePorts, port)
+	} else {
+		// Otherwise use the structured format
+		pod.ServicePorts = append(pod.ServicePorts, map[string]interface{}{
+			"name":       name,
+			"port":       port,
+			"targetPort": targetPort,
+		})
+	}
 }
 
 // SetRegistryLogin sets the registry login configuration

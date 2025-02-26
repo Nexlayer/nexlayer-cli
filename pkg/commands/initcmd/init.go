@@ -275,8 +275,8 @@ func generateMainPod(info *types.ProjectInfo, opts *InitOptions) schema.Pod {
 	if port == 0 {
 		port = info.Port
 	}
-	pod.ServicePorts = []schema.ServicePort{
-		{Name: "http", Port: port, TargetPort: port},
+	pod.ServicePorts = []interface{}{
+		port,
 	}
 
 	// Set path for web/api pods
@@ -361,12 +361,13 @@ func generateEnvironmentVars(info *types.ProjectInfo) []schema.EnvVar {
 // generateDatabasePod creates a database pod configuration
 func generateDatabasePod(info *types.ProjectInfo) schema.Pod {
 	dbType := detectDatabaseType(info)
+	dbPort := getDefaultDBPort(dbType)
 	pod := schema.Pod{
 		Name:  fmt.Sprintf("db-%s", dbType),
 		Type:  dbType,
 		Image: fmt.Sprintf("%s:latest", dbType),
-		ServicePorts: []schema.ServicePort{
-			{Name: "db", Port: getDefaultDBPort(dbType), TargetPort: getDefaultDBPort(dbType)},
+		ServicePorts: []interface{}{
+			dbPort,
 		},
 		Volumes: []schema.Volume{
 			{

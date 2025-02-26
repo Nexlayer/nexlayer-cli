@@ -85,7 +85,9 @@ nexlayer deploy
 1. **nexlayer init** – Initialize a new project (auto-detects type).  
 2. **nexlayer deploy** – Deploy an application (uses `nexlayer.yaml` if present).  
 3. **nexlayer list** – List active deployments.  
-4. **nexlayer info <namespace> <appID>** – Get deployment details.  
+4. **nexlayer info <namespace> [appID]** – Get deployment details.  
+   - Use `--verbose` flag for detailed information about pods, resources, and configuration.
+   - Example: `nexlayer info my-namespace --verbose`
 5. **nexlayer domain** – Manage custom domains.  
 6. **nexlayer login** – Authenticate with Nexlayer.  
 7. **nexlayer watch** – Monitor project changes and update configuration.  
@@ -123,6 +125,7 @@ Configuration updated successfully.
 ```bash
 -h, --help         Show help for commands
     --json         Output response in JSON format
+    --verbose      Display detailed information (available for info command)
 ```
 
 ## 🛠 Example: Deploying a Next.js App

@@ -166,3 +166,7 @@ test/**/dist/
 ai_training/*.json
 ai_training/*.yaml
 .windsurfrules
+
+# Binary files
+nexlayer
+nexlayer-fixed*

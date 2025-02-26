@@ -7,9 +7,11 @@ package list
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api"
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/schema"
 	"github.com/Nexlayer/nexlayer-cli/pkg/ui"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -52,16 +54,38 @@ Examples:
 			// Show progress
 			fmt.Fprintf(cmd.OutOrStdout(), "📋 Fetching your deployments...\n\n")
 
-			// Get deployments
-			resp, err := client.ListDeployments(cmd.Context())
-			if err != nil {
-				return fmt.Errorf("failed to get deployments: %w", err)
+			var resp *schema.APIResponse[[]schema.Deployment]
+			var err error
+
+			// Check if an application ID was provided
+			if len(args) > 0 {
+				appID := args[0]
+				// If we have an appID, use GetDeployments which filters by appID
+				// This requires a cast to APIClientForCommands since GetDeployments is not in the main APIClient interface
+				if clientWithCommands, ok := client.(api.APIClientForCommands); ok {
+					resp, err = clientWithCommands.GetDeployments(cmd.Context(), appID)
+					if err != nil {
+						return fmt.Errorf("failed to get deployments for application %s: %w", appID, err)
+					}
+				} else {
+					// Fallback to ListDeployments if the client doesn't implement APIClientForCommands
+					fmt.Fprintf(cmd.OutOrStdout(), "Warning: Filtering by application ID not supported. Showing all deployments.\n\n")
+					resp, err = client.ListDeployments(cmd.Context())
+					if err != nil {
+						return fmt.Errorf("failed to get deployments: %w", err)
+					}
+				}
+			} else {
+				// Get all deployments
+				resp, err = client.ListDeployments(cmd.Context())
+				if err != nil {
+					return fmt.Errorf("failed to get deployments: %w", err)
+				}
 			}
 
 			// Check JSON output flag
-			jsonOutput, _ := cmd.Flags().GetBool("json")
-			if jsonOutput {
-				return json.NewEncoder(cmd.OutOrStdout()).Encode(resp)
+			if jsonOutput, _ := cmd.Flags().GetBool("json"); jsonOutput {
+				return json.NewEncoder(os.Stdout).Encode(resp)
 			}
 
 			// Print human-readable table

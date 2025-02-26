@@ -66,13 +66,13 @@ type EnvVar struct {
 
 // Pod represents a pod configuration in the template
 type Pod struct {
-	Name         string   `yaml:"name" validate:"required,podname"`
-	Path         string   `yaml:"path,omitempty" validate:"omitempty,startswith=/"`
-	Image        string   `yaml:"image" validate:"required,image"`
-	Volumes      []Volume `yaml:"volumes,omitempty" validate:"omitempty,dive"`
-	Secrets      []Secret `yaml:"secrets,omitempty" validate:"omitempty,dive"`
-	Vars         []EnvVar `yaml:"vars,omitempty" validate:"omitempty,dive"`
-	ServicePorts []int    `yaml:"servicePorts" validate:"required,dive,gt=0,lt=65536"`
+	Name         string        `yaml:"name" validate:"required,podname"`
+	Path         string        `yaml:"path,omitempty" validate:"omitempty,startswith=/"`
+	Image        string        `yaml:"image" validate:"required,image"`
+	Volumes      []Volume      `yaml:"volumes,omitempty" validate:"omitempty,dive"`
+	Secrets      []Secret      `yaml:"secrets,omitempty" validate:"omitempty,dive"`
+	Vars         []EnvVar      `yaml:"vars,omitempty" validate:"omitempty,dive"`
+	ServicePorts []interface{} `yaml:"servicePorts" validate:"required"`
 }
 
 // NexlayerYAML represents the structure of a Nexlayer deployment template

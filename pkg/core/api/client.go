@@ -124,16 +124,84 @@ func (c *Client) ListDeployments(ctx context.Context) (*schema.APIResponse[[]sch
 
 // GetLogs retrieves logs for a specific deployment
 func (c *Client) GetLogs(ctx context.Context, namespace string, appID string, follow bool, tail int) ([]string, error) {
-	url := fmt.Sprintf("%s/getDeploymentLogs/%s/%s?follow=%v&tail=%d", c.baseURL, namespace, appID, follow, tail)
-	resp, err := c.get(ctx, url)
+	// Validate parameters
+	if namespace == "" {
+		return nil, fmt.Errorf("namespace is required and cannot be empty")
+	}
+
+	namespace = strings.TrimSpace(namespace)
+	if namespace == "" {
+		return nil, fmt.Errorf("namespace cannot be only whitespace")
+	}
+
+	if strings.Contains(namespace, "/") {
+		return nil, fmt.Errorf("namespace cannot contain slashes")
+	}
+
+	// Construct URL with proper query parameters
+	url := fmt.Sprintf("%s/getDeploymentLogs/%s", c.baseURL, namespace)
+
+	// Add query parameters
+	queryParams := make([]string, 0)
+	if appID != "" {
+		queryParams = append(queryParams, fmt.Sprintf("appID=%s", appID))
+	}
+	if follow {
+		queryParams = append(queryParams, "follow=true")
+	}
+	if tail > 0 {
+		queryParams = append(queryParams, fmt.Sprintf("tail=%d", tail))
+	}
+
+	if len(queryParams) > 0 {
+		url = url + "?" + strings.Join(queryParams, "&")
+	}
+
+	// Debug: Print the URL we're requesting
+	fmt.Printf("DEBUG: Getting logs from URL: %s\n", url)
+
+	// Make the request
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get logs: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add authorization if token is set
+	if c.token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	}
+
+	// Send the request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Debug: Print the response status
+	fmt.Printf("DEBUG: Response status: %d\n", resp.StatusCode)
+
+	// Check for errors
+	if resp.StatusCode != http.StatusOK {
+		var errResp struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(body, &errResp); err != nil {
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		}
+		return nil, fmt.Errorf("API error: %s", errResp.Error)
+	}
+
+	// Parse response
 	var logs []string
-	if err := json.NewDecoder(resp.Body).Decode(&logs); err != nil {
-		return nil, fmt.Errorf("failed to decode logs response: %w", err)
+	if err := json.Unmarshal(body, &logs); err != nil {
+		return nil, fmt.Errorf("failed to parse logs response: %w", err)
 	}
 
 	return logs, nil
@@ -174,17 +242,6 @@ func (c *Client) StartDeployment(ctx context.Context, appID string, yamlFile str
 		return nil, fmt.Errorf("failed to read YAML file: %w", err)
 	}
 
-	// Create request body
-	reqBody := map[string]interface{}{
-		"yamlContent": string(yamlData),
-	}
-
-	// Convert to JSON
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request body: %w", err)
-	}
-
 	var url string
 	if appID != "" {
 		// If appID is provided, include it in the URL
@@ -197,14 +254,51 @@ func (c *Client) StartDeployment(ctx context.Context, appID string, yamlFile str
 	// Debug: Print the URL we're requesting
 	fmt.Printf("DEBUG: Starting deployment at URL: %s\n", url)
 
-	resp, err := c.post(ctx, url, jsonData)
+	// Create a new request with the YAML data as binary
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(yamlData))
 	if err != nil {
-		return nil, fmt.Errorf("failed to start deployment: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set the content type to text/x-yaml
+	req.Header.Set("Content-Type", "text/x-yaml")
+
+	// Add authorization if token is set
+	if c.token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	}
+
+	// Send the request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Debug: Print the response
+	fmt.Printf("DEBUG: Response status: %d\n", resp.StatusCode)
+	fmt.Printf("DEBUG: Response body: %s\n", string(body))
+
+	// Check for errors
+	if resp.StatusCode != http.StatusOK {
+		var errResp struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(body, &errResp); err != nil {
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		}
+		return nil, fmt.Errorf("API error: %s", errResp.Error)
 	}
 
 	// Parse response
 	var apiResp schema.APIResponse[schema.DeploymentResponse]
-	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+	if err := json.Unmarshal(body, &apiResp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
@@ -214,35 +308,92 @@ func (c *Client) StartDeployment(ctx context.Context, appID string, yamlFile str
 // SaveCustomDomain associates a custom domain with a specific application deployment.
 // Endpoint: POST /saveCustomDomain/{applicationID}
 func (c *Client) SaveCustomDomain(ctx context.Context, appID string, domain string) (*schema.APIResponse[struct{}], error) {
+	// Validate parameters
+	if appID == "" {
+		return nil, fmt.Errorf("application ID is required and cannot be empty")
+	}
+
+	appID = strings.TrimSpace(appID)
+	if appID == "" {
+		return nil, fmt.Errorf("application ID cannot be only whitespace")
+	}
+
+	if domain == "" {
+		return nil, fmt.Errorf("domain is required and cannot be empty")
+	}
+
+	domain = strings.TrimSpace(domain)
+	if domain == "" {
+		return nil, fmt.Errorf("domain cannot be only whitespace")
+	}
+
+	// Construct URL
 	url := fmt.Sprintf("%s/saveCustomDomain/%s", c.baseURL, appID)
 
-	req := struct {
+	// Debug: Print the URL we're requesting
+	fmt.Printf("DEBUG: Saving custom domain at URL: %s\n", url)
+
+	// Create request body
+	reqBody := struct {
 		Domain string `json:"domain"`
 	}{
 		Domain: domain,
 	}
 
-	body, err := json.Marshal(req)
+	// Convert to JSON
+	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	resp, err := c.post(ctx, url, body)
+	// Create a new request
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("failed to save custom domain: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set the content type to application/json
+	req.Header.Set("Content-Type", "application/json")
+
+	// Add authorization if token is set
+	if c.token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	}
+
+	// Send the request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Debug: Print the response status
+	fmt.Printf("DEBUG: Response status: %d\n", resp.StatusCode)
+
+	// Check for errors
 	if resp.StatusCode != http.StatusOK {
-		return nil, c.handleAPIError(resp)
+		var errResp struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(body, &errResp); err != nil {
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		}
+		return nil, fmt.Errorf("API error: %s", errResp.Error)
 	}
 
-	var response schema.APIResponse[struct{}]
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	// Parse response
+	var apiResp schema.APIResponse[struct{}]
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	return &response, nil
+	return &apiResp, nil
 }
 
 // GetDeployments retrieves all deployments associated with the specified application ID.

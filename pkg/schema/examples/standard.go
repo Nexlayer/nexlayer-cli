@@ -35,8 +35,12 @@ func StandardTemplate() *schema.NexlayerYAML {
 						{Key: "API_URL", Value: "http://backend.pod:8000"},
 						{Key: "NODE_ENV", Value: "production"},
 					},
-					ServicePorts: []schema.ServicePort{
-						{Name: "http", Port: 3000, TargetPort: 3000},
+					ServicePorts: []interface{}{
+						map[string]interface{}{
+							"name":       "http",
+							"port":       3000,
+							"targetPort": 3000,
+						},
 					},
 				},
 				{
@@ -52,8 +56,12 @@ func StandardTemplate() *schema.NexlayerYAML {
 						{Key: "DATABASE_URL", Value: "postgresql://user:pass@db.pod:5432/db"},
 						{Key: "PORT", Value: "8000"},
 					},
-					ServicePorts: []schema.ServicePort{
-						{Name: "http", Port: 8000, TargetPort: 8000},
+					ServicePorts: []interface{}{
+						map[string]interface{}{
+							"name":       "http",
+							"port":       8000,
+							"targetPort": 8000,
+						},
 					},
 				},
 				{
@@ -67,16 +75,24 @@ func StandardTemplate() *schema.NexlayerYAML {
 							Size: "5Gi",
 						},
 					},
-					ServicePorts: []schema.ServicePort{
-						{Name: "postgres", Port: 5432, TargetPort: 5432},
+					ServicePorts: []interface{}{
+						map[string]interface{}{
+							"name":       "postgres",
+							"port":       5432,
+							"targetPort": 5432,
+						},
 					},
 				},
 				{
 					Name:  "llm",
 					Type:  "ollama",
 					Image: "ollama/ollama:latest",
-					ServicePorts: []schema.ServicePort{
-						{Name: "api", Port: 11434, TargetPort: 11434},
+					ServicePorts: []interface{}{
+						map[string]interface{}{
+							"name":       "api",
+							"port":       11434,
+							"targetPort": 11434,
+						},
 					},
 				},
 			},
@@ -107,8 +123,12 @@ func AITemplate() *schema.NexlayerYAML {
 						{Key: "NODE_ENV", Value: "production"},
 						{Key: "OPENAI_API_KEY", Value: "<% OPENAI_API_KEY %>"},
 					},
-					ServicePorts: []schema.ServicePort{
-						{Name: "http", Port: 3000, TargetPort: 3000},
+					ServicePorts: []interface{}{
+						map[string]interface{}{
+							"name":       "http",
+							"port":       3000,
+							"targetPort": 3000,
+						},
 					},
 					Annotations: map[string]string{
 						"ai.nexlayer.io/provider": "openai",
@@ -125,8 +145,12 @@ func AITemplate() *schema.NexlayerYAML {
 						{Key: "OPENAI_API_KEY", Value: "<% OPENAI_API_KEY %>"},
 						{Key: "VECTOR_DB_URL", Value: "http://vector-db.pod:6333"},
 					},
-					ServicePorts: []schema.ServicePort{
-						{Name: "http", Port: 8000, TargetPort: 8000},
+					ServicePorts: []interface{}{
+						map[string]interface{}{
+							"name":       "http",
+							"port":       8000,
+							"targetPort": 8000,
+						},
 					},
 					Annotations: map[string]string{
 						"ai.nexlayer.io/provider": "openai",
@@ -144,9 +168,17 @@ func AITemplate() *schema.NexlayerYAML {
 							Size: "10Gi",
 						},
 					},
-					ServicePorts: []schema.ServicePort{
-						{Name: "http", Port: 6333, TargetPort: 6333},
-						{Name: "grpc", Port: 6334, TargetPort: 6334},
+					ServicePorts: []interface{}{
+						map[string]interface{}{
+							"name":       "http",
+							"port":       6333,
+							"targetPort": 6333,
+						},
+						map[string]interface{}{
+							"name":       "grpc",
+							"port":       6334,
+							"targetPort": 6334,
+						},
 					},
 				},
 			},
@@ -172,8 +204,12 @@ func MicroservicesTemplate() *schema.NexlayerYAML {
 					Path:  "/",
 					Type:  "nginx",
 					Image: "nginx:alpine",
-					ServicePorts: []schema.ServicePort{
-						{Name: "http", Port: 80, TargetPort: 80},
+					ServicePorts: []interface{}{
+						map[string]interface{}{
+							"name":       "http",
+							"port":       80,
+							"targetPort": 80,
+						},
 					},
 				},
 				{
@@ -186,8 +222,12 @@ func MicroservicesTemplate() *schema.NexlayerYAML {
 						{Key: "JWT_SECRET", Value: "<% JWT_SECRET %>"},
 						{Key: "REDIS_URL", Value: "redis://cache.pod:6379"},
 					},
-					ServicePorts: []schema.ServicePort{
-						{Name: "http", Port: 3000, TargetPort: 3000},
+					ServicePorts: []interface{}{
+						map[string]interface{}{
+							"name":       "http",
+							"port":       3000,
+							"targetPort": 3000,
+						},
 					},
 				},
 				{
@@ -199,8 +239,12 @@ func MicroservicesTemplate() *schema.NexlayerYAML {
 						{Key: "PORT", Value: "8000"},
 						{Key: "DB_URL", Value: "postgresql://user:pass@users-db.pod:5432/users"},
 					},
-					ServicePorts: []schema.ServicePort{
-						{Name: "http", Port: 8000, TargetPort: 8000},
+					ServicePorts: []interface{}{
+						map[string]interface{}{
+							"name":       "http",
+							"port":       8000,
+							"targetPort": 8000,
+						},
 					},
 				},
 				{
@@ -214,16 +258,24 @@ func MicroservicesTemplate() *schema.NexlayerYAML {
 							Size: "5Gi",
 						},
 					},
-					ServicePorts: []schema.ServicePort{
-						{Name: "postgres", Port: 5432, TargetPort: 5432},
+					ServicePorts: []interface{}{
+						map[string]interface{}{
+							"name":       "postgres",
+							"port":       5432,
+							"targetPort": 5432,
+						},
 					},
 				},
 				{
 					Name:  "cache",
 					Type:  "redis",
 					Image: "redis:alpine",
-					ServicePorts: []schema.ServicePort{
-						{Name: "redis", Port: 6379, TargetPort: 6379},
+					ServicePorts: []interface{}{
+						map[string]interface{}{
+							"name":       "redis",
+							"port":       6379,
+							"targetPort": 6379,
+						},
 					},
 				},
 			},

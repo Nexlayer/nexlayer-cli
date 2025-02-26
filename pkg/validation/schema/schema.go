@@ -122,10 +122,41 @@ const SchemaV2 = `{
               "servicePorts": {
                 "type": "array",
                 "items": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 65535,
-                  "description": "REQUIRED: Port to expose (e.g., 3000)"
+                  "oneOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535,
+                      "description": "REQUIRED: Port to expose (e.g., 3000)"
+                    },
+                    {
+                      "type": "object",
+                      "required": ["port"],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "description": "OPTIONAL: Name for the port"
+                        },
+                        "port": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 65535,
+                          "description": "REQUIRED: Port to expose"
+                        },
+                        "targetPort": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 65535,
+                          "description": "OPTIONAL: Target port (defaults to port)"
+                        },
+                        "protocol": {
+                          "type": "string",
+                          "enum": ["TCP", "UDP"],
+                          "description": "OPTIONAL: Protocol (defaults to TCP)"
+                        }
+                      }
+                    }
+                  ]
                 },
                 "minItems": 1
               }
