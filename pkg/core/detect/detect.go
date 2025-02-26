@@ -8,10 +8,27 @@ import (
 	"path/filepath"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/api/types"
+	coretypes "github.com/Nexlayer/nexlayer-cli/pkg/core/types"
+	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
 )
 
 // AnalyzeDirectory analyzes a directory to detect application type and configuration
+// Deprecated: Use pkg/detection.DetectorRegistry.DetectProject instead
 func AnalyzeDirectory(dir string) (*types.AppConfig, error) {
+	// Use the newer detection mechanism internally
+	registry := detection.NewDetectorRegistry()
+	projectInfo, err := registry.DetectProject(dir)
+	if err != nil {
+		// Fall back to the original implementation if the new detection fails
+		return analyzeDirectoryLegacy(dir)
+	}
+
+	// Convert ProjectInfo to AppConfig
+	return convertToAppConfig(projectInfo, dir)
+}
+
+// analyzeDirectoryLegacy contains the original implementation for backward compatibility
+func analyzeDirectoryLegacy(dir string) (*types.AppConfig, error) {
 	// Check if directory exists
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		return nil, fmt.Errorf("directory does not exist: %s", dir)
@@ -54,6 +71,50 @@ func AnalyzeDirectory(dir string) (*types.AppConfig, error) {
 	}
 
 	// Check for .env file
+	if envFile, err := os.Open(filepath.Join(dir, ".env")); err == nil {
+		defer envFile.Close()
+		if content, err := ioutil.ReadAll(envFile); err == nil {
+			config.Env = []string{string(content)}
+		}
+	}
+
+	return config, nil
+}
+
+// convertToAppConfig converts a ProjectInfo to an AppConfig
+func convertToAppConfig(info *coretypes.ProjectInfo, dir string) (*types.AppConfig, error) {
+	config := &types.AppConfig{
+		Name: info.Name,
+		Type: string(info.Type),
+		Container: &types.Container{
+			Ports: []int{info.Port},
+		},
+		Resources: &types.Resources{
+			CPU:    "100m",
+			Memory: "128Mi",
+		},
+	}
+
+	// Set HasExistingImage based on Docker detection
+	config.HasExistingImage = info.HasDocker
+
+	// Set container command based on project type
+	switch info.Type {
+	case "node":
+		config.Type = "nodejs"
+		config.Container.Command = "npm start"
+	case "python":
+		config.Container.Command = "python app.py"
+	case "go":
+		config.Container.Command = "./app"
+	}
+
+	// Check for Dockerfile
+	if info.HasDocker {
+		config.Container.UseDockerfile = true
+	}
+
+	// Read .env file for environment variables
 	if envFile, err := os.Open(filepath.Join(dir, ".env")); err == nil {
 		defer envFile.Close()
 		if content, err := ioutil.ReadAll(envFile); err == nil {

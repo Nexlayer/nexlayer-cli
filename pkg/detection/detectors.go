@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/types"
 	"gopkg.in/yaml.v3"
@@ -24,6 +25,7 @@ type ProjectDetector interface {
 // DetectorRegistry holds all registered project detectors
 type DetectorRegistry struct {
 	detectors []ProjectDetector
+	cache     sync.Map // map[string]*types.ProjectInfo
 }
 
 // GetDetectors returns all registered detectors
@@ -33,6 +35,13 @@ func (r *DetectorRegistry) GetDetectors() []ProjectDetector {
 
 // DetectProject attempts to detect project type using all registered detectors
 func (r *DetectorRegistry) DetectProject(dir string) (*types.ProjectInfo, error) {
+	// Check cache first
+	if cached, ok := r.cache.Load(dir); ok {
+		if info, ok := cached.(*types.ProjectInfo); ok {
+			return info, nil
+		}
+	}
+
 	// Sort detectors by priority
 	detectors := append([]ProjectDetector{}, r.detectors...)
 	for i := 0; i < len(detectors)-1; i++ {
@@ -46,10 +55,17 @@ func (r *DetectorRegistry) DetectProject(dir string) (*types.ProjectInfo, error)
 	// Try each detector in order
 	for _, detector := range detectors {
 		if info, err := detector.Detect(dir); err == nil && info != nil {
+			// Cache the result before returning
+			r.cache.Store(dir, info)
 			return info, nil
 		}
 	}
 	return nil, fmt.Errorf("project type could not be detected")
+}
+
+// ClearCache clears the detection cache
+func (r *DetectorRegistry) ClearCache() {
+	r.cache = sync.Map{}
 }
 
 // NewDetectorRegistry creates a new registry with all available detectors
@@ -71,6 +87,9 @@ func NewDetectorRegistry() *DetectorRegistry {
 			&PythonDetector{},
 			&GoDetector{},
 			&DockerDetector{},
+
+			// Generic fallback detector (runs last)
+			&GenericDetector{},
 		},
 	}
 }
@@ -881,4 +900,125 @@ func parsePort(s string) int {
 		return defaultPort
 	}
 	return port
+}
+
+// GenericDetector uses simple file existence checks to detect project types
+type GenericDetector struct{}
+
+func (d *GenericDetector) Priority() int { return 10 } // Low priority - run last
+
+func (d *GenericDetector) Detect(dir string) (*types.ProjectInfo, error) {
+	// Check if directory exists
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("directory does not exist: %s", dir)
+	}
+
+	// Initialize default project info
+	info := &types.ProjectInfo{
+		Type:         types.TypeUnknown,
+		Name:         filepath.Base(dir),
+		Dependencies: make(map[string]string),
+		Scripts:      make(map[string]string),
+		Port:         8080, // Default port
+	}
+
+	// Check for Dockerfile
+	if _, err := os.Stat(filepath.Join(dir, "Dockerfile")); err == nil {
+		info.HasDocker = true
+		info.Type = types.TypeDockerRaw
+	}
+
+	// Check for package.json (Node.js)
+	if _, err := os.Stat(filepath.Join(dir, "package.json")); err == nil {
+		info.Type = types.TypeNode
+
+		// Read package.json to get more details
+		pkgJSON, err := os.ReadFile(filepath.Join(dir, "package.json"))
+		if err == nil {
+			var pkg struct {
+				Name         string            `json:"name"`
+				Version      string            `json:"version"`
+				Dependencies map[string]string `json:"dependencies"`
+				DevDeps      map[string]string `json:"devDependencies"`
+				Scripts      map[string]string `json:"scripts"`
+			}
+
+			if err := json.Unmarshal(pkgJSON, &pkg); err == nil {
+				if pkg.Name != "" {
+					info.Name = pkg.Name
+				}
+				info.Version = pkg.Version
+				info.Scripts = pkg.Scripts
+
+				// Copy dependencies
+				for k, v := range pkg.Dependencies {
+					info.Dependencies[k] = v
+				}
+
+				// Check for start script
+				if startCmd, ok := pkg.Scripts["start"]; ok && startCmd != "" {
+					// Many Node apps use port 3000
+					info.Port = 3000
+				}
+			}
+		}
+	}
+
+	// Check for requirements.txt (Python)
+	if _, err := os.Stat(filepath.Join(dir, "requirements.txt")); err == nil {
+		info.Type = types.TypePython
+
+		// Try to read requirements.txt for dependencies
+		reqFile, err := os.ReadFile(filepath.Join(dir, "requirements.txt"))
+		if err == nil {
+			lines := strings.Split(string(reqFile), "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if line == "" || strings.HasPrefix(line, "#") {
+					continue
+				}
+
+				// Handle requirements with versions (package==version)
+				parts := strings.SplitN(line, "==", 2)
+				if len(parts) == 2 {
+					info.Dependencies[parts[0]] = parts[1]
+				} else {
+					info.Dependencies[line] = "latest"
+				}
+			}
+		}
+	}
+
+	// Check for go.mod (Go)
+	if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+		info.Type = types.TypeGo
+
+		// Try to read go.mod for module name and dependencies
+		modFile, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+		if err == nil {
+			lines := strings.Split(string(modFile), "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "module ") {
+					moduleName := strings.TrimSpace(strings.TrimPrefix(line, "module "))
+					if moduleName != "" {
+						// Extract the last part of the module path as name
+						parts := strings.Split(moduleName, "/")
+						if len(parts) > 0 {
+							info.Name = parts[len(parts)-1]
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+
+	// Check for .env file to detect environment variables
+	if envFile, err := os.Open(filepath.Join(dir, ".env")); err == nil {
+		defer envFile.Close()
+		// We don't need to do anything with the .env file here, just detect its presence
+	}
+
+	return info, nil
 }

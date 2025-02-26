@@ -7,20 +7,22 @@ package schema
 
 import (
 	"fmt"
-	"time"
 )
 
-// NexlayerYAML represents a complete Nexlayer application template
+// NexlayerYAML represents the top-level structure of a Nexlayer YAML configuration
 type NexlayerYAML struct {
-	Application Application `yaml:"application" validate:"required"`
+	Version     string            `yaml:"version,omitempty" json:"version,omitempty"`
+	Application Application       `yaml:"application" json:"application"`
+	Comments    map[string]string `yaml:"comments,omitempty" json:"comments,omitempty"`
 }
 
 // Application represents a Nexlayer application configuration
 type Application struct {
-	Name          string         `yaml:"name" validate:"required,podname"`
-	URL           string         `yaml:"url,omitempty" validate:"omitempty,url"`
-	RegistryLogin *RegistryLogin `yaml:"registryLogin,omitempty" validate:"omitempty"`
-	Pods          []Pod          `yaml:"pods" validate:"required,min=1,dive"`
+	Name          string            `yaml:"name" validate:"required,podname"`
+	URL           string            `yaml:"url,omitempty" validate:"omitempty,url"`
+	RegistryLogin *RegistryLogin    `yaml:"registryLogin,omitempty" validate:"omitempty"`
+	Pods          []Pod             `yaml:"pods" validate:"required,min=1,dive"`
+	Annotations   map[string]string `yaml:"annotations,omitempty" validate:"omitempty"`
 }
 
 // RegistryLogin represents private registry authentication
@@ -114,67 +116,4 @@ type Secret struct {
 type EnvVar struct {
 	Key   string `yaml:"key" validate:"required,envvar"`
 	Value string `yaml:"value" validate:"required"`
-}
-
-// ProjectType represents the detected type of project
-type ProjectType string
-
-const (
-	// Base project types
-	TypeUnknown   ProjectType = "unknown"
-	TypeNextjs    ProjectType = "nextjs"
-	TypeReact     ProjectType = "react"
-	TypeNode      ProjectType = "node"
-	TypePython    ProjectType = "python"
-	TypeGo        ProjectType = "go"
-	TypeDockerRaw ProjectType = "docker"
-
-	// AI/LLM project types
-	TypeLangchainNextjs ProjectType = "langchain-nextjs"
-	TypeOpenAINode      ProjectType = "openai-node"
-	TypeLlamaPython     ProjectType = "llama-py"
-
-	// Full-stack project types
-	TypeMERN ProjectType = "mern" // MongoDB + Express + React + Node.js
-	TypePERN ProjectType = "pern" // PostgreSQL + Express + React + Node.js
-	TypeMEAN ProjectType = "mean" // MongoDB + Express + Angular + Node.js
-)
-
-// ProjectInfo contains detected information about a project
-type ProjectInfo struct {
-	Type         ProjectType       `json:"type"`
-	Name         string            `json:"name"`
-	Version      string            `json:"version,omitempty"`
-	Dependencies map[string]string `json:"dependencies,omitempty"`
-	Scripts      map[string]string `json:"scripts,omitempty"`
-	Port         int               `json:"port,omitempty"`
-	HasDocker    bool              `json:"has_docker"`
-	LLMProvider  string            `json:"llm_provider,omitempty"` // AI-powered IDE
-	LLMModel     string            `json:"llm_model,omitempty"`    // LLM Model being used
-	ImageTag     string            `json:"image_tag,omitempty"`    // Docker image tag
-}
-
-// DeploymentStatus represents the current state of a deployment
-type DeploymentStatus struct {
-	Namespace    string      `json:"namespace"`
-	TemplateID   string      `json:"templateId"`
-	TemplateName string      `json:"templateName"`
-	Status       string      `json:"status"`
-	URL          string      `json:"url"`
-	CustomDomain string      `json:"customDomain"`
-	Version      string      `json:"version"`
-	CreatedAt    time.Time   `json:"createdAt"`
-	LastUpdated  time.Time   `json:"lastUpdated"`
-	PodStatuses  []PodStatus `json:"podStatuses"`
-}
-
-// PodStatus represents the status of a pod in a deployment
-type PodStatus struct {
-	Name      string    `json:"name"`
-	Type      string    `json:"type"`
-	Status    string    `json:"status"`
-	Ready     bool      `json:"ready"`
-	Restarts  int       `json:"restarts"`
-	Image     string    `json:"image"`
-	CreatedAt time.Time `json:"createdAt"`
 }

@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/fsnotify/fsnotify"
 	"github.com/manifoldco/promptui"
@@ -186,9 +186,9 @@ func runWatch(cmd *cobra.Command, configFile string) error {
 				continue
 			}
 
-			// Convert to schema.ProjectInfo
-			projectInfo := &schema.ProjectInfo{
-				Type:         schema.ProjectType(detectedInfo.Type),
+			// Convert to detection.ProjectInfo
+			projectInfo := &detection.ProjectInfo{
+				Type:         string(detectedInfo.Type),
 				Name:         detectedInfo.Name,
 				Version:      detectedInfo.Version,
 				Dependencies: detectedInfo.Dependencies,
@@ -435,7 +435,7 @@ func writeYAMLToFile(configFile string, config *schema.NexlayerYAML) error {
 }
 
 // hasDatabase checks if the project has a database
-func hasDatabase(projectInfo *schema.ProjectInfo) bool {
+func hasDatabase(projectInfo *detection.ProjectInfo) bool {
 	// Check dependencies for database-related packages
 	for name := range projectInfo.Dependencies {
 		switch name {

@@ -167,6 +167,10 @@ ai_training/*.json
 ai_training/*.yaml
 .windsurfrules
 
+# Phase 3 documentation (not for commit)
+docs/phase3_fixes.md
+docs/phase3_summary.md
+
 # Binary files
 nexlayer
 nexlayer-fixed*

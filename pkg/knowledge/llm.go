@@ -6,12 +6,15 @@ package knowledge
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/schema"
 )
@@ -30,21 +33,323 @@ type LLMContext struct {
 	Storage          map[string]interface{} `json:"storage"`
 }
 
-// LLMEnricher enriches the knowledge graph with LLM metadata
-type LLMEnricher struct {
-	graph       *Graph
-	metadata    map[string]interface{}
-	metadataMu  sync.RWMutex
-	metadataDir string
+// LLMResult represents the result of an LLM query with metadata
+type LLMResult struct {
+	Result    string    `json:"result"`
+	Timestamp time.Time `json:"timestamp"`
+	Source    string    `json:"source"` // "cache" or "api"
 }
 
-// NewLLMEnricher creates a new LLM metadata enricher
+// LLMEnricher enriches the knowledge graph with LLM metadata
+type LLMEnricher struct {
+	graph          *Graph
+	metadata       map[string]interface{}
+	metadataMu     sync.RWMutex
+	metadataDir    string
+	cache          sync.Map // Cache for LLM query results
+	cacheTTL       time.Duration
+	processingChan chan *processingTask
+	wg             sync.WaitGroup
+}
+
+type processingTask struct {
+	ctx      context.Context
+	prompt   string
+	config   *schema.NexlayerYAML
+	resultCh chan<- *LLMResult
+	errCh    chan<- error
+}
+
+// NewLLMEnricher creates a new LLM metadata enricher with optimized caching
 func NewLLMEnricher(graph *Graph, metadataDir string) *LLMEnricher {
-	return &LLMEnricher{
-		graph:       graph,
-		metadata:    make(map[string]interface{}),
-		metadataDir: metadataDir,
+	// Default cache TTL of 30 minutes, can be customized if needed
+	cacheTTL := 30 * time.Minute
+	if ttlEnv := os.Getenv("NEXLAYER_LLM_CACHE_TTL"); ttlEnv != "" {
+		if duration, err := time.ParseDuration(ttlEnv); err == nil {
+			cacheTTL = duration
+		}
 	}
+
+	// Initialize processing channel for background tasks
+	processingChan := make(chan *processingTask, 10) // Buffer for 10 tasks
+
+	enricher := &LLMEnricher{
+		graph:          graph,
+		metadata:       make(map[string]interface{}),
+		metadataDir:    metadataDir,
+		cacheTTL:       cacheTTL,
+		processingChan: processingChan,
+	}
+
+	// Start background workers
+	numWorkers := 2 // Default to 2 workers
+	if workersEnv := os.Getenv("NEXLAYER_LLM_WORKERS"); workersEnv != "" {
+		if workers, err := fmt.Sscanf(workersEnv, "%d", &numWorkers); err == nil && workers > 0 {
+			numWorkers = workers
+		}
+	}
+
+	for i := 0; i < numWorkers; i++ {
+		go enricher.processTasksWorker()
+	}
+
+	return enricher
+}
+
+// generateCacheKey creates a deterministic cache key from a prompt and context
+func (e *LLMEnricher) generateCacheKey(prompt string, config *schema.NexlayerYAML) string {
+	// Create a composite key from the prompt and relevant config data
+	var builder strings.Builder
+	builder.WriteString(prompt)
+
+	// Add key config elements if available
+	if config != nil {
+		builder.WriteString(config.Application.Name)
+		for _, pod := range config.Application.Pods {
+			builder.WriteString(pod.Name)
+			builder.WriteString(pod.Image)
+			for _, port := range pod.ServicePorts {
+				builder.WriteString(fmt.Sprintf("%d", port.Port))
+			}
+		}
+	}
+
+	// Create a SHA-256 hash of the combined string
+	hasher := sha256.New()
+	hasher.Write([]byte(builder.String()))
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+// processTasksWorker handles background processing of LLM tasks
+func (e *LLMEnricher) processTasksWorker() {
+	for task := range e.processingChan {
+		select {
+		case <-task.ctx.Done():
+			// Context cancelled, skip this task
+			task.errCh <- task.ctx.Err()
+			continue
+		default:
+			// Process the task
+			result, err := e.performLLMQuery(task.ctx, task.prompt, task.config)
+			if err != nil {
+				task.errCh <- err
+			} else {
+				task.resultCh <- result
+			}
+		}
+	}
+}
+
+// QueryLLM performs an LLM query with caching and optimized performance
+func (e *LLMEnricher) QueryLLM(ctx context.Context, prompt string, config *schema.NexlayerYAML) (*LLMResult, error) {
+	cacheKey := e.generateCacheKey(prompt, config)
+
+	// Check cache first
+	if cachedValue, found := e.cache.Load(cacheKey); found {
+		result := cachedValue.(*LLMResult)
+		// Check if cache entry is still valid
+		if time.Since(result.Timestamp) < e.cacheTTL {
+			return result, nil
+		}
+		// Cache expired, remove it
+		e.cache.Delete(cacheKey)
+	}
+
+	// Perform actual LLM query
+	return e.performLLMQuery(ctx, prompt, config)
+}
+
+// QueryLLMAsync performs an asynchronous LLM query
+func (e *LLMEnricher) QueryLLMAsync(ctx context.Context, prompt string, config *schema.NexlayerYAML) (<-chan *LLMResult, <-chan error) {
+	resultCh := make(chan *LLMResult, 1)
+	errCh := make(chan error, 1)
+
+	// Check cache first for immediate response
+	cacheKey := e.generateCacheKey(prompt, config)
+	if cachedValue, found := e.cache.Load(cacheKey); found {
+		result := cachedValue.(*LLMResult)
+		// Check if cache entry is still valid
+		if time.Since(result.Timestamp) < e.cacheTTL {
+			go func() {
+				resultCh <- result
+				close(resultCh)
+				close(errCh)
+			}()
+			return resultCh, errCh
+		}
+		// Cache expired, remove it
+		e.cache.Delete(cacheKey)
+	}
+
+	// Queue the task for background processing
+	e.wg.Add(1)
+	go func() {
+		defer e.wg.Done()
+		select {
+		case e.processingChan <- &processingTask{
+			ctx:      ctx,
+			prompt:   prompt,
+			config:   config,
+			resultCh: resultCh,
+			errCh:    errCh,
+		}:
+			// Task queued successfully
+		case <-ctx.Done():
+			// Context cancelled
+			errCh <- ctx.Err()
+			close(resultCh)
+			close(errCh)
+		}
+	}()
+
+	return resultCh, errCh
+}
+
+// performLLMQuery is the actual implementation of the LLM query
+func (e *LLMEnricher) performLLMQuery(ctx context.Context, prompt string, config *schema.NexlayerYAML) (*LLMResult, error) {
+	// TODO: Implement actual LLM API call here
+	// For now, this is a placeholder that simulates an LLM response
+
+	// Create an enriched context for better LLM understanding
+	enriched, err := e.EnrichContext(ctx, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to enrich context: %w", err)
+	}
+
+	// Simulate LLM processing time (remove in production)
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-time.After(100 * time.Millisecond):
+		// Continue processing
+	}
+
+	// Generate a simulated response based on the prompt and context
+	var response string
+	if strings.Contains(prompt, "deployment issues") {
+		response = e.simulateDeploymentIssueCheck(config, enriched)
+	} else if strings.Contains(prompt, "volume recommendations") {
+		response = e.simulateVolumeRecommendations(config, enriched)
+	} else if strings.Contains(prompt, "port configuration") {
+		response = e.simulatePortConfigurationCheck(config, enriched)
+	} else {
+		response = "LLM analysis complete. No issues detected."
+	}
+
+	// Create result
+	result := &LLMResult{
+		Result:    response,
+		Timestamp: time.Now(),
+		Source:    "api", // This would be "api" in a real implementation
+	}
+
+	// Cache the result for future queries
+	cacheKey := e.generateCacheKey(prompt, config)
+	e.cache.Store(cacheKey, result)
+
+	return result, nil
+}
+
+// simulateDeploymentIssueCheck creates a simulated response for deployment issues
+func (e *LLMEnricher) simulateDeploymentIssueCheck(config *schema.NexlayerYAML, context *LLMContext) string {
+	var issues []string
+
+	// Check for missing ports
+	for _, pod := range config.Application.Pods {
+		if len(pod.ServicePorts) == 0 {
+			issues = append(issues, fmt.Sprintf("- Pod '%s' has no service ports defined", pod.Name))
+		}
+	}
+
+	// Check for database pods without volumes
+	for _, pod := range config.Application.Pods {
+		if isDatabase(pod.Image) && len(pod.Volumes) == 0 {
+			issues = append(issues, fmt.Sprintf("- Database pod '%s' has no persistent volumes", pod.Name))
+		}
+	}
+
+	if len(issues) > 0 {
+		return fmt.Sprintf("Deployment issues found:\n%s", strings.Join(issues, "\n"))
+	}
+	return "No deployment issues detected."
+}
+
+// simulateVolumeRecommendations creates a simulated response for volume recommendations
+func (e *LLMEnricher) simulateVolumeRecommendations(config *schema.NexlayerYAML, context *LLMContext) string {
+	var recommendations []string
+
+	// Generate volume size recommendations based on pod type
+	for _, pod := range config.Application.Pods {
+		if isDatabase(pod.Image) {
+			for i, volume := range pod.Volumes {
+				if i < len(pod.Volumes) && (volume.Size == "" || volume.Size == "1Gi") {
+					recommendations = append(recommendations, fmt.Sprintf("- Increase volume size for database pod '%s' to at least 10Gi", pod.Name))
+					break
+				}
+			}
+		}
+	}
+
+	if len(recommendations) > 0 {
+		return fmt.Sprintf("Volume recommendations:\n%s", strings.Join(recommendations, "\n"))
+	}
+	return "No volume recommendations needed."
+}
+
+// simulatePortConfigurationCheck creates a simulated response for port configuration checks
+func (e *LLMEnricher) simulatePortConfigurationCheck(config *schema.NexlayerYAML, context *LLMContext) string {
+	var recommendations []string
+
+	// Check for common port misconfigurations
+	for _, pod := range config.Application.Pods {
+		if isDatabase(pod.Image) {
+			hasCorrectPort := false
+			expectedPort := getDatabaseDefaultPort(pod.Image)
+			for _, port := range pod.ServicePorts {
+				if port.TargetPort == expectedPort {
+					hasCorrectPort = true
+					break
+				}
+			}
+			if !hasCorrectPort {
+				recommendations = append(recommendations, fmt.Sprintf("- Database pod '%s' should expose standard port %d", pod.Name, expectedPort))
+			}
+		}
+	}
+
+	if len(recommendations) > 0 {
+		return fmt.Sprintf("Port configuration recommendations:\n%s", strings.Join(recommendations, "\n"))
+	}
+	return "Port configuration looks good."
+}
+
+// isDatabase checks if a pod image is a database
+func isDatabase(image string) bool {
+	dbImages := []string{"postgres", "mysql", "mariadb", "mongodb", "mongo", "redis", "clickhouse"}
+	imageLower := strings.ToLower(image)
+	for _, db := range dbImages {
+		if strings.Contains(imageLower, db) {
+			return true
+		}
+	}
+	return false
+}
+
+// getDatabaseDefaultPort returns the default port for a database image
+func getDatabaseDefaultPort(image string) int {
+	imageLower := strings.ToLower(image)
+	if strings.Contains(imageLower, "postgres") {
+		return 5432
+	} else if strings.Contains(imageLower, "mysql") || strings.Contains(imageLower, "mariadb") {
+		return 3306
+	} else if strings.Contains(imageLower, "mongo") {
+		return 27017
+	} else if strings.Contains(imageLower, "redis") {
+		return 6379
+	} else if strings.Contains(imageLower, "clickhouse") {
+		return 8123
+	}
+	return 0
 }
 
 // LoadMetadata loads LLM metadata from the tools directory with caching
@@ -216,4 +521,25 @@ func (e *LLMEnricher) GeneratePrompt(ctx context.Context, basePrompt string, yam
 	// Combine base prompt with enriched context
 	prompt := fmt.Sprintf("%s\n\nContext:\n%s", basePrompt, string(contextJSON))
 	return prompt, nil
+}
+
+// Shutdown gracefully shuts down the LLM enricher
+func (e *LLMEnricher) Shutdown(ctx context.Context) {
+	// Close the processing channel to stop workers
+	close(e.processingChan)
+
+	// Wait for all background tasks to complete with timeout
+	waitCh := make(chan struct{})
+	go func() {
+		e.wg.Wait()
+		close(waitCh)
+	}()
+
+	// Wait for either all tasks to complete or context to cancel
+	select {
+	case <-waitCh:
+		// All tasks completed
+	case <-ctx.Done():
+		// Context cancelled, some tasks may still be running
+	}
 }

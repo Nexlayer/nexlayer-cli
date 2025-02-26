@@ -6,8 +6,10 @@ package schema
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // ValidationContext provides context for validation
@@ -118,9 +120,9 @@ func NewDefaultValidator() *Validator {
 	return NewValidator(true, schemaSource)
 }
 
-// ValidateYAML performs validation of a YAML structure
+// ValidateYAML performs validation of a YAML structure with auto-correction
 func (v *Validator) ValidateYAML(config interface{}) []ValidationError {
-	errors := []ValidationError{} // Initialize with empty slice, not nil
+	errors := []ValidationError{}
 
 	// First, perform JSON Schema validation
 	if v.schemaSource != nil {
@@ -131,6 +133,11 @@ func (v *Validator) ValidateYAML(config interface{}) []ValidationError {
 	// Then perform semantic validation with the registry
 	ctx := &ValidationContext{Config: config}
 	errors = append(errors, v.validateWithRegistry(config, ctx)...)
+
+	// Attempt auto-correction for non-critical errors
+	if nexConfig, ok := config.(*NexlayerYAML); ok {
+		errors = append(errors, v.autoCorrectConfig(nexConfig)...)
+	}
 
 	return errors
 }
@@ -173,14 +180,17 @@ var (
 	volumeSizeRegex = regexp.MustCompile(`^\d+[KMGT]i?$`)
 )
 
+// isValidName checks if a string is a valid name (lowercase alphanumeric with hyphens)
 func isValidName(name string) bool {
 	return nameRegex.MatchString(name)
 }
 
+// isValidPodName checks if a string is a valid pod name
 func isValidPodName(name string) bool {
 	return podNameRegex.MatchString(name)
 }
 
+// isValidImageName checks if a string is a valid image name
 func isValidImageName(image string) bool {
 	// Allow template variables
 	if strings.Contains(image, "<%") && strings.Contains(image, "%>") {
@@ -192,20 +202,21 @@ func isValidImageName(image string) bool {
 	return matched
 }
 
+// isValidVolumeSize checks if a string is a valid volume size
 func isValidVolumeSize(size string) bool {
 	return volumeSizeRegex.MatchString(size)
 }
 
+// isValidFileName checks if a string is a valid file name
 func isValidFileName(name string) bool {
 	matched, _ := regexp.MatchString(`^[a-zA-Z0-9][a-zA-Z0-9\.\-_]*$`, name)
 	return matched
 }
 
+// isValidEnvVarName checks if a string is a valid environment variable name
 func isValidEnvVarName(name string) bool {
 	return envVarNameRegex.MatchString(name)
 }
-
-// Validator functions that return []ValidationError
 
 // validateName checks if a string is a valid name (lowercase alphanumeric with hyphens)
 func validateName(field, value string) []ValidationError {
@@ -291,4 +302,158 @@ func (r *ValidationRegistry) registerDefaultValidators() {
 
 	// Name validator (generic)
 	r.Register("name", validateName)
+}
+
+// autoCorrectConfig attempts to fix common issues in the configuration
+func (v *Validator) autoCorrectConfig(config *NexlayerYAML) []ValidationError {
+	var errors []ValidationError
+
+	// Auto-correct application name
+	if config.Application.Name == "" {
+		config.Application.Name = "nexlayer-app"
+		errors = append(errors, ValidationError{
+			Field:     "application.name",
+			Message:   "Application name was empty, set to default value",
+			Severity:  ValidationErrorSeverityWarning,
+			AutoFixed: true,
+		})
+	}
+
+	// Auto-correct pod configurations
+	for i := range config.Application.Pods {
+		pod := &config.Application.Pods[i]
+		errors = append(errors, v.autoCorrectPod(pod)...)
+	}
+
+	return errors
+}
+
+// autoCorrectPod attempts to fix common issues in pod configuration
+func (v *Validator) autoCorrectPod(pod *Pod) []ValidationError {
+	var errors []ValidationError
+
+	// Auto-correct pod name
+	if pod.Name == "" {
+		pod.Name = fmt.Sprintf("pod-%d", time.Now().Unix())
+		errors = append(errors, ValidationError{
+			Field:     "pod.name",
+			Message:   "Pod name was empty, generated unique name",
+			Severity:  ValidationErrorSeverityWarning,
+			AutoFixed: true,
+		})
+	}
+
+	// Ensure pod name is valid
+	if !isValidPodName(pod.Name) {
+		oldName := pod.Name
+		pod.Name = sanitizePodName(pod.Name)
+		errors = append(errors, ValidationError{
+			Field:     "pod.name",
+			Message:   fmt.Sprintf("Invalid pod name '%s' was sanitized to '%s'", oldName, pod.Name),
+			Severity:  ValidationErrorSeverityWarning,
+			AutoFixed: true,
+		})
+	}
+
+	// Auto-correct service ports
+	if len(pod.ServicePorts) == 0 {
+		// Add default port based on common patterns
+		defaultPort := getDefaultPortForImage(pod.Image)
+		pod.ServicePorts = []ServicePort{{
+			Name:       fmt.Sprintf("%s-port-1", pod.Name),
+			Port:       defaultPort,
+			TargetPort: defaultPort,
+			Protocol:   "TCP",
+		}}
+		errors = append(errors, ValidationError{
+			Field:     "pod.servicePorts",
+			Message:   fmt.Sprintf("No service ports defined, added default port %d", defaultPort),
+			Severity:  ValidationErrorSeverityWarning,
+			AutoFixed: true,
+		})
+	}
+
+	// Validate and auto-correct volume configurations
+	for i := range pod.Volumes {
+		vol := &pod.Volumes[i]
+		if vol.Size == "" {
+			vol.Size = getDefaultVolumeSize(pod.Image)
+			errors = append(errors, ValidationError{
+				Field:     fmt.Sprintf("pod.volumes[%d].size", i),
+				Message:   fmt.Sprintf("Volume size was empty, set to default size %s", vol.Size),
+				Severity:  ValidationErrorSeverityWarning,
+				AutoFixed: true,
+			})
+		}
+	}
+
+	return errors
+}
+
+// getDefaultPortForImage returns a default port based on the image name
+func getDefaultPortForImage(image string) int {
+	imageLower := strings.ToLower(image)
+	switch {
+	case strings.Contains(imageLower, "nginx"):
+		return 80
+	case strings.Contains(imageLower, "postgres"):
+		return 5432
+	case strings.Contains(imageLower, "mysql"):
+		return 3306
+	case strings.Contains(imageLower, "redis"):
+		return 6379
+	case strings.Contains(imageLower, "mongo"):
+		return 27017
+	case strings.Contains(imageLower, "node"):
+		return 3000
+	default:
+		return 8080
+	}
+}
+
+// getDefaultVolumeSize returns a default volume size based on the image name
+func getDefaultVolumeSize(image string) string {
+	imageLower := strings.ToLower(image)
+	switch {
+	case strings.Contains(imageLower, "postgres"),
+		strings.Contains(imageLower, "mysql"),
+		strings.Contains(imageLower, "mongo"):
+		return "10Gi"
+	case strings.Contains(imageLower, "redis"):
+		return "1Gi"
+	default:
+		return "1Gi"
+	}
+}
+
+// sanitizePodName ensures a pod name follows Kubernetes naming conventions
+func sanitizePodName(name string) string {
+	// Convert to lowercase
+	name = strings.ToLower(name)
+
+	// Replace invalid characters with hyphens
+	re := regexp.MustCompile(`[^a-z0-9-]`)
+	name = re.ReplaceAllString(name, "-")
+
+	// Remove consecutive hyphens
+	for strings.Contains(name, "--") {
+		name = strings.ReplaceAll(name, "--", "-")
+	}
+
+	// Trim hyphens from start and end
+	name = strings.Trim(name, "-")
+
+	// Ensure it starts with a letter
+	if name == "" || !('a' <= name[0] && name[0] <= 'z') {
+		name = "pod-" + name
+	}
+
+	// Truncate if too long (63 characters is Kubernetes limit)
+	if len(name) > 63 {
+		name = name[:63]
+		// Ensure it doesn't end with a hyphen
+		name = strings.TrimRight(name, "-")
+	}
+
+	return name
 }

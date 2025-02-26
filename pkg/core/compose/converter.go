@@ -6,17 +6,24 @@
 package compose
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/Nexlayer/nexlayer-cli/pkg/core/ai"
 	"github.com/Nexlayer/nexlayer-cli/pkg/core/schema"
+	"github.com/Nexlayer/nexlayer-cli/pkg/detection"
+	"github.com/Nexlayer/nexlayer-cli/pkg/knowledge"
+	"github.com/Nexlayer/nexlayer-cli/pkg/vars"
 )
 
 // DockerComposeService represents a service in docker-compose.yml
@@ -40,11 +47,12 @@ type DockerComposeService struct {
 
 // DockerComposeConfig represents the structure of a docker-compose.yml file
 type DockerComposeConfig struct {
-	Version  string                          `yaml:"version,omitempty"`
-	Services map[string]DockerComposeService `yaml:"services"`
-	Volumes  map[string]interface{}          `yaml:"volumes,omitempty"`
-	Networks map[string]interface{}          `yaml:"networks,omitempty"`
-	Secrets  map[string]interface{}          `yaml:"secrets,omitempty"`
+	Version    string                          `yaml:"version,omitempty"`
+	Services   map[string]DockerComposeService `yaml:"services"`
+	Volumes    map[string]interface{}          `yaml:"volumes,omitempty"`
+	Networks   map[string]interface{}          `yaml:"networks,omitempty"`
+	Secrets    map[string]interface{}          `yaml:"secrets,omitempty"`
+	ConfigPath string
 }
 
 // ConvertOptions provides configuration options for the conversion process
@@ -53,6 +61,9 @@ type ConvertOptions struct {
 	ApplicationName string
 	ForceConversion bool
 	ComposeFileName string
+	ApplicationURL  string
+	RegistryURL     string
+	UseAI           bool
 }
 
 // DefaultPorts maps common images to their default ports for intelligent port assignment
@@ -129,8 +140,67 @@ func ParseVolumeMapping(volumeStr, serviceName string) (string, string, bool, er
 	return "", "", false, fmt.Errorf("invalid volume mapping: %s", volumeStr)
 }
 
-// Convert converts a Docker Compose configuration to Nexlayer YAML
+// Convert converts a Docker Compose configuration to Nexlayer YAML with enhanced validation
 func Convert(composeFilePath string, opts ConvertOptions) (*schema.NexlayerYAML, error) {
+	// Use AI enhancement by default unless explicitly disabled
+	if !opts.UseAI {
+		return convertBasic(composeFilePath, opts)
+	}
+
+	// Create a context with timeout for AI operations
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Perform the basic conversion first
+	config, err := convertBasic(composeFilePath, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the project directory containing the compose file
+	projectDir := filepath.Dir(composeFilePath)
+
+	// Initialize AI enhancement components if enabled
+	var enhancer *ai.Enhancer
+	detectionManager := initializeDetectionManager()
+	llmEnricher := initializeLLMEnricher()
+
+	if llmEnricher != nil {
+		enhancer = ai.NewEnhancer(llmEnricher, detectionManager)
+
+		// Perform AI enhancement in the background
+		resultCh, errCh := enhancer.EnhanceAsync(ctx, config, projectDir)
+
+		// Wait for enhancement to complete or timeout
+		select {
+		case result := <-resultCh:
+			if result != nil {
+				// Apply AI suggestions as comments in the YAML
+				applyAISuggestions(config, result)
+
+				// Display enhancement suggestions to the user
+				printEnhancementSuggestions(result)
+
+				// Check for critical issues and warn user
+				if hasCriticalIssues(result) {
+					log.Printf("⚠️ Warning: The generated configuration has potential issues. Review the suggestions above.")
+				} else {
+					log.Printf("✅ AI analysis complete: Configuration looks good!")
+				}
+			}
+		case err := <-errCh:
+			log.Printf("⚠️ AI enhancement failed: %v", err)
+		case <-ctx.Done():
+			log.Printf("⚠️ AI enhancement timed out, proceeding with basic configuration")
+		}
+	}
+
+	return config, nil
+}
+
+// convertBasic performs the basic Docker Compose to Nexlayer YAML conversion
+// This is the original conversion logic from before AI enhancement
+func convertBasic(composeFilePath string, opts ConvertOptions) (*schema.NexlayerYAML, error) {
 	content, err := os.ReadFile(composeFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Docker Compose file: %w", err)
@@ -141,11 +211,39 @@ func Convert(composeFilePath string, opts ConvertOptions) (*schema.NexlayerYAML,
 		return nil, fmt.Errorf("failed to parse Docker Compose file: %w", err)
 	}
 
+	composeConfig.ConfigPath = composeFilePath
+
+	// Setup variable context for substitution
+	varCtx := vars.NewVariableContext()
+
+	// Detect project URL if available (for template variables)
+	if opts.ApplicationURL != "" {
+		varCtx.SetURL(opts.ApplicationURL)
+	}
+
+	// Detect registry if available
+	if opts.RegistryURL != "" {
+		varCtx.SetRegistry(opts.RegistryURL)
+	}
+
 	nexlayerConfig := &schema.NexlayerYAML{
 		Application: schema.Application{
 			Name: opts.ApplicationName,
 			Pods: make([]schema.Pod, 0, len(composeConfig.Services)),
 		},
+	}
+
+	// Create a detector registry to help with project type detection
+	registry := detection.NewDetectorRegistry()
+
+	// Detect if we're running in an AI-powered IDE
+	projectInfo, err := registry.DetectProject(".")
+	if err == nil && projectInfo != nil && projectInfo.LLMProvider != "" {
+		// Add AI-specific annotations to the application
+		nexlayerConfig.Application.Annotations = map[string]string{
+			"nexlayer.ai/llm-provider": projectInfo.LLMProvider,
+			"nexlayer.ai/llm-model":    projectInfo.LLMModel,
+		}
 	}
 
 	for serviceName, service := range composeConfig.Services {
@@ -158,17 +256,202 @@ func Convert(composeFilePath string, opts ConvertOptions) (*schema.NexlayerYAML,
 			continue
 		}
 		nexlayerConfig.Application.Pods = append(nexlayerConfig.Application.Pods, *pod)
+
+		// Add this pod to the variable context
+		varCtx.AddPod(pod.Name)
 	}
 
-	nexlayerConfig = addPodReferences(nexlayerConfig, composeConfig)
+	// Process variable substitutions
+	for i, pod := range nexlayerConfig.Application.Pods {
+		// Process environment variables
+		for j, envVar := range pod.Vars {
+			if vars.ExtractVariables(envVar.Value) != nil {
+				processed, err := vars.SubstituteVariables(envVar.Value, varCtx)
+				if err == nil && processed != envVar.Value {
+					nexlayerConfig.Application.Pods[i].Vars[j].Value = processed
+				}
+			}
+		}
 
+		// Process pod image for template variables
+		if strings.Contains(pod.Image, "<%") {
+			processed, err := vars.SubstituteVariables(pod.Image, varCtx)
+			if err == nil && processed != pod.Image {
+				nexlayerConfig.Application.Pods[i].Image = processed
+			}
+		}
+
+		// Process volume paths
+		for k, vol := range pod.Volumes {
+			if strings.Contains(vol.Path, "<%") || strings.Contains(vol.Path, "${") {
+				processed, err := vars.SubstituteVariables(vol.Path, varCtx)
+				if err == nil && processed != vol.Path {
+					nexlayerConfig.Application.Pods[i].Volumes[k].Path = processed
+				}
+			}
+		}
+	}
+
+	// Process traditional pod references (maintaining backward compatibility)
+	nexlayerConfig = addPodReferences(nexlayerConfig, composeConfig)
 	nexlayerConfig = reorderPods(nexlayerConfig)
 
+	// Validate the configuration
 	if err := validateNexlayerConfig(nexlayerConfig); err != nil {
-		return nil, fmt.Errorf("generated Nexlayer YAML is invalid: %w", err)
+		if !opts.ForceConversion {
+			return nil, fmt.Errorf("generated Nexlayer YAML is invalid: %w", err)
+		}
+		log.Printf("Warning: Generated Nexlayer YAML has validation errors: %v", err)
 	}
 
 	return nexlayerConfig, nil
+}
+
+// initializeDetectionManager creates a new detection manager with default tasks
+func initializeDetectionManager() *detection.DetectionManager {
+	// Create detector registry
+	registry := detection.NewDetectorRegistry()
+
+	// Create detection manager
+	manager := detection.NewDetectionManager(registry)
+
+	// Register default detection tasks
+	manager.RegisterDefaultTasks()
+
+	return manager
+}
+
+// initializeLLMEnricher creates a new LLM enricher for AI-powered analysis
+func initializeLLMEnricher() *knowledge.LLMEnricher {
+	// Check if LLM environment variables are set
+	llmEnabled := os.Getenv("NEXLAYER_LLM_ENABLED")
+	if llmEnabled == "false" {
+		return nil
+	}
+
+	// Create knowledge graph
+	graph := knowledge.NewGraph()
+
+	// Get metadata directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Printf("Warning: Could not determine user home directory: %v", err)
+		return nil
+	}
+
+	metadataDir := filepath.Join(homeDir, ".nexlayer", "metadata")
+
+	// Create LLM enricher
+	enricher := knowledge.NewLLMEnricher(graph, metadataDir)
+
+	// Load metadata (non-blocking)
+	go func() {
+		if err := enricher.LoadMetadata(); err != nil {
+			log.Printf("Warning: Could not load LLM metadata: %v", err)
+		}
+	}()
+
+	return enricher
+}
+
+// applyAISuggestions applies AI suggestions to the Nexlayer configuration
+func applyAISuggestions(config *schema.NexlayerYAML, result *ai.EnhancementResult) {
+	// Add comments to the configuration
+	if config.Comments == nil {
+		config.Comments = make(map[string]string)
+	}
+
+	// Add field-specific comments
+	for field, comment := range result.Comments {
+		config.Comments[field] = comment
+	}
+
+	// Add general suggestions as application-level comments
+	if len(result.Suggestions) > 0 {
+		for i, suggestion := range result.Suggestions {
+			config.Comments[fmt.Sprintf("suggestion.%d", i+1)] = suggestion
+		}
+	}
+
+	// Auto-fix minor issues if possible
+	for _, issue := range result.Issues {
+		if issue.Type == "warning" {
+			// Handle specific warnings that can be auto-fixed
+			if strings.Contains(issue.Field, "servicePorts") && strings.Contains(issue.Message, "no name") {
+				// Try to find the pod and port to fix
+				parts := strings.Split(issue.Field, ".")
+				if len(parts) >= 2 {
+					podName := parts[1]
+					for i, pod := range config.Application.Pods {
+						if pod.Name == podName {
+							for j, port := range pod.ServicePorts {
+								if port.Name == "" {
+									// Add a default name
+									config.Application.Pods[i].ServicePorts[j].Name = fmt.Sprintf("%s-port-%d", podName, port.Port)
+									break
+								}
+							}
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// printEnhancementSuggestions prints AI suggestions to the user
+func printEnhancementSuggestions(result *ai.EnhancementResult) {
+	if len(result.Issues) == 0 && len(result.Suggestions) == 0 {
+		return
+	}
+
+	fmt.Println("\n🧠 AI Analysis Results:")
+
+	// Print issues
+	if len(result.Issues) > 0 {
+		fmt.Println("\n⚠️ Potential Issues:")
+		for _, issue := range result.Issues {
+			var prefix string
+			switch issue.Type {
+			case "error":
+				prefix = "❌ ERROR"
+			case "warning":
+				prefix = "⚠️ WARNING"
+			default:
+				prefix = "ℹ️ NOTE"
+			}
+
+			fmt.Printf("%s: %s\n", prefix, issue.Message)
+
+			if len(issue.Suggestions) > 0 {
+				fmt.Println("  Suggestions:")
+				for _, suggestion := range issue.Suggestions {
+					fmt.Printf("  - %s\n", suggestion)
+				}
+			}
+			fmt.Println()
+		}
+	}
+
+	// Print general suggestions
+	if len(result.Suggestions) > 0 {
+		fmt.Println("\n💡 Improvement Suggestions:")
+		for _, suggestion := range result.Suggestions {
+			fmt.Printf("- %s\n", suggestion)
+		}
+		fmt.Println()
+	}
+}
+
+// hasCriticalIssues checks if the enhancement result contains critical issues
+func hasCriticalIssues(result *ai.EnhancementResult) bool {
+	for _, issue := range result.Issues {
+		if issue.Type == "error" {
+			return true
+		}
+	}
+	return false
 }
 
 // convertServiceToPod converts a Docker Compose service to a Nexlayer pod
@@ -426,9 +709,9 @@ func createSecret(secretName string) (schema.Secret, error) {
 	}, nil
 }
 
-// addPodReferences modifies environment variables to use pod references
-func addPodReferences(config *schema.NexlayerYAML, _ DockerComposeConfig) *schema.NexlayerYAML {
-	// Build service name to pod name map
+// addPodReferences modifies environment variables to use pod references - legacy method for compatibility
+func addPodReferences(config *schema.NexlayerYAML, composeConfig DockerComposeConfig) *schema.NexlayerYAML {
+	// Build service name to pod name map (legacy approach for compatibility)
 	serviceMap := make(map[string]string, len(config.Application.Pods))
 	for _, pod := range config.Application.Pods {
 		serviceMap[pod.Name] = pod.Name + ".pod"
@@ -464,7 +747,7 @@ func addPodReferences(config *schema.NexlayerYAML, _ DockerComposeConfig) *schem
 	return config
 }
 
-// validateNexlayerConfig performs basic validation on the generated Nexlayer YAML
+// validateNexlayerConfig performs validation on the generated Nexlayer YAML
 func validateNexlayerConfig(config *schema.NexlayerYAML) error {
 	if config.Application.Name == "" {
 		return fmt.Errorf("application name is required")
@@ -592,4 +875,99 @@ func DetectAndConvert(dir string, appName string) (*schema.NexlayerYAML, error) 
 	// No Docker Compose file found
 	fmt.Printf("❌ No Docker Compose file found in %s\n", dir)
 	return nil, fmt.Errorf("no Docker Compose file found in %s", dir)
+}
+
+// ConvertToNexlayer converts a Docker Compose configuration to a Nexlayer YAML configuration
+func ConvertToNexlayer(composeConfig DockerComposeConfig) (*schema.NexlayerYAML, error) {
+	// Create a detector registry to help with project type detection
+	registry := detection.NewDetectorRegistry()
+
+	// Initialize the Nexlayer YAML configuration
+	config := &schema.NexlayerYAML{
+		Application: schema.Application{
+			Name: filepath.Base(filepath.Dir(composeConfig.ConfigPath)),
+			Pods: make([]schema.Pod, 0),
+		},
+	}
+
+	// Detect if we're running in an AI-powered IDE
+	projectInfo, err := registry.DetectProject(".")
+	if err == nil && projectInfo != nil && projectInfo.LLMProvider != "" {
+		// We'll add AI-specific metadata to pods after they're created
+		// This is handled in ConvertToNexlayer
+	}
+
+	// Convert services to pods
+	for serviceName, service := range composeConfig.Services {
+		pod, err := convertServiceToPod(serviceName, service, composeConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert service %s: %w", serviceName, err)
+		}
+		config.Application.Pods = append(config.Application.Pods, *pod)
+	}
+
+	// Sort pods to ensure deterministic output
+	sortPods(config.Application.Pods)
+
+	// Add pod references
+	config = addPodReferences(config, composeConfig)
+
+	return config, nil
+}
+
+// sortPods sorts the pods to ensure deterministic output
+func sortPods(pods []schema.Pod) {
+	sort.Slice(pods, func(i, j int) bool {
+		return pods[i].Name < pods[j].Name
+	})
+}
+
+func ConvertFromFile(composeFilePath string) (*schema.NexlayerYAML, error) {
+	// Read and parse Docker Compose file
+	data, err := os.ReadFile(composeFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read Docker Compose file: %w", err)
+	}
+
+	var composeConfig DockerComposeConfig
+	if err := yaml.Unmarshal(data, &composeConfig); err != nil {
+		return nil, fmt.Errorf("failed to parse Docker Compose file: %w", err)
+	}
+
+	composeConfig.ConfigPath = composeFilePath
+
+	// Create a detector registry to help with project type detection
+	registry := detection.NewDetectorRegistry()
+
+	// Initialize the Nexlayer YAML configuration
+	nexlayerConfig := &schema.NexlayerYAML{
+		Application: schema.Application{
+			Name: filepath.Base(filepath.Dir(composeFilePath)),
+			Pods: make([]schema.Pod, 0),
+		},
+	}
+
+	// Detect if we're running in an AI-powered IDE
+	projectInfo, err := registry.DetectProject(".")
+	if err == nil && projectInfo != nil && projectInfo.LLMProvider != "" {
+		// We'll add AI-specific metadata to pods after they're created
+		// This is handled in ConvertToNexlayer
+	}
+
+	// Convert services to pods
+	for serviceName, service := range composeConfig.Services {
+		pod, err := convertServiceToPod(serviceName, service, composeConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert service %s: %w", serviceName, err)
+		}
+		nexlayerConfig.Application.Pods = append(nexlayerConfig.Application.Pods, *pod)
+	}
+
+	// Sort pods to ensure deterministic output
+	sortPods(nexlayerConfig.Application.Pods)
+
+	// Add pod references
+	nexlayerConfig = addPodReferences(nexlayerConfig, composeConfig)
+
+	return nexlayerConfig, nil
 }

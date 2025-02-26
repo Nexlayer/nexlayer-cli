@@ -153,13 +153,13 @@ func Execute() {
 		// Handle custom errors with context and suggestions.
 		if nexErr, ok := err.(*errors.Error); ok {
 			if nexErr.Type == errors.ErrorTypeInternal {
-				logger.Error(rootCmd.Context(), "Internal error in '%s': %s [file=%s, line=%d]",
-					rootCmd.Name(), nexErr.Error(), nexErr.File, nexErr.Line)
+				logger.Error(rootCmd.Context(), "Internal error in '%s': %s",
+					rootCmd.Name(), nexErr.Error())
 				fmt.Fprintf(os.Stderr, "Internal error: %s\n", nexErr.Message)
 				if nexErr.Cause != nil {
 					fmt.Fprintf(os.Stderr, "Caused by: %v\n", nexErr.Cause)
 				}
-			} else if nexErr.Type == errors.ErrorTypeUser {
+			} else if nexErr.Type == "user_error" {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", nexErr.Message)
 				if nexErr.Cause != nil {
 					fmt.Fprintf(os.Stderr, "Details: %v\n", nexErr.Cause)

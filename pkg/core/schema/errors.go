@@ -1,3 +1,7 @@
+// Copyright (c) 2025 Nexlayer. All rights reserved.
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
+
 // Package schema provides centralized schema management for Nexlayer YAML configurations.
 package schema
 
@@ -25,7 +29,7 @@ const (
 	ValidationErrorCategoryUnsupported ValidationErrorCategory = "unsupported"
 )
 
-// ValidationErrorSeverity defines the severity level of validation errors
+// ValidationErrorSeverity represents the severity level of a validation error
 type ValidationErrorSeverity string
 
 const (
@@ -34,15 +38,19 @@ const (
 
 	// ValidationErrorSeverityWarning indicates a non-critical warning
 	ValidationErrorSeverityWarning ValidationErrorSeverity = "warning"
+
+	// ValidationErrorSeverityInfo indicates additional information
+	ValidationErrorSeverityInfo ValidationErrorSeverity = "info"
 )
 
-// ValidationError represents a validation error
+// ValidationError represents a validation error with severity and suggestions
 type ValidationError struct {
 	Field       string                  `json:"field"`
 	Message     string                  `json:"message"`
 	Suggestions []string                `json:"suggestions,omitempty"`
 	Severity    ValidationErrorSeverity `json:"severity"`
 	Info        *ValidationErrorInfo    `json:"info,omitempty"`
+	AutoFixed   bool                    `json:"auto_fixed,omitempty"`
 }
 
 // ValidationErrorInfo provides additional context for validation errors
@@ -65,7 +73,7 @@ func (e ValidationError) Error() string {
 
 // Helper functions for creating validation errors
 
-// makeValidationError creates a validation error with the given parameters
+// makeValidationError creates a new validation error
 func makeValidationError(field, message string, severity ValidationErrorSeverity, suggestions ...string) ValidationError {
 	return ValidationError{
 		Field:       field,
