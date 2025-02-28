@@ -6,6 +6,7 @@ package detection
 
 import (
 	"context"
+	"fmt"
 )
 
 // ProjectInfo contains detected information about a project
@@ -45,6 +46,14 @@ type BaseDetector struct {
 // Name returns the detector name
 func (d *BaseDetector) Name() string {
 	return d.name
+}
+
+// NewBaseDetector creates a new base detector with the given name and confidence
+func NewBaseDetector(name string, confidence float64) *BaseDetector {
+	return &BaseDetector{
+		name:       name,
+		confidence: confidence,
+	}
 }
 
 // NewVSCodeDetector creates a new detector for VS Code
@@ -113,4 +122,13 @@ func (d *BaseDetector) Detect(ctx context.Context, dir string) (*ProjectInfo, er
 		Confidence: d.confidence,
 		Metadata:   make(map[string]interface{}),
 	}, nil
+}
+
+// EmitDeprecationWarning logs a deprecation warning for a detector
+// This function should be called at the beginning of the Detect method in deprecated detectors
+func EmitDeprecationWarning(detectorName string) {
+	// Use a log level that's visible but not alarming
+	fmt.Printf("DEPRECATED: %s is deprecated and will be removed in a future version. "+
+		"Please migrate to the unified StackDetector. "+
+		"See pkg/detection/MIGRATION_GUIDE.md for details.\n", detectorName)
 }

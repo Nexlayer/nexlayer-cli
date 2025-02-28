@@ -75,6 +75,9 @@ func NewDetectorRegistry() *DetectorRegistry {
 			// LLM Detector (runs first)
 			&LLMDetector{},
 
+			// Unified Stack Detector
+			NewStackDetector(),
+
 			// Full-stack Detectors
 			&MERNDetector{},
 			&PERNDetector{},
